@@ -1,0 +1,33 @@
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+}
+
+.metric-card--teal {
+  border-color: rgba(53, 211, 153, 0.25);
+}
+
+.metric-card--amber {
+  border-color: rgba(232, 163, 61, 0.25);
+}
+
+.metric-card--neutral {
+  border-color: var(--border);
+}
+
+.metric-card__label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-card__value {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}

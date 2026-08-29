@@ -1,0 +1,280 @@
+.roadmap-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.roadmap-view__status {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: 10px;
+  padding: 0.85rem;
+  font-size: 0.8rem;
+}
+
+.roadmap-view__status--error {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.roadmap-view__panels {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+.roadmap-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.roadmap-toolbar__controls {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.roadmap-toolbar__btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 0.38rem 0.75rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.roadmap-toolbar__btn--active {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber-text);
+}
+
+.roadmap-toolbar__btn--strong {
+  margin-left: auto;
+  border-color: rgba(251, 146, 60, 0.65);
+  color: #fff7ed;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(249, 115, 22, 0.24));
+}
+
+.roadmap-toolbar__form,
+.roadmap-edit-panel__form {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem;
+}
+
+.roadmap-toolbar__field,
+.roadmap-edit-panel__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.roadmap-toolbar__field--span-2 {
+  grid-column: span 2;
+}
+
+.roadmap-toolbar__form input,
+.roadmap-toolbar__form select,
+.roadmap-edit-panel__form input,
+.roadmap-edit-panel__form select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  padding: 0.45rem 0.5rem;
+  font-size: 0.74rem;
+  outline: none;
+}
+
+.roadmap-toolbar__form select option,
+.roadmap-edit-panel__form select option {
+  background: #101922;
+  color: #f8fafc;
+}
+
+.roadmap-toolbar__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.roadmap-date-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  padding: 0.45rem 0.5rem;
+  font-size: 0.74rem;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.roadmap-date-input svg {
+  color: var(--text-muted);
+}
+
+.roadmap-date-picker__popper {
+  z-index: 12;
+}
+
+.roadmap-date-picker {
+  position: relative;
+}
+
+.roadmap-date-picker__calendar {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  width: 17rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 0.6rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+}
+
+.roadmap-date-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+}
+
+.roadmap-date-picker__header strong {
+  font-size: 0.84rem;
+  color: var(--text-primary);
+}
+
+.roadmap-date-picker__nav {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  width: 1.7rem;
+  height: 1.7rem;
+  cursor: pointer;
+}
+
+.roadmap-date-picker__weekdays,
+.roadmap-date-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.2rem;
+}
+
+.roadmap-date-picker__weekdays {
+  margin-bottom: 0.35rem;
+}
+
+.roadmap-date-picker__weekdays span {
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.roadmap-date-picker__day {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  height: 1.9rem;
+  cursor: pointer;
+}
+
+.roadmap-date-picker__day:hover {
+  background: rgba(249, 115, 22, 0.16);
+}
+
+.roadmap-date-picker__day.is-muted {
+  color: var(--text-dim);
+}
+
+.roadmap-date-picker__day.is-selected {
+  background: rgba(249, 115, 22, 0.45);
+  color: #fff7ed;
+}
+
+.roadmap-toolbar__submit {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+  border-radius: 8px;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.roadmap-edit-panel {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.roadmap-edit-panel h4 {
+  margin: 0 0 0.6rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.roadmap-edit-panel__form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.roadmap-edit-panel__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.roadmap-edit-panel__save,
+.roadmap-edit-panel__delete {
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.roadmap-edit-panel__save {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}
+
+.roadmap-edit-panel__delete {
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+}
+
+@media (max-width: 980px) {
+  .roadmap-toolbar__btn--strong {
+    margin-left: 0;
+  }
+
+  .roadmap-toolbar__form,
+  .roadmap-edit-panel__form {
+    grid-template-columns: 1fr;
+  }
+
+  .roadmap-toolbar__field--span-2 {
+    grid-column: auto;
+  }
+}

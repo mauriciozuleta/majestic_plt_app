@@ -1,0 +1,19 @@
+:root {
+  --bg-page: #0A0D12;
+  --bg-panel: #0D1218;
+  --bg-card: #12171D;
+  --bg-sidebar-item-hover: #151B22;
+  --border: #1B222A;
+  --border-strong: #232B33;
+  --text-primary: #E7ECF0;
+  --text-secondary: #C9D2DA;
+  --text-muted: #8B98A5;
+  --text-dim: #5B6774;
+  --accent-amber: #E8A33D;
+  --accent-amber-text: #F2C77D;
+  --accent-teal: #35D399;
+  --accent-teal-text: #9FE7C6;
+  --font-display: 'Rajdhani', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}

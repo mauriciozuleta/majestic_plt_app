@@ -1,0 +1,119 @@
+.settings-view {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.settings-view__header p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted, #64748b);
+}
+
+.settings-view__card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 16px;
+  background: var(--bg-card, #fff);
+}
+
+.settings-view__card label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.settings-view__section-heading h4,
+.settings-view__header h4 {
+  margin: 0;
+}
+
+.settings-view__section-heading p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted, #64748b);
+}
+
+.settings-view__company-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.settings-view__company-card {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  padding: 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  background: var(--bg-panel, #f8fafc);
+  color: var(--text-primary, #0f172a);
+}
+
+.settings-view__company-card.is-selected {
+  border-color: var(--accent-amber, #f59e0b);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18);
+}
+
+.settings-view__company-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.settings-view__company-name {
+  font-size: 0.8rem;
+  text-align: center;
+  word-break: break-word;
+}
+
+.settings-view__delete-panel {
+  display: grid;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.settings-view__selected-company {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.settings-view__selected-company span {
+  color: var(--text-muted, #64748b);
+  font-size: 0.8rem;
+}
+
+.settings-view__delete-btn {
+  justify-self: start;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: #b91c1c;
+  color: white;
+}
+
+.settings-view__status,
+.settings-view__message {
+  padding: 1rem;
+}
+
+.settings-view__message--error {
+  color: #b91c1c;
+}
+
+.settings-view__message--success {
+  color: #166534;
+}
+
+.settings-view__message--info {
+  color: var(--text-muted, #64748b);
+}

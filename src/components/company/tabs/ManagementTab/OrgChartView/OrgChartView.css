@@ -1,0 +1,255 @@
+.org-chart-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.org-chart-view__toolbar {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.org-chart-view__year-selector {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.org-chart-view__year-selector select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.43rem 0.55rem;
+  font-size: 0.76rem;
+}
+
+.org-chart-view__add-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.org-chart-view__add-btn--primary {
+  border-color: rgba(251, 146, 60, 0.65);
+  color: var(--accent-amber-text);
+  background: rgba(249, 115, 22, 0.18);
+}
+
+.org-chart-view__status {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: 10px;
+  padding: 0.85rem;
+  font-size: 0.8rem;
+}
+
+.org-chart-view__status--error {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.org-chart-view__editor {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.org-chart-view__editor h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.org-chart-view__editor-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.org-chart-view__editor-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.73rem;
+}
+
+.org-chart-view__editor-form input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  padding: 0.45rem 0.5rem;
+}
+
+.org-chart-view__editor-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.org-chart-view__editor-save,
+.org-chart-view__editor-delete {
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.org-chart-view__editor-save {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}
+
+.org-chart-view__editor-delete {
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+}
+
+.org-chart-canvas {
+  height: 480px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.react-flow__background {
+  background: var(--bg-card);
+}
+
+.react-flow__background-pattern {
+  fill: var(--border);
+}
+
+.react-flow__edge-path {
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent-amber);
+}
+
+.react-flow__controls {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  fill: var(--text-muted);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--bg-sidebar-item-hover);
+}
+
+.react-flow__minimap {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.org-chart-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.org-chart-modal {
+  width: min(28rem, calc(100vw - 2rem));
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1rem;
+}
+
+.org-chart-modal h3 {
+  margin: 0 0 0.7rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.org-chart-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.org-chart-modal__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.org-chart-modal__form input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.55rem 0.6rem;
+}
+
+.org-chart-modal__error {
+  color: #fca5a5;
+  font-size: 0.75rem;
+}
+
+.org-chart-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.org-chart-modal__cancel,
+.org-chart-modal__save {
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.org-chart-modal__cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.org-chart-modal__save {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}
+
+@media (max-width: 980px) {
+  .org-chart-view__editor-form {
+    grid-template-columns: 1fr;
+  }
+}

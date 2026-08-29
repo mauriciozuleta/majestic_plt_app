@@ -1,0 +1,56 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" rx="52" fill="#1E3D44"/>
+  <rect x="12" y="12" width="232" height="232" rx="42" fill="url(#panel)"/>
+  <path d="M0 40C0 17.9086 17.9086 0 40 0H216C238.091 0 256 17.9086 256 40V216C256 238.091 238.091 256 216 256H40C17.9086 256 0 238.091 0 216V40Z" fill="#1E3D44"/>
+  <rect x="14" y="14" width="228" height="228" rx="42" fill="url(#bg)"/>
+  <path d="M38 118H118V170H90L70 148H38V118Z" fill="#ECA14C"/>
+  <path d="M118 118H208V170H146L118 150V118Z" fill="#0B4C82"/>
+  <path d="M92 44L62 96H134L92 44Z" fill="#EAE9E8"/>
+  <path d="M118 128H208V172H118V128Z" fill="#0B4C82"/>
+  <path d="M70 94H128L98 152H30L70 94Z" fill="#F0F2F4"/>
+  <path d="M94 112L112 94L138 122L148 110L171 130L146 145L132 134L105 160L94 112Z" fill="#F0F2F4"/>
+  <path d="M120 64L135 80H165L143 64H120Z" fill="#F0F2F4"/>
+  <path d="M39 164H126V180H39V164Z" fill="#F4F5F6"/>
+  <path d="M39 164H126V180H39V164Z" fill="#F4F5F6"/>
+  <path d="M39 184H126V197H39V184Z" fill="#F7F8F9"/>
+  <path d="M97 102H126V169H97V102Z" fill="white" fill-opacity="0.42"/>
+  <path d="M136 36H212V177H136V36Z" fill="#EAE7E2" fill-opacity="0.14"/>
+  <path d="M132 44L171 90L210 44H132Z" fill="#F1F2F5" fill-opacity="0.76"/>
+  <path d="M89 128L98 120L108 128L110 144H86L89 128Z" fill="#F1F2F5"/>
+  <path d="M150 74H196V112H186L174 90H150V74Z" fill="#F1F2F5"/>
+  <path d="M152 120H194V160H152V120Z" fill="#F1F2F5"/>
+  <path d="M164 166H196V177H164V166Z" fill="#F1F2F5"/>
+  <path d="M123 104H130V170H123V104Z" fill="#F1F2F5"/>
+  <g opacity="0.84">
+    <path d="M32 178L58 178L52 188H38L32 178Z" fill="#EAF1F3"/>
+    <path d="M60 178H87L81 188H66L60 178Z" fill="#EAF1F3"/>
+    <path d="M89 178H116L110 188H95L89 178Z" fill="#EAF1F3"/>
+    <circle cx="61" cy="138" r="4" fill="#EAF1F3"/>
+    <circle cx="94" cy="138" r="4" fill="#EAF1F3"/>
+  </g>
+  <rect x="32" y="138" width="94" height="8" rx="4" fill="#F4F6F6" fill-opacity="0.5"/>
+  <rect x="140" y="112" width="82" height="8" rx="4" fill="#F4F6F6" fill-opacity="0.5"/>
+  <path d="M15 126H120L120 158H15V126Z" fill="#8AB5A0" fill-opacity="0.45"/>
+  <path d="M140 20H233V98H140V20Z" fill="#2E6BA3" fill-opacity="0.85"/>
+  <path d="M120 36L190 36L190 120L120 120V36Z" fill="#1A77C1" fill-opacity="0.35"/>
+  <path d="M122 111H208V146H122V111Z" fill="#F1F2F5" fill-opacity="0.24"/>
+  <path d="M150 46L175 70L150 94V46Z" fill="#EEF3F8"/>
+  <path d="M177 46L197 70L177 94V46Z" fill="#EEF3F8"/>
+  <path d="M164 60L177 70L164 80V60Z" fill="#5DB1E8" fill-opacity="0.6"/>
+  <circle cx="177" cy="70" r="10" fill="#EEF3F8"/>
+  <rect x="136" y="108" width="62" height="72" rx="18" fill="#214D7A" fill-opacity="0.35"/>
+  <path d="M140 138C140 124.745 149.745 115 163 115H178C191.255 115 201 124.745 201 138V164H140V138Z" fill="#F3F5F6" fill-opacity="0.2"/>
+  <path d="M118 132C118 123.163 125.163 116 134 116H163V178H118V132Z" fill="#F1F2F5" fill-opacity="0.3"/>
+  <defs>
+    <linearGradient id="bg" x1="24" y1="20" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F79345"/>
+      <stop offset="0.48" stop-color="#EB9460"/>
+      <stop offset="0.48" stop-color="#1D78C8"/>
+      <stop offset="1" stop-color="#0F4078"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="32" y1="32" x2="240" y2="228" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1C3C47"/>
+      <stop offset="1" stop-color="#101F2D"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -1,0 +1,77 @@
+.payroll-table {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.payroll-table__header,
+.payroll-table__row {
+  display: grid;
+  grid-template-columns: 28px minmax(180px, 2.2fr) 1.4fr 1fr 1fr 1fr;
+  align-items: center;
+}
+
+.payroll-table__header {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.payroll-table__row {
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  min-height: 40px;
+}
+
+.payroll-table__row:last-child {
+  border-bottom: none;
+}
+
+.payroll-table__row.is-selected {
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.payroll-table__col {
+  padding: 0 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.payroll-table__col--name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.payroll-table__col--num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.payroll-table__col--muted {
+  color: var(--text-muted);
+}
+
+.payroll-table__col--check {
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payroll-table__empty {
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.is-vacant {
+  color: var(--text-dim);
+  font-style: italic;
+}

@@ -1,0 +1,68 @@
+.company-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.company-list__item {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.7rem 0.6rem 0.45rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.company-list__item:hover {
+  background: var(--bg-sidebar-item-hover);
+  border-color: var(--border);
+}
+
+.company-list__item.is-active {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--border);
+}
+
+.company-list__accent {
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 3px;
+  border-radius: 0 8px 8px 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.company-list__item.is-active .company-list__accent {
+  opacity: 1;
+}
+
+.company-list__logo {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.company-list__name {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

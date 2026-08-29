@@ -1,0 +1,55 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-page);
+}
+
+.app-shell__body {
+  display: grid;
+  grid-template-columns: 18.5rem minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.app-shell__main {
+  min-width: 0;
+  width: calc(100vw - 18.5rem);
+  min-width: calc(100vw - 18.5rem);
+  background: var(--bg-page);
+  padding: 1rem;
+}
+
+.content-panel {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  min-height: 100%;
+  width: 100%;
+  min-width: calc(100vw - 18.5rem - 2rem);
+  box-sizing: border-box;
+}
+
+.panel-surface {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+
+.panel-surface h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.panel-surface p {
+  margin: 0;
+  color: var(--text-secondary);
+}

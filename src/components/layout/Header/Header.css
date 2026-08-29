@@ -1,0 +1,50 @@
+.header-shell {
+  width: 100%;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem 0.7rem;
+}
+
+.header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.header-status-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--accent-teal);
+  box-shadow: 0 0 14px rgba(53, 211, 153, 0.8);
+}
+
+.header-brand-text {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.header-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.header-divider {
+  width: 100%;
+  height: 2px;
+  background: var(--accent-amber);
+}

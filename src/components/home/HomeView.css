@@ -1,0 +1,9 @@
+.home-view {
+  width: 100%;
+}
+
+.home-view__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}

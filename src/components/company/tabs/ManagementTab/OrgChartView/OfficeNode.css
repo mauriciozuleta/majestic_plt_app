@@ -1,0 +1,42 @@
+.office-node {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 160px;
+  text-align: center;
+}
+
+.office-node.is-selected {
+  border-color: var(--accent-amber);
+}
+
+.office-node__title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.office-node__employee {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.office-node__employee.is-vacant {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.office-node__area {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.office-node__handle {
+  background: var(--accent-amber) !important;
+  width: 8px !important;
+  height: 8px !important;
+  border: none !important;
+}
