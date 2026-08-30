@@ -17,7 +17,7 @@ const tabConfig = {
   },
   management: {
     label: 'Management',
-    subTabs: ['roadmap', 'org-chart', 'payroll', 'settings'],
+    subTabs: ['roadmap', 'org-chart', 'payroll'],
   },
   financial: {
     label: 'Financial',

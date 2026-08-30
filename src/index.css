@@ -20,8 +20,27 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+select,
+option,
+textarea {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+}
+
+select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+option {
+  background: #101922;
+  color: #f8fafc;
 }
 
 * {
