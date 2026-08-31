@@ -52,6 +52,54 @@ class OrgChartNode(Base):
     sort_index = Column(Float, default=0.0)
 
 
+class CommercialRegion(Base):
+    __tablename__ = 'commercial_regions'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    manager_name = Column(String, nullable=True)
+    user_name = Column(String, nullable=True)
+
+
+class CommercialCountry(Base):
+    __tablename__ = 'commercial_countries'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    region_id = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    country_code = Column(String, nullable=True, index=True)
+    currency = Column(String, nullable=True)
+    currency_code = Column(String, nullable=True)
+    manager_name = Column(String, nullable=True)
+    user_name = Column(String, nullable=True)
+
+
+class CountryReferenceCatalog(Base):
+    __tablename__ = 'country_reference_catalog'
+
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    country_code = Column(String, nullable=False, unique=True, index=True)
+    currency = Column(String, nullable=False)
+    currency_code = Column(String, nullable=False)
+    region = Column(String, nullable=False, index=True)
+
+
+class CommercialBranch(Base):
+    __tablename__ = 'commercial_branches'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    country_id = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    manager_name = Column(String, nullable=True)
+    user_name = Column(String, nullable=True)
+    airport = Column(String, nullable=True)
+    active = Column(String, default='active')
+
+
 class OrgChartEdge(Base):
     __tablename__ = 'org_chart_edges'
 
@@ -78,3 +126,15 @@ class PayrollYearlySalary(Base):
     payroll_record_id = Column(String, ForeignKey('payroll_records.id'), nullable=False, index=True)
     projection_year = Column(Integer, nullable=False)
     year_salary = Column(Float, nullable=False)
+
+
+class PayrollEmployee(Base):
+    __tablename__ = 'payroll_employees'
+
+    id = Column(String, primary_key=True, index=True)
+    org_chart_node_id = Column(String, ForeignKey('org_chart_nodes.id'), nullable=False, index=True)
+    employee_name = Column(String, nullable=True)
+    start_date = Column(String, nullable=False)
+    end_date = Column(String, nullable=True)
+    start_projection_year = Column(Integer, default=0)
+    end_projection_year = Column(Integer, nullable=True)

@@ -1,0 +1,148 @@
+.payroll-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.payroll-matrix__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.55rem;
+  background: var(--bg-panel);
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+}
+
+.payroll-matrix__toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.payroll-matrix__toolbar input,
+.payroll-matrix__toolbar select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.45rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+.payroll-matrix__table {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-height: 440px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.payroll-matrix__header,
+.payroll-matrix__row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1fr 1fr 1fr 28px;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 10px;
+}
+
+.payroll-matrix__header {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-width: fit-content;
+}
+
+.payroll-matrix__row {
+  border-bottom: 1px solid var(--border);
+  min-height: 44px;
+}
+
+.payroll-matrix__row:last-child {
+  border-bottom: none;
+}
+
+.payroll-matrix__row input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  padding: 0.35rem 0.4rem;
+  font-size: 0.76rem;
+}
+
+.payroll-matrix__position-link {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.82rem;
+}
+
+.payroll-matrix__position-link:hover {
+  color: var(--accent-amber-text);
+  text-decoration: underline;
+}
+
+.payroll-matrix__col--num {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.payroll-matrix__remove {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: #fca5a5;
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.payroll-matrix__remove:hover {
+  background: rgba(185, 28, 28, 0.18);
+}
+
+.payroll-matrix__end-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.payroll-matrix__end-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.payroll-matrix__end-toggle input {
+  width: auto;
+}
+
+.payroll-matrix__empty {
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}

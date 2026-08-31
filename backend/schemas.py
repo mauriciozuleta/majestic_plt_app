@@ -93,12 +93,39 @@ class PayrollPositionCreate(BaseModel):
 
 class PayrollPositionUpdate(BaseModel):
     office_name: Optional[str] = None
-    employee_name: Optional[str] = None
     area: Optional[str] = None
     parent_node_id: Optional[str] = None
     year_salary: Optional[float] = None
-    start_date: Optional[str] = None
     projection_year: Optional[int] = None
+    sort_index: Optional[float] = None
+
+
+class PayrollEmployeeBase(BaseModel):
+    employee_name: Optional[str] = None
+    start_date: str
+    end_date: Optional[str] = None
+
+
+class PayrollEmployeeCreate(PayrollEmployeeBase):
+    pass
+
+
+class PayrollEmployeeUpdate(BaseModel):
+    employee_name: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    start_projection_year: Optional[int] = None
+    end_projection_year: Optional[int] = None
+
+
+class PayrollEmployeeOut(PayrollEmployeeBase):
+    id: str
+    org_chart_node_id: str
+    start_projection_year: int
+    end_projection_year: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 
 class PayrollRowOut(BaseModel):
@@ -113,6 +140,8 @@ class PayrollRowOut(BaseModel):
     year_salary: float
     monthly_salary: float
     start_date: str
+    headcount: int = 1
+    employees: list[PayrollEmployeeOut] = []
     linked_company_id: Optional[str] = None
 
     class Config:

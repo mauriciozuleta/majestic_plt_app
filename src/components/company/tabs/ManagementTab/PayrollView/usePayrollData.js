@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { deleteOrgChartNode } from '../../../../../services/orgChart'
-import { clonePosition, createPosition, fetchPayroll, updatePosition } from '../../../../../services/payroll'
+import {
+  addEmployee,
+  clonePosition,
+  createPosition,
+  deleteEmployee,
+  fetchPayroll,
+  updateEmployee,
+  updatePosition,
+} from '../../../../../services/payroll'
 import { fetchSettings } from '../../../../../services/settings'
 import { broadcastCompanyDataChange, subscribeToCompanyDataChange } from '../../../../../services/companyDataSync'
 
@@ -61,9 +69,10 @@ export function usePayrollData(companyId) {
 
   const addPosition = useCallback(
     async (position) => {
-      await createPosition(companyId, position, selectedYear)
+      const created = await createPosition(companyId, position, selectedYear)
       broadcastCompanyDataChange(companyId, 'payroll:add-position')
       await reload()
+      return created
     },
     [companyId, reload, selectedYear],
   )
@@ -92,6 +101,33 @@ export function usePayrollData(companyId) {
     [companyId, reload],
   )
 
+  const addRosterEmployee = useCallback(
+    async (nodeId, employee) => {
+      await addEmployee(nodeId, employee, selectedYear)
+      broadcastCompanyDataChange(companyId, 'payroll:add-employee')
+      await reload()
+    },
+    [companyId, reload, selectedYear],
+  )
+
+  const saveRosterEmployee = useCallback(
+    async (employeeId, updates) => {
+      await updateEmployee(employeeId, updates, selectedYear)
+      broadcastCompanyDataChange(companyId, 'payroll:update-employee')
+      await reload()
+    },
+    [companyId, reload, selectedYear],
+  )
+
+  const removeRosterEmployee = useCallback(
+    async (employeeId) => {
+      await deleteEmployee(employeeId)
+      broadcastCompanyDataChange(companyId, 'payroll:remove-employee')
+      await reload()
+    },
+    [companyId, reload],
+  )
+
   return {
     rows,
     loading,
@@ -103,6 +139,9 @@ export function usePayrollData(companyId) {
     savePosition,
     cloneSelected,
     deleteSelected,
+    addRosterEmployee,
+    saveRosterEmployee,
+    removeRosterEmployee,
     reload,
   }
 }

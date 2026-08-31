@@ -89,7 +89,8 @@ function AddPositionModal({ positions, onSave, onCancel, initialStartDate, calen
               type="text"
               value={area}
               onChange={(event) => setArea(event.target.value)}
-              placeholder="Finance"
+              placeholder="Pick or type an area"
+              list="payroll-area-options"
             />
           </label>
           <label>

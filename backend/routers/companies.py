@@ -28,6 +28,7 @@ class CompanyCreate(BaseModel):
 
 class CompanyOut(CompanyCreate):
     id: str
+    logo: str | None = None
 
     class Config:
         from_attributes = True
@@ -72,6 +73,7 @@ def delete_company(company_id: str, db: Session = Depends(get_db)):
                 models.PayrollYearlySalary.payroll_record_id.in_(payroll_record_ids)
             ).delete(synchronize_session=False)
         db.query(models.PayrollRecord).filter(models.PayrollRecord.org_chart_node_id.in_(node_ids)).delete(synchronize_session=False)
+        db.query(models.PayrollEmployee).filter(models.PayrollEmployee.org_chart_node_id.in_(node_ids)).delete(synchronize_session=False)
 
     db.query(models.OrgChartEdge).filter_by(company_id=company_id).delete(synchronize_session=False)
     db.query(models.OrgChartNode).filter_by(company_id=company_id).delete(synchronize_session=False)

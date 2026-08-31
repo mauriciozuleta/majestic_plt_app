@@ -4,6 +4,166 @@
   gap: 0.75rem;
 }
 
+.payroll-view__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+@media (max-width: 720px) {
+  .payroll-view__stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.payroll-view__stat-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.payroll-view__stat-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.payroll-view__stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.payroll-view__stat-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.payroll-view__template-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.payroll-view__template-status.is-done {
+  border-color: rgba(53, 211, 153, 0.5);
+  color: var(--accent-teal-text, #ccfbf1);
+}
+
+.payroll-view__template-status.is-error {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+.payroll-view__template-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent-amber-text);
+  animation: payroll-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payroll-view__template-spinner {
+    animation: none;
+  }
+}
+
+@keyframes payroll-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.payroll-view__area-warning {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  border: 1px solid rgba(232, 163, 61, 0.45);
+  background: rgba(232, 163, 61, 0.1);
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+}
+
+.payroll-view__area-warning-icon {
+  color: var(--accent-amber-text);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.payroll-view__area-warning-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.payroll-view__area-warning-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.payroll-view__area-warning-row b {
+  color: var(--text-primary);
+}
+
+.payroll-view__chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.payroll-view__chip {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.payroll-view__chip.is-active {
+  color: var(--text-primary);
+  background: var(--bg-sidebar-item-hover);
+}
+
+.payroll-view__chip-count {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  margin-left: 0.3rem;
+}
+
+.payroll-view__chip.is-active .payroll-view__chip-count {
+  color: var(--text-muted);
+}
+
+.payroll-view__chip.is-suspicious {
+  border-color: rgba(232, 163, 61, 0.6);
+  box-shadow: 0 0 0 1px rgba(232, 163, 61, 0.25) inset;
+}
+
 .payroll-view__status {
   border: 1px solid var(--border);
   background: var(--bg-card);
@@ -59,6 +219,45 @@
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.65rem;
+}
+
+.payroll-view__roster-hint {
+  margin: 0.9rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.payroll-view__roster-hint b {
+  color: var(--accent-amber-text);
+  font-weight: 600;
+}
+
+.payroll-view__view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.payroll-view__view-toggle button {
+  border: none;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border-right: 1px solid var(--border-strong);
+}
+
+.payroll-view__view-toggle button:last-child {
+  border-right: none;
+}
+
+.payroll-view__view-toggle button.is-active {
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
 }
 
 .payroll-view__toolbar {

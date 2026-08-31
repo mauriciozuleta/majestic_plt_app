@@ -98,6 +98,7 @@ def delete_node(node_id: str, db: Session = Depends(get_db)):
     if payroll_record:
         db.query(models.PayrollYearlySalary).filter_by(payroll_record_id=payroll_record.id).delete()
         db.delete(payroll_record)
+    db.query(models.PayrollEmployee).filter_by(org_chart_node_id=node_id).delete()
 
     db.query(models.OrgChartEdge).filter(
         (models.OrgChartEdge.source_node_id == node_id)

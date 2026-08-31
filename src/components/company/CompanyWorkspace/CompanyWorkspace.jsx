@@ -13,7 +13,7 @@ function slugify(value) {
 const tabConfig = {
   operations: {
     label: 'Operations',
-    subTabs: [],
+    subTabs: ['commercial-structure', 'overview-management', 'market-analysis'],
   },
   management: {
     label: 'Management',
@@ -97,7 +97,7 @@ function CompanyWorkspace() {
               key={key}
               to={
                 key === 'operations'
-                  ? `/company/${companyId}/operations`
+                  ? `/company/${companyId}/operations/branches`
                   : key === 'management'
                     ? `/company/${companyId}/management/roadmap`
                     : key === 'financial'
@@ -121,14 +121,18 @@ function CompanyWorkspace() {
       </div>
 
       <div className="company-workspace__subtabs">
-        {activeTab === 'management' || activeTab === 'financial' ? (
+        {['management', 'financial', 'operations'].includes(activeTab) ? (
           tabConfig[activeTab].subTabs.map((entry) => (
             <NavLink
               key={entry}
               to={`/company/${companyId}/${activeTab}/${entry}`}
               className={({ isActive }) => `company-workspace__subtab ${isActive ? 'is-active' : ''}`}
             >
-              {entry.replace(/-/g, ' ')}
+              {entry === 'commercial-structure'
+                ? 'Commercial Structure'
+                : entry === 'overview-management'
+                  ? 'Overview Management'
+                  : entry.replace(/-/g, ' ')}
             </NavLink>
           ))
         ) : null}

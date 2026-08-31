@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Commercial Structure Mockup</title>
+    <style>
+      :root {
+        --bg: #101827;
+        --bg-soft: #0f172a;
+        --panel: #111c2e;
+        --panel-2: #152238;
+        --panel-3: #1a2a42;
+        --card: #18263f;
+        --line: rgba(148, 163, 184, 0.2);
+        --text: #e5edf9;
+        --muted: #98a8bd;
+        --brand: #5bb4ff;
+        --brand-2: #7dd3fc;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --danger: #f87171;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+        background: linear-gradient(180deg, #0c1220 0%, #101827 20%, #0d1320 100%);
+        color: var(--text);
+      }
+
+      .app-shell {
+        max-width: 1460px;
+        margin: 24px auto;
+        border: 1px solid var(--line);
+        background: rgba(10, 16, 28, 0.9);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 18px 40px rgba(2, 6, 23, 0.6);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(15, 23, 42, 0.9);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #5bb4ff, #6ee7b7);
+        color: #06111d;
+        font-weight: 800;
+      }
+
+      .user-pill {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(91, 180, 255, 0.08);
+        border: 1px solid var(--line);
+        color: var(--muted);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        min-height: 860px;
+      }
+
+      .sidebar {
+        border-right: 1px solid var(--line);
+        background: rgba(14, 22, 36, 0.9);
+        padding: 22px 16px;
+      }
+
+      .nav-title {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 6px 10px 14px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 12px;
+        border-radius: 10px;
+        color: var(--text);
+        margin-bottom: 8px;
+        border: 1px solid transparent;
+      }
+
+      .nav-item.active {
+        background: rgba(91, 180, 255, 0.1);
+        border-color: rgba(91, 180, 255, 0.25);
+      }
+
+      .nav-item .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--brand-2);
+      }
+
+      .company-card {
+        margin-top: 26px;
+        background: linear-gradient(135deg, rgba(91, 180, 255, 0.12), rgba(110, 231, 183, 0.1));
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px;
+      }
+
+      .company-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .company-logo {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #5bb4ff, #34d399);
+        font-weight: 800;
+        color: #0b1220;
+      }
+
+      .company-name {
+        font-weight: 700;
+      }
+
+      .content {
+        padding: 24px;
+      }
+
+      .workspace-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border: 1px solid var(--line);
+        background: rgba(18, 29, 44, 0.95);
+        border-radius: 14px;
+        padding: 18px 20px;
+        margin-bottom: 18px;
+      }
+
+      .workspace-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .tab {
+        background: rgba(148, 163, 184, 0.08);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        color: var(--muted);
+        border-radius: 10px;
+        padding: 9px 14px;
+      }
+
+      .tab.active {
+        background: rgba(91, 180, 255, 0.10);
+        color: var(--text);
+        border-color: rgba(91, 180, 255, 0.35);
+      }
+
+      .subtabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .subtab {
+        padding: 10px 16px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: rgba(15, 23, 42, 0.7);
+        color: var(--muted);
+      }
+
+      .subtab.active {
+        background: rgba(91, 180, 255, 0.12);
+        color: var(--text);
+        border-color: rgba(91, 180, 255, 0.4);
+      }
+
+      .panel {
+        background: rgba(17, 28, 46, 0.95);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+      }
+
+      .header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .btn-primary {
+        border: none;
+        background: linear-gradient(135deg, #42a5f5, #60a5fa);
+        color: #071522;
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .btn-secondary {
+        border: 1px solid var(--line);
+        background: rgba(148, 163, 184, 0.08);
+        color: var(--text);
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .stat {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px;
+      }
+
+      .stat-label {
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .stat-value {
+        margin-top: 8px;
+        font-size: 30px;
+        font-weight: 700;
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: 1.1fr 1.35fr;
+        gap: 18px;
+      }
+
+      .branch-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .branch-item {
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 12px;
+        padding: 14px 16px;
+      }
+
+      .branch-item.active {
+        border-color: rgba(91, 180, 255, 0.5);
+        background: rgba(91, 180, 255, 0.06);
+      }
+
+      .branch-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .branch-name {
+        font-weight: 700;
+      }
+
+      .tag {
+        font-size: 11px;
+        padding: 5px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(34, 197, 94, 0.4);
+        color: #a7f3d0;
+        background: rgba(34, 197, 94, 0.1);
+      }
+
+      .branch-meta {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .detail-card {
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 14px;
+        padding: 18px;
+      }
+
+      .detail-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      label {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .input, .select {
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 11px 12px;
+        color: var(--text);
+      }
+
+      .section-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 18px 0 12px;
+      }
+
+      .people-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .person-card {
+        border: 1px solid var(--line);
+        background: rgba(15, 23, 42, 0.85);
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+
+      .person-name {
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .person-role {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .status-badge {
+        display: inline-flex;
+        margin-top: 8px;
+        padding: 5px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: rgba(96, 165, 250, 0.16);
+        color: #bfdbfe;
+        border: 1px solid rgba(96, 165, 250, 0.35);
+      }
+
+      .status-badge.active {
+        background: rgba(34, 197, 94, 0.14);
+        color: #bbf7d0;
+        border-color: rgba(34, 197, 94, 0.35);
+      }
+
+      @media (max-width: 1100px) {
+        .layout { grid-template-columns: 1fr; }
+        .sidebar { border-right: none; border-bottom: 1px solid var(--line); }
+        .board, .stats-grid, .field-grid, .people-list { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">M</div>
+          <div>MAJESTIC P.L.T.</div>
+        </div>
+        <div class="user-pill">M. Zuleta</div>
+      </header>
+
+      <div class="layout">
+        <aside class="sidebar">
+          <div class="nav-title">Navigation</div>
+          <div class="nav-item"><span class="dot"></span>Home</div>
+          <div class="nav-item"><span class="dot"></span>Control dashboard</div>
+          <div class="nav-item"><span class="dot"></span>Operations</div>
+          <div class="nav-item active"><span class="dot"></span>Commercial structure</div>
+          <div class="nav-item"><span class="dot"></span>Market analysis</div>
+
+          <div class="company-card">
+            <div class="company-header">
+              <div class="company-logo">F</div>
+              <div class="company-name">FRESH24</div>
+            </div>
+            <div class="branch-meta">Commercial network</div>
+          </div>
+        </aside>
+
+        <main class="content">
+          <div class="workspace-header">
+            <div class="workspace-tabs">
+              <div class="tab">Operations</div>
+              <div class="tab active">Commercial Structure</div>
+              <div class="tab">Market analysis</div>
+            </div>
+            <button class="btn-primary">Add branch</button>
+          </div>
+
+          <div class="subtabs">
+            <div class="subtab active">Commercial Structure</div>
+            <div class="subtab">Market analysis</div>
+          </div>
+
+          <section class="panel">
+            <div class="header-row">
+              <h2>Commercial Structure</h2>
+              <button class="btn-secondary">Export</button>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat">
+                <div class="stat-label">Total branches</div>
+                <div class="stat-value">12</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Managers</div>
+                <div class="stat-value">08</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Assigned users</div>
+                <div class="stat-value">146</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Open roles</div>
+                <div class="stat-value">07</div>
+              </div>
+            </div>
+
+            <div class="board">
+              <div class="branch-list">
+                <div class="branch-item active">
+                  <div class="branch-top">
+                    <div class="branch-name">North Hub</div>
+                    <span class="tag">Active</span>
+                  </div>
+                  <div class="branch-meta">Madrid · 34 users · 1 manager</div>
+                </div>
+
+                <div class="branch-item">
+                  <div class="branch-top">
+                    <div class="branch-name">South Hub</div>
+                    <span class="tag">Active</span>
+                  </div>
+                  <div class="branch-meta">Seville · 21 users · 1 manager</div>
+                </div>
+
+                <div class="branch-item">
+                  <div class="branch-top">
+                    <div class="branch-name">Coastal Network</div>
+                    <span class="tag">Active</span>
+                  </div>
+                  <div class="branch-meta">Valencia · 18 users · 1 manager</div>
+                </div>
+
+                <div class="branch-item">
+                  <div class="branch-top">
+                    <div class="branch-name">Eastern Distribution</div>
+                    <span class="tag">Review</span>
+                  </div>
+                  <div class="branch-meta">Barcelona · 12 users · 1 manager</div>
+                </div>
+              </div>
+
+              <div class="detail-card">
+                <div class="detail-header">
+                  <h3 style="margin:0;">North Hub</h3>
+                  <button class="btn-secondary">Edit branch</button>
+                </div>
+
+                <div class="field-grid">
+                  <div class="field">
+                    <label>Branch name</label>
+                    <div class="input">North Hub</div>
+                  </div>
+                  <div class="field">
+                    <label>Country</label>
+                    <select class="select" aria-label="Country">
+                      <option selected>Spain</option>
+                      <option>Portugal</option>
+                      <option>France</option>
+                      <option>Italy</option>
+                      <option>Germany</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Region</label>
+                    <select class="select" aria-label="Region">
+                      <option selected>Central</option>
+                      <option>North</option>
+                      <option>South</option>
+                      <option>Coastal</option>
+                      <option>East</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Manager</label>
+                    <div class="input">Ana Ruiz</div>
+                  </div>
+                </div>
+
+                <div class="section-title">Assigned team</div>
+                <div class="people-list">
+                  <div class="person-card">
+                    <div class="person-name">Ana Ruiz</div>
+                    <div class="person-role">Branch manager</div>
+                    <span class="status-badge active">Active</span>
+                  </div>
+
+                  <div class="person-card">
+                    <div class="person-name">David Torres</div>
+                    <div class="person-role">Commercial lead</div>
+                    <span class="status-badge active">Active</span>
+                  </div>
+
+                  <div class="person-card">
+                    <div class="person-name">Laura Gomez</div>
+                    <div class="person-role">Account manager</div>
+                    <span class="status-badge active">Active</span>
+                  </div>
+
+                  <div class="person-card">
+                    <div class="person-name">Jonas Mendez</div>
+                    <div class="person-role">Ops coordinator</div>
+                    <span class="status-badge">Pending</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

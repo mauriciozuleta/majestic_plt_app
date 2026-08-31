@@ -164,6 +164,28 @@ def _ensure_payroll_record(db: Session, node: models.OrgChartNode):
     return record
 
 
+def _employee_active_in_year(employee: models.PayrollEmployee, projection_year: int):
+    if (employee.start_projection_year or 0) > projection_year:
+        return False
+    if employee.end_projection_year is not None and employee.end_projection_year < projection_year:
+        return False
+    return True
+
+
+def _roster_for_node(db: Session, node_id: str):
+    return (
+        db.query(models.PayrollEmployee)
+        .filter_by(org_chart_node_id=node_id)
+        .order_by(models.PayrollEmployee.start_date)
+        .all()
+    )
+
+
+def _headcount_for_node(db: Session, node_id: str, projection_year: int):
+    roster = _roster_for_node(db, node_id)
+    return sum(1 for employee in roster if _employee_active_in_year(employee, projection_year))
+
+
 def _row_for_node(db: Session, node_id: str, projection_year: int | None = None):
     node = db.query(models.OrgChartNode).filter_by(id=node_id).first()
     if not node:
@@ -173,6 +195,8 @@ def _row_for_node(db: Session, node_id: str, projection_year: int | None = None)
     projection_years_limit = _get_projection_years_limit(db)
     selected_projection_year = _clamp_projection_year(projection_year if projection_year is not None else 0, projection_years_limit)
     year_salary_value = _get_effective_year_salary(db, record, selected_projection_year)
+    roster = _roster_for_node(db, node.id)
+    headcount = sum(1 for employee in roster if _employee_active_in_year(employee, selected_projection_year))
 
     all_nodes = db.query(models.OrgChartNode).filter_by(company_id=node.company_id).all()
     all_edges = db.query(models.OrgChartEdge).filter_by(company_id=node.company_id).all()
@@ -191,6 +215,8 @@ def _row_for_node(db: Session, node_id: str, projection_year: int | None = None)
         year_salary=year_salary_value,
         monthly_salary=round(year_salary_value / 12, 2),
         start_date=record.start_date,
+        headcount=headcount,
+        employees=roster,
     )
 
 
@@ -204,8 +230,10 @@ def list_payroll(company_id: str, year: int = 0, db: Session = Depends(get_db)):
     selected_projection_year = _clamp_projection_year(year, projection_years_limit)
 
     records = {}
+    rosters = {}
     for node in nodes:
         records[node.id] = _ensure_payroll_record(db, node)
+        rosters[node.id] = _roster_for_node(db, node.id)
 
     levels = _compute_levels(nodes, edges)
     parents = _parent_map(edges)
@@ -226,8 +254,11 @@ def list_payroll(company_id: str, year: int = 0, db: Session = Depends(get_db)):
     def visit(node_id: str, level: int):
         node = node_map[node_id]
         record = records[node.id]
-        is_visible_in_selected_year = (record.start_projection_year or 0) <= selected_projection_year
-        if is_visible_in_selected_year:
+        roster = rosters[node.id]
+        headcount = sum(1 for employee in roster if _employee_active_in_year(employee, selected_projection_year))
+        # A position only shows up for a year once someone is actually on it that year —
+        # no placeholder rows for seats that haven't been hired yet.
+        if headcount > 0:
             year_salary_value = _get_effective_year_salary(db, record, selected_projection_year)
             rows.append(
                 schemas.PayrollRowOut(
@@ -242,6 +273,8 @@ def list_payroll(company_id: str, year: int = 0, db: Session = Depends(get_db)):
                     year_salary=year_salary_value,
                     monthly_salary=round(year_salary_value / 12, 2),
                     start_date=record.start_date,
+                    headcount=headcount,
+                    employees=roster,
                 )
             )
         for child_id in children_by_parent.get(node_id, []):
@@ -299,6 +332,16 @@ def create_position(company_id: str, payload: schemas.PayrollPositionCreate, db:
     record.year_salary = payload.year_salary
     record.start_projection_year = selected_projection_year
 
+    db.add(
+        models.PayrollEmployee(
+            id=str(uuid.uuid4()),
+            org_chart_node_id=node.id,
+            employee_name=payload.employee_name,
+            start_date=payload.start_date,
+            start_projection_year=selected_projection_year,
+        )
+    )
+
     db.commit()
 
     return _row_for_node(db, node.id, selected_projection_year)
@@ -313,8 +356,6 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
     updates = payload.model_dump(exclude_unset=True)
     if 'office_name' in updates:
         node.office_name = updates['office_name']
-    if 'employee_name' in updates:
-        node.employee_name = updates['employee_name']
     if 'area' in updates:
         node.area = updates['area']
     if 'parent_node_id' in updates:
@@ -337,6 +378,9 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
             all_edges = db.query(models.OrgChartEdge).filter_by(company_id=node.company_id).all()
             node.sort_index = _next_sort_index(all_nodes, all_edges, node.company_id, None)
 
+    if 'sort_index' in updates:
+        node.sort_index = float(updates['sort_index'])
+
     record = db.query(models.PayrollRecord).filter_by(org_chart_node_id=node_id).first()
     if not record:
         raise HTTPException(status_code=404, detail='Payroll record not found')
@@ -352,8 +396,6 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
         selected_year_salary = _get_or_create_year_salary(db, record, selected_projection_year)
         selected_year_salary.year_salary = updates['year_salary']
         record.year_salary = updates['year_salary']
-    if 'start_date' in updates:
-        record.start_date = updates['start_date']
 
     db.commit()
     return _row_for_node(db, node_id, selected_projection_year)
@@ -422,6 +464,82 @@ def clone_position(node_id: str, db: Session = Depends(get_db)):
                 )
             )
 
-    db.commit()
     clone_projection_year = source_record.start_projection_year if source_record else 0
+    db.add(
+        models.PayrollEmployee(
+            id=str(uuid.uuid4()),
+            org_chart_node_id=clone_node.id,
+            employee_name=None,
+            start_date=source_record.start_date if source_record else date.today().isoformat(),
+            start_projection_year=clone_projection_year,
+        )
+    )
+
+    db.commit()
     return _row_for_node(db, clone_node.id, clone_projection_year)
+
+
+@router.get('/payroll-positions/{node_id}/employees', response_model=list[schemas.PayrollEmployeeOut])
+def list_employees(node_id: str, db: Session = Depends(get_db)):
+    node = db.query(models.OrgChartNode).filter_by(id=node_id).first()
+    if not node:
+        raise HTTPException(status_code=404, detail='Position not found')
+    return _roster_for_node(db, node_id)
+
+
+@router.post('/payroll-positions/{node_id}/employees', response_model=schemas.PayrollRowOut)
+def add_employee(node_id: str, payload: schemas.PayrollEmployeeCreate, year: int = 0, db: Session = Depends(get_db)):
+    node = db.query(models.OrgChartNode).filter_by(id=node_id).first()
+    if not node:
+        raise HTTPException(status_code=404, detail='Position not found')
+
+    projection_years_limit = _get_projection_years_limit(db)
+    selected_projection_year = _clamp_projection_year(year, projection_years_limit)
+
+    db.add(
+        models.PayrollEmployee(
+            id=str(uuid.uuid4()),
+            org_chart_node_id=node_id,
+            employee_name=payload.employee_name,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            start_projection_year=selected_projection_year,
+        )
+    )
+    db.commit()
+    return _row_for_node(db, node_id, selected_projection_year)
+
+
+@router.patch('/payroll-employees/{employee_id}', response_model=schemas.PayrollRowOut)
+def update_employee(employee_id: str, payload: schemas.PayrollEmployeeUpdate, year: int = 0, db: Session = Depends(get_db)):
+    employee = db.query(models.PayrollEmployee).filter_by(id=employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail='Employee not found')
+
+    updates = payload.model_dump(exclude_unset=True)
+    if 'employee_name' in updates:
+        employee.employee_name = updates['employee_name']
+    if 'start_date' in updates:
+        employee.start_date = updates['start_date']
+    if 'end_date' in updates:
+        employee.end_date = updates['end_date']
+    if 'start_projection_year' in updates:
+        employee.start_projection_year = updates['start_projection_year']
+    if 'end_projection_year' in updates:
+        employee.end_projection_year = updates['end_projection_year']
+
+    db.commit()
+
+    projection_years_limit = _get_projection_years_limit(db)
+    selected_projection_year = _clamp_projection_year(year, projection_years_limit)
+    return _row_for_node(db, employee.org_chart_node_id, selected_projection_year)
+
+
+@router.delete('/payroll-employees/{employee_id}')
+def delete_employee(employee_id: str, db: Session = Depends(get_db)):
+    employee = db.query(models.PayrollEmployee).filter_by(id=employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail='Employee not found')
+    db.delete(employee)
+    db.commit()
+    return {'ok': True}
