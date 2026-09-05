@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import AreaAutocomplete from './AreaAutocomplete'
 import { employeeMonthlyActive, positionMonthlyHeadcount } from './monthMath'
 import './PayrollMatrix.css'
@@ -76,6 +76,17 @@ function PayrollMatrix({
   selectedIds,
   onToggleSelected,
 }) {
+  const [collapsedIds, setCollapsedIds] = useState(() => new Set())
+
+  const toggleCollapsed = (nodeId) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(nodeId)) next.delete(nodeId)
+      else next.add(nodeId)
+      return next
+    })
+  }
+
   const built = useMemo(
     () =>
       rows.map((row) => {
@@ -205,6 +216,8 @@ function PayrollMatrix({
                       ]
                     }
 
+                    const isCollapsed = collapsedIds.has(row.node_id)
+
                     const categoryRow = (
                       <tr
                         className={`payroll-matrix__category-row ${hasPositionDraft ? 'is-dirty' : ''} ${
@@ -221,6 +234,14 @@ function PayrollMatrix({
                               onChange={() => onToggleSelected(row.node_id)}
                             />
                           )}
+                          <button
+                            type="button"
+                            className="payroll-matrix__collapse-toggle"
+                            title={isCollapsed ? 'Expand seats' : 'Collapse seats'}
+                            onClick={() => toggleCollapsed(row.node_id)}
+                          >
+                            {isCollapsed ? '▸' : '▾'}
+                          </button>
                           <button
                             type="button"
                             className="payroll-matrix__position-link"
@@ -278,7 +299,7 @@ function PayrollMatrix({
                       )
                     })
 
-                    return [categoryRow, ...seatRows]
+                    return isCollapsed ? [categoryRow] : [categoryRow, ...seatRows]
                   })
                 )}
               </tbody>

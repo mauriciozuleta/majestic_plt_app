@@ -47,6 +47,12 @@ def _get_or_create_year_salary(db: Session, record: models.PayrollRecord, projec
 
 
 def _get_effective_year_salary(db: Session, record: models.PayrollRecord, projection_year: int):
+    """Every projection year is meant to have its own recorded row — this is
+    the one place that's allowed to fall back to carrying a prior year's
+    salary forward, and it immediately writes the result back as that year's
+    own row. So the first read of any year materializes it in the DB, and
+    every read after that (here and everywhere else that builds a table) is a
+    plain fetch of a value that's actually stored, not a recomputation."""
     selected_year_salary = db.query(models.PayrollYearlySalary).filter_by(
         payroll_record_id=record.id,
         projection_year=projection_year,
@@ -63,10 +69,17 @@ def _get_effective_year_salary(db: Session, record: models.PayrollRecord, projec
         .order_by(models.PayrollYearlySalary.projection_year.desc())
         .first()
     )
-    if previous_year_salary:
-        return previous_year_salary.year_salary
+    effective_value = previous_year_salary.year_salary if previous_year_salary else record.year_salary
 
-    return record.year_salary
+    db.add(models.PayrollYearlySalary(
+        id=str(uuid.uuid4()),
+        payroll_record_id=record.id,
+        projection_year=projection_year,
+        year_salary=effective_value,
+    ))
+    db.commit()
+
+    return effective_value
 
 
 def _get_year_growth_rate(db: Session, record: models.PayrollRecord, projection_year: int):
@@ -375,12 +388,12 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
         updates.get('projection_year') if updates.get('projection_year') is not None else 0,
         projection_years_limit,
     )
-    record.start_projection_year = selected_projection_year
 
     if 'year_salary' in updates:
         selected_year_salary = _get_or_create_year_salary(db, record, selected_projection_year)
         selected_year_salary.year_salary = updates['year_salary']
-        record.year_salary = updates['year_salary']
+        if selected_projection_year == 0:
+            record.year_salary = updates['year_salary']
 
     db.commit()
     return _row_for_node(db, node_id, selected_projection_year)

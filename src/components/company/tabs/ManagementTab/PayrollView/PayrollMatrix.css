@@ -102,6 +102,23 @@
   vertical-align: middle;
 }
 
+.payroll-matrix__collapse-toggle {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  margin-right: 0.35rem;
+  font-size: 0.65rem;
+  width: 12px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.payroll-matrix__collapse-toggle:hover {
+  color: var(--text-primary);
+}
+
 .payroll-matrix__position-link {
   background: none;
   border: none;
