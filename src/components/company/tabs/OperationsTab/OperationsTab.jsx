@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  createCommercialCountry,
-  createCommercialRegion,
   fetchCommercialBranches,
   fetchCommercialCountries,
   fetchCommercialRegions,
@@ -11,19 +9,8 @@ import {
 } from '../../../../services/commercialStructure'
 
 const emptyForm = {
-  regionName: '',
   regionManager: '',
   regionUser: '',
-  countryName: '',
-  countryCode: '',
-  currency: '',
-  currencyCode: '',
-  countryManager: '',
-  countryUser: '',
-  branchName: '',
-  branchManager: '',
-  branchUser: '',
-  airport: '',
 }
 
 const fallbackRegions = [
@@ -45,9 +32,10 @@ function OperationsTab() {
   const [countries, setCountries] = useState([])
   const [branches, setBranches] = useState([])
   const [referenceRegions, setReferenceRegions] = useState([])
-  const [allReferenceCountries, setAllReferenceCountries] = useState([])
+  const [referenceCountries, setReferenceCountries] = useState([])
   const [selectedRegionName, setSelectedRegionName] = useState('')
   const [selectedCountryCode, setSelectedCountryCode] = useState('')
+  const [selectedBranchId, setSelectedBranchId] = useState('')
   const [form, setForm] = useState(emptyForm)
 
   const loadStructure = async () => {
@@ -63,8 +51,8 @@ function OperationsTab() {
     setCountries(nextCountries)
     setBranches(nextBranches)
 
-    if (!selectedRegionName && nextRegions[0]) {
-      setSelectedRegionName(nextRegions[0].name)
+    if (nextRegions[0]) {
+      setSelectedRegionName((previous) => previous || nextRegions[0].name)
     }
   }
 
@@ -79,31 +67,35 @@ function OperationsTab() {
           .map((row) => (typeof row === 'string' ? row : row?.region))
           .filter(Boolean)
         setReferenceRegions(normalized.length > 0 ? normalized : fallbackRegions)
-        if (!selectedRegionName && normalized[0]) {
-          setSelectedRegionName(normalized[0])
-        }
       })
       .catch(() => setReferenceRegions(fallbackRegions))
   }, [])
+
+  useEffect(() => {
+    if (!selectedRegionName) {
+      setReferenceCountries([])
+      return
+    }
+
+    fetchReferenceCountries(selectedRegionName)
+      .then((rows) => setReferenceCountries(Array.isArray(rows) ? rows : []))
+      .catch(() => setReferenceCountries([]))
+  }, [selectedRegionName])
 
   const selectedRegion = useMemo(
     () => regions.find((region) => region.name === selectedRegionName) ?? null,
     [regions, selectedRegionName],
   )
 
-  const filteredReferenceCountries = useMemo(() => {
-    const normalizedRegion = selectedRegionName.trim().toLowerCase()
-    if (!normalizedRegion) return []
-
-    return allReferenceCountries.filter(
-      (country) => (country.region ?? '').trim().toLowerCase() === normalizedRegion,
-    )
-  }, [allReferenceCountries, selectedRegionName])
-
-  const selectedReferenceCountry = useMemo(
-    () => filteredReferenceCountries.find((country) => country.country_code === selectedCountryCode) ?? null,
-    [filteredReferenceCountries, selectedCountryCode],
+  const selectedCountry = useMemo(
+    () => countries.find((country) => country.country_code === selectedCountryCode) ?? null,
+    [countries, selectedCountryCode],
   )
+
+  const filteredBranches = useMemo(() => {
+    if (!selectedCountry) return []
+    return branches.filter((branch) => branch.country_id === selectedCountry.id)
+  }, [branches, selectedCountry])
 
   const overviewRows = useMemo(() => {
     return branches.map((branch) => {
@@ -127,96 +119,19 @@ function OperationsTab() {
   }, [branches, countries, regions])
 
   useEffect(() => {
-    if (!selectedRegion) return
-    setForm((previous) => ({
-      ...previous,
-      regionName: selectedRegion.name,
-      regionManager: selectedRegion.manager_name ?? '',
-      regionUser: selectedRegion.user_name ?? '',
-    }))
+    setForm({
+      regionManager: selectedRegion?.manager_name ?? '',
+      regionUser: selectedRegion?.user_name ?? '',
+    })
   }, [selectedRegion])
 
   useEffect(() => {
-    if (!selectedRegionName) {
-      setAllReferenceCountries([])
-      setSelectedCountryCode('')
-      return
-    }
-
     setSelectedCountryCode('')
-    fetchReferenceCountries()
-      .then((rows) => {
-        const normalized = (Array.isArray(rows) ? rows : [])
-          .map((row) => ({
-            ...row,
-            name: row?.name ?? row?.country ?? '',
-            country_code: row?.country_code ?? row?.code ?? '',
-            currency: row?.currency ?? '',
-            currency_code: row?.currency_code ?? '',
-            region: row?.region ?? '',
-          }))
-          .filter((row) => row.name)
-        setAllReferenceCountries(normalized)
-      })
-      .catch(() => setAllReferenceCountries([]))
   }, [selectedRegionName])
 
   useEffect(() => {
-    if (!selectedReferenceCountry) {
-      setForm((previous) => ({
-        ...previous,
-        countryName: '',
-        countryCode: '',
-        currency: '',
-        currencyCode: '',
-      }))
-      return
-    }
-
-    setForm((previous) => ({
-      ...previous,
-      countryName: selectedReferenceCountry.name,
-      countryCode: selectedReferenceCountry.country_code,
-      currency: selectedReferenceCountry.currency,
-      currencyCode: selectedReferenceCountry.currency_code,
-    }))
-  }, [selectedReferenceCountry])
-
-  const handleCreateRegion = async () => {
-    if (!companyId || !selectedRegionName.trim()) return
-    await createCommercialRegion(companyId, {
-      name: selectedRegionName,
-      manager_name: form.regionManager || null,
-      user_name: form.regionUser || null,
-    })
-    await loadStructure()
-  }
-
-  const handleCreateCountry = async () => {
-    if (!companyId || !selectedRegionName || !form.countryName.trim()) return
-
-    let targetRegionId = selectedRegion?.id
-    if (!targetRegionId) {
-      const createdRegion = await createCommercialRegion(companyId, {
-        name: selectedRegionName,
-        manager_name: form.regionManager || null,
-        user_name: form.regionUser || null,
-      })
-      targetRegionId = createdRegion.id
-      await loadStructure()
-    }
-
-    await createCommercialCountry(companyId, {
-      region_id: targetRegionId,
-      name: form.countryName,
-      country_code: form.countryCode || null,
-      currency: form.currency || null,
-      currency_code: form.currencyCode || null,
-      manager_name: form.countryManager || null,
-      user_name: form.countryUser || null,
-    })
-    await loadStructure()
-  }
+    setSelectedBranchId('')
+  }, [selectedCountry])
 
   const handleInputChange = (field, value) => {
     setForm((previous) => ({ ...previous, [field]: value }))
@@ -249,15 +164,21 @@ function OperationsTab() {
     return (
       <div className="panel-surface" style={{ padding: '16px 0', boxSizing: 'border-box' }}>
         <div style={{ padding: '0 8px', width: '100%' }}>
-          <h3 style={{ margin: '0 0 18px', fontSize: '2rem', fontWeight: 700, color: '#e6edf8' }}>
-            Commercial Structure Management
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+            <h3 style={{ margin: 0, fontSize: '2rem', fontWeight: 700, color: '#e6edf8' }}>
+              Commercial Structure Management
+            </h3>
+            <button type="button" style={buttonStyle} onClick={() => {}}>
+              Edit Structure Information
+            </button>
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '22px' }}>
+            {/* Region Selection Row */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(180px, 240px) minmax(0, 1fr) minmax(0, 1fr) auto',
+                gridTemplateColumns: 'minmax(180px, 240px) minmax(0, 1fr) minmax(0, 1fr)',
                 gap: '18px',
                 alignItems: 'end',
               }}
@@ -269,6 +190,7 @@ function OperationsTab() {
                   onChange={(event) => {
                     setSelectedRegionName(event.target.value)
                     setSelectedCountryCode('')
+                    setSelectedBranchId('')
                   }}
                   style={{
                     width: '100%',
@@ -295,7 +217,7 @@ function OperationsTab() {
                   type="text"
                   value={form.regionManager}
                   onChange={(event) => handleInputChange('regionManager', event.target.value)}
-                  placeholder="Enter manager name"
+                  placeholder="Auto-populated from DB"
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -314,7 +236,7 @@ function OperationsTab() {
                   type="text"
                   value={form.regionUser}
                   onChange={(event) => handleInputChange('regionUser', event.target.value)}
-                  placeholder="Enter user name"
+                  placeholder="Auto-populated from DB"
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -326,16 +248,13 @@ function OperationsTab() {
                   }}
                 />
               </div>
-
-              <button type="button" style={buttonStyle} onClick={handleCreateRegion}>
-                Edit Region
-              </button>
             </div>
 
+            {/* Country Selection Row */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(180px, 240px) minmax(0, 1fr) minmax(0, 1fr) auto',
+                gridTemplateColumns: 'minmax(180px, 240px) minmax(0, 1fr) minmax(0, 1fr)',
                 gap: '18px',
                 alignItems: 'end',
               }}
@@ -344,7 +263,10 @@ function OperationsTab() {
                 <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Select Country</label>
                 <select
                   value={selectedCountryCode}
-                  onChange={(event) => setSelectedCountryCode(event.target.value)}
+                  onChange={(event) => {
+                    setSelectedCountryCode(event.target.value)
+                    setSelectedBranchId('')
+                  }}
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -356,7 +278,7 @@ function OperationsTab() {
                   }}
                 >
                   <option value="">-- Select --</option>
-                  {filteredReferenceCountries.map((country) => (
+                  {referenceCountries.map((country) => (
                     <option key={country.country_code} value={country.country_code}>
                       {country.name}
                     </option>
@@ -365,12 +287,10 @@ function OperationsTab() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country Manager</label>
-                <input
-                  type="text"
-                  value={form.countryManager}
-                  onChange={(event) => handleInputChange('countryManager', event.target.value)}
-                  placeholder="Enter country manager name"
+                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Branches</label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(event) => setSelectedBranchId(event.target.value)}
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -380,101 +300,17 @@ function OperationsTab() {
                     padding: '10px 12px',
                     fontSize: '15px',
                   }}
-                />
+                >
+                  <option value="">-- Select --</option>
+                  {filteredBranches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country User</label>
-                <input
-                  type="text"
-                  value={form.countryUser}
-                  onChange={(event) => handleInputChange('countryUser', event.target.value)}
-                  placeholder="Enter country user name"
-                  style={{
-                    width: '100%',
-                    background: '#111f31',
-                    color: '#eaf3ff',
-                    border: '1px solid #3b82f6',
-                    borderRadius: '8px',
-                    padding: '10px 12px',
-                    fontSize: '15px',
-                  }}
-                />
-              </div>
-
-              <button type="button" style={buttonStyle} onClick={handleCreateCountry}>
-                Add Country
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(180px, 240px) minmax(0, 1fr) minmax(0, 1fr) auto',
-                gap: '18px',
-                alignItems: 'end',
-              }}
-            >
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country Code / Currency</label>
-                <input
-                  type="text"
-                  value={form.countryCode && form.currencyCode ? `${form.countryCode} / ${form.currencyCode}` : ''}
-                  readOnly
-                  placeholder="Auto from selected country"
-                  style={{
-                    width: '100%',
-                    background: '#111f31',
-                    color: '#eaf3ff',
-                    border: '1px solid #3b82f6',
-                    borderRadius: '8px',
-                    padding: '10px 12px',
-                    fontSize: '15px',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Branch Manager</label>
-                <input
-                  type="text"
-                  value={form.branchManager}
-                  onChange={(event) => handleInputChange('branchManager', event.target.value)}
-                  placeholder="Enter branch manager name"
-                  style={{
-                    width: '100%',
-                    background: '#111f31',
-                    color: '#eaf3ff',
-                    border: '1px solid #3b82f6',
-                    borderRadius: '8px',
-                    padding: '10px 12px',
-                    fontSize: '15px',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Branch User</label>
-                <input
-                  type="text"
-                  value={form.branchUser}
-                  onChange={(event) => handleInputChange('branchUser', event.target.value)}
-                  placeholder="Enter branch user name"
-                  style={{
-                    width: '100%',
-                    background: '#111f31',
-                    color: '#eaf3ff',
-                    border: '1px solid #3b82f6',
-                    borderRadius: '8px',
-                    padding: '10px 12px',
-                    fontSize: '15px',
-                  }}
-                />
-              </div>
-
-              <button type="button" style={buttonStyle} onClick={handleCreateRegion}>
-                Region Core Data
-              </button>
+              <div />
             </div>
           </div>
 
