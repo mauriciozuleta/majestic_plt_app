@@ -246,10 +246,17 @@ function SettingsView() {
                     className="settings-view__delete-btn"
                     onClick={async () => {
                       if (!window.confirm(`Delete ${selectedCompany.name}? This removes all related data.`)) return
-                      await deleteCompany(selectedCompany.id)
-                      removeCompany(selectedCompany.id)
-                      setSelectedCompanyId('')
-                      navigate('/settings')
+                      try {
+                        await deleteCompany(selectedCompany.id)
+                        removeCompany(selectedCompany.id)
+                        setSelectedCompanyId('')
+                        setMessage(`${selectedCompany.name} was deleted.`)
+                        setMessageType('info')
+                        navigate('/settings')
+                      } catch (error) {
+                        setMessage(error.message || 'Failed to delete company. It has not been removed — please try again.')
+                        setMessageType('error')
+                      }
                     }}
                   >
                     Delete selected company
