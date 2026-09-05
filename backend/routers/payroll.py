@@ -69,44 +69,16 @@ def _get_effective_year_salary(db: Session, record: models.PayrollRecord, projec
     return record.year_salary
 
 
-def _normalize_legacy_start_projection_years(db: Session, company_id: str):
-    company_records = (
-        db.query(models.PayrollRecord)
-        .join(models.OrgChartNode, models.PayrollRecord.org_chart_node_id == models.OrgChartNode.id)
-        .filter(models.OrgChartNode.company_id == company_id)
-        .all()
-    )
-    if len(company_records) < 2:
-        return
-
-    if any((record.start_projection_year or 0) > 0 for record in company_records):
-        return
-
-    parsed_dates = []
-    for record in company_records:
-        try:
-            parsed_dates.append((record, date.fromisoformat(record.start_date)))
-        except (TypeError, ValueError):
-            continue
-
-    if len(parsed_dates) < 2:
-        return
-
-    baseline_date = min(parsed_date for _, parsed_date in parsed_dates)
-    updates = []
-    for record, parsed_date in parsed_dates:
-        elapsed_days = (parsed_date - baseline_date).days
-        derived_projection_year = max(0, elapsed_days // 360)
-        if derived_projection_year != (record.start_projection_year or 0):
-            updates.append((record, derived_projection_year))
-
-    if not updates:
-        return
-
-    for record, derived_projection_year in updates:
-        record.start_projection_year = derived_projection_year
-
-    db.flush()
+def _get_year_growth_rate(db: Session, record: models.PayrollRecord, projection_year: int):
+    """The raise % actually applied *for this specific year*, or None if none
+    was. Unlike salary, this deliberately does not carry forward from an
+    earlier year's override — each year's rate is independent, so applying a
+    raise to Year 2 must never appear as Year 1's rate (or vice versa)."""
+    yearly_salary = db.query(models.PayrollYearlySalary).filter_by(
+        payroll_record_id=record.id,
+        projection_year=projection_year,
+    ).first()
+    return yearly_salary.growth_rate_pct if yearly_salary else None
 
 
 def _compute_levels(nodes, edges):
@@ -217,13 +189,12 @@ def _row_for_node(db: Session, node_id: str, projection_year: int | None = None)
         start_date=record.start_date,
         headcount=headcount,
         employees=roster,
+        growth_rate_pct=_get_year_growth_rate(db, record, selected_projection_year),
     )
 
 
 @router.get('/companies/{company_id}/payroll', response_model=list[schemas.PayrollRowOut])
 def list_payroll(company_id: str, year: int = 0, db: Session = Depends(get_db)):
-    _normalize_legacy_start_projection_years(db, company_id)
-
     nodes = db.query(models.OrgChartNode).filter_by(company_id=company_id).all()
     edges = db.query(models.OrgChartEdge).filter_by(company_id=company_id).all()
     projection_years_limit = _get_projection_years_limit(db)
@@ -275,6 +246,7 @@ def list_payroll(company_id: str, year: int = 0, db: Session = Depends(get_db)):
                     start_date=record.start_date,
                     headcount=headcount,
                     employees=roster,
+                    growth_rate_pct=_get_year_growth_rate(db, record, selected_projection_year),
                 )
             )
         for child_id in children_by_parent.get(node_id, []):
@@ -285,6 +257,19 @@ def list_payroll(company_id: str, year: int = 0, db: Session = Depends(get_db)):
 
     db.commit()
     return rows
+
+
+@router.get('/companies/{company_id}/payroll-areas', response_model=list[str])
+def list_payroll_areas(company_id: str, db: Session = Depends(get_db)):
+    # Year-independent on purpose: a position not yet hired in the viewed year
+    # would otherwise vanish from the area suggestions along with its row.
+    areas = (
+        db.query(models.OrgChartNode.area)
+        .filter(models.OrgChartNode.company_id == company_id, models.OrgChartNode.area.isnot(None))
+        .distinct()
+        .all()
+    )
+    return sorted({area for (area,) in areas if area})
 
 
 @router.post('/companies/{company_id}/payroll-positions', response_model=schemas.PayrollRowOut)
@@ -401,82 +386,73 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
     return _row_for_node(db, node_id, selected_projection_year)
 
 
-@router.post('/payroll-positions/{node_id}/clone', response_model=schemas.PayrollRowOut)
-def clone_position(node_id: str, db: Session = Depends(get_db)):
-    source_node = db.query(models.OrgChartNode).filter_by(id=node_id).first()
-    if not source_node:
-        raise HTTPException(status_code=404, detail='Position not found')
+def _apply_growth_rate_to_record(db: Session, record: models.PayrollRecord, rate_pct: float, target_year: int):
+    """Sets the record's salary for the given year to (1 + rate%) of the
+    *previous* year's salary, e.g. a 3% rate makes Year 2 equal to Year 1
+    times 1.03. Anchoring on the previous year (not the target year's own,
+    possibly already-raised value) is what makes this idempotent: changing
+    the % and re-applying always recomputes from the same stable base
+    instead of compounding on top of whatever was applied last time. Year 0
+    has no previous year, so it bumps its own base salary directly. The rate
+    itself is persisted on the *year's own* PayrollYearlySalary row, not on
+    the position as a whole — otherwise applying a different rate to Year 2
+    would silently overwrite Year 1's stored rate, since a position only has
+    one of those rows per year but the record itself is shared across all of
+    them."""
+    if target_year == 0:
+        new_salary = round(record.year_salary * (1 + rate_pct / 100), 2)
+        record.year_salary = new_salary
+    else:
+        base_salary = _get_effective_year_salary(db, record, target_year - 1)
+        new_salary = round(base_salary * (1 + rate_pct / 100), 2)
 
-    source_record = db.query(models.PayrollRecord).filter_by(org_chart_node_id=node_id).first()
-    source_parent = db.query(models.OrgChartEdge).filter_by(target_node_id=node_id).first()
+    yearly_salary = _get_or_create_year_salary(db, record, target_year)
+    yearly_salary.year_salary = new_salary
+    yearly_salary.growth_rate_pct = rate_pct
 
-    clone_node = models.OrgChartNode(
-        id=str(uuid.uuid4()),
-        company_id=source_node.company_id,
-        office_name=source_node.office_name,
-        employee_name=None,
-        area=source_node.area,
-        position_x=source_node.position_x + 20,
-        position_y=source_node.position_y + 20,
-        sort_index=(source_node.sort_index or 0.0) + 0.5,
-    )
-    db.add(clone_node)
-    db.flush()
 
-    if source_parent:
-        db.add(
-            models.OrgChartEdge(
-                id=str(uuid.uuid4()),
-                company_id=source_node.company_id,
-                source_node_id=source_parent.source_node_id,
-                target_node_id=clone_node.id,
-            )
-        )
+def _clear_growth_rate_from_record(db: Session, record: models.PayrollRecord, target_year: int):
+    """Reverses whatever raise is applied for this year: drops the explicit
+    override so the year falls back to inheriting the previous year's salary
+    again, taking its stored rate down with it."""
+    if target_year == 0:
+        return
+    db.query(models.PayrollYearlySalary).filter_by(
+        payroll_record_id=record.id,
+        projection_year=target_year,
+    ).delete()
 
-    all_nodes = db.query(models.OrgChartNode).filter_by(company_id=source_node.company_id).all()
-    all_edges = db.query(models.OrgChartEdge).filter_by(company_id=source_node.company_id).all()
-    clone_node.sort_index = _next_sort_index(
-        all_nodes,
-        all_edges,
-        source_node.company_id,
-        source_parent.source_node_id if source_parent else None,
-    )
 
-    if source_record:
-        clone_record = models.PayrollRecord(
-            id=str(uuid.uuid4()),
-            org_chart_node_id=clone_node.id,
-            year_salary=source_record.year_salary,
-            start_date=source_record.start_date,
-            start_projection_year=source_record.start_projection_year,
-        )
-        db.add(clone_record)
-        db.flush()
+@router.post('/companies/{company_id}/apply-growth-rate-all', response_model=list[schemas.PayrollRowOut])
+def apply_growth_rate_all(company_id: str, payload: schemas.PayrollGrowthApply, year: int = 0, db: Session = Depends(get_db)):
+    nodes = db.query(models.OrgChartNode).filter_by(company_id=company_id).all()
+    projection_years_limit = _get_projection_years_limit(db)
+    target_year = _clamp_projection_year(year, projection_years_limit)
 
-        source_yearly_salaries = db.query(models.PayrollYearlySalary).filter_by(payroll_record_id=source_record.id).all()
-        for source_yearly_salary in source_yearly_salaries:
-            db.add(
-                models.PayrollYearlySalary(
-                    id=str(uuid.uuid4()),
-                    payroll_record_id=clone_record.id,
-                    projection_year=source_yearly_salary.projection_year,
-                    year_salary=source_yearly_salary.year_salary,
-                )
-            )
-
-    clone_projection_year = source_record.start_projection_year if source_record else 0
-    db.add(
-        models.PayrollEmployee(
-            id=str(uuid.uuid4()),
-            org_chart_node_id=clone_node.id,
-            employee_name=None,
-            start_date=source_record.start_date if source_record else date.today().isoformat(),
-            start_projection_year=clone_projection_year,
-        )
-    )
+    for node in nodes:
+        record = db.query(models.PayrollRecord).filter_by(org_chart_node_id=node.id).first()
+        if not record:
+            continue
+        _apply_growth_rate_to_record(db, record, payload.rate_pct, target_year)
 
     db.commit()
-    return _row_for_node(db, clone_node.id, clone_projection_year)
+    return list_payroll(company_id, target_year, db)
+
+
+@router.post('/companies/{company_id}/clear-growth-rate', response_model=list[schemas.PayrollRowOut])
+def clear_growth_rate(company_id: str, year: int = 0, db: Session = Depends(get_db)):
+    nodes = db.query(models.OrgChartNode).filter_by(company_id=company_id).all()
+    projection_years_limit = _get_projection_years_limit(db)
+    target_year = _clamp_projection_year(year, projection_years_limit)
+
+    for node in nodes:
+        record = db.query(models.PayrollRecord).filter_by(org_chart_node_id=node.id).first()
+        if not record:
+            continue
+        _clear_growth_rate_from_record(db, record, target_year)
+
+    db.commit()
+    return list_payroll(company_id, target_year, db)
 
 
 @router.get('/payroll-positions/{node_id}/employees', response_model=list[schemas.PayrollEmployeeOut])
@@ -504,6 +480,8 @@ def add_employee(node_id: str, payload: schemas.PayrollEmployeeCreate, year: int
             start_date=payload.start_date,
             end_date=payload.end_date,
             start_projection_year=selected_projection_year,
+            reports_to_node_id=payload.reports_to_node_id,
+            area=payload.area,
         )
     )
     db.commit()
@@ -527,6 +505,14 @@ def update_employee(employee_id: str, payload: schemas.PayrollEmployeeUpdate, ye
         employee.start_projection_year = updates['start_projection_year']
     if 'end_projection_year' in updates:
         employee.end_projection_year = updates['end_projection_year']
+    if 'reports_to_node_id' in updates:
+        employee.reports_to_node_id = updates['reports_to_node_id']
+    if 'area' in updates:
+        employee.area = updates['area']
+    if 'position_x' in updates:
+        employee.position_x = updates['position_x']
+    if 'position_y' in updates:
+        employee.position_y = updates['position_y']
 
     db.commit()
 

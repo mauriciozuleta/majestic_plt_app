@@ -78,6 +78,12 @@ def delete_company(company_id: str, db: Session = Depends(get_db)):
     db.query(models.OrgChartEdge).filter_by(company_id=company_id).delete(synchronize_session=False)
     db.query(models.OrgChartNode).filter_by(company_id=company_id).delete(synchronize_session=False)
     db.query(models.RoadmapTask).filter_by(company_id=company_id).delete(synchronize_session=False)
+    db.query(models.CommercialBranch).filter_by(company_id=company_id).delete(synchronize_session=False)
+    db.query(models.CommercialCountry).filter_by(company_id=company_id).delete(synchronize_session=False)
+    db.query(models.CommercialRegion).filter_by(company_id=company_id).delete(synchronize_session=False)
+    db.query(models.Company).filter_by(parent_company_id=company_id).update(
+        {models.Company.parent_company_id: None}, synchronize_session=False
+    )
     db.delete(company)
     db.commit()
     return {'ok': True}

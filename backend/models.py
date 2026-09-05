@@ -117,6 +117,7 @@ class PayrollRecord(Base):
     year_salary = Column(Float, nullable=False)
     start_date = Column(String, nullable=False)
     start_projection_year = Column(Integer, default=0)
+    growth_rate_pct = Column(Float, nullable=True)
 
 
 class PayrollYearlySalary(Base):
@@ -126,6 +127,7 @@ class PayrollYearlySalary(Base):
     payroll_record_id = Column(String, ForeignKey('payroll_records.id'), nullable=False, index=True)
     projection_year = Column(Integer, nullable=False)
     year_salary = Column(Float, nullable=False)
+    growth_rate_pct = Column(Float, nullable=True)
 
 
 class PayrollEmployee(Base):
@@ -138,3 +140,7 @@ class PayrollEmployee(Base):
     end_date = Column(String, nullable=True)
     start_projection_year = Column(Integer, default=0)
     end_projection_year = Column(Integer, nullable=True)
+    reports_to_node_id = Column(String, ForeignKey('org_chart_nodes.id'), nullable=True)
+    area = Column(String, nullable=True)
+    position_x = Column(Integer, nullable=True)
+    position_y = Column(Integer, nullable=True)

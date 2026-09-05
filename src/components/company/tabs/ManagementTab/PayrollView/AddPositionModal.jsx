@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import SimulationDatePicker from '../../../../shared/SimulationCalendar/SimulationDatePicker'
+import AreaAutocomplete from './AreaAutocomplete'
 
-function AddPositionModal({ positions, onSave, onCancel, initialStartDate, calendarMode, selectedYear = 0 }) {
+function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialStartDate, calendarMode, selectedYear = 0 }) {
   const [officeName, setOfficeName] = useState('')
   const [employeeName, setEmployeeName] = useState('')
   const [area, setArea] = useState('')
@@ -85,13 +86,7 @@ function AddPositionModal({ positions, onSave, onCancel, initialStartDate, calen
           </label>
           <label>
             Area
-            <input
-              type="text"
-              value={area}
-              onChange={(event) => setArea(event.target.value)}
-              placeholder="Pick or type an area"
-              list="payroll-area-options"
-            />
+            <AreaAutocomplete value={area} options={areaOptions} onChange={setArea} placeholder="Pick or type an area" />
           </label>
           <label>
             Subordinated to

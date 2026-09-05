@@ -3,7 +3,7 @@ import './OfficeNode.css'
 
 function OfficeNode({ data, selected }) {
   return (
-    <div className={`office-node ${selected ? 'is-selected' : ''}`}>
+    <div className={`office-node ${selected ? 'is-selected' : ''} ${data.isSeat ? 'is-seat' : ''}`}>
       <Handle type="target" position={Position.Top} className="office-node__handle" />
       <div className="office-node__title">{data.officeName}</div>
       <div className={`office-node__employee ${!data.employeeName ? 'is-vacant' : ''}`}>

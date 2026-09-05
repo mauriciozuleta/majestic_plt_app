@@ -4,84 +4,102 @@
   gap: 0.6rem;
 }
 
-.payroll-matrix__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.55rem;
-  background: var(--bg-panel);
-  border: 1px dashed var(--border-strong);
-  border-radius: 10px;
-  padding: 0.65rem 0.75rem;
-}
-
-.payroll-matrix__toolbar label {
+/* A shared border around both tables, so they read as one scrollable data
+   area even though each table scrolls independently underneath — a single
+   outer scrollbar spanning two differently-shaped tables (one has a Reports
+   To column, the other doesn't) turned out to break more than it fixed. */
+.payroll-matrix__scroll-outer {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  color: var(--text-muted);
-  font-size: 0.72rem;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
 }
 
-.payroll-matrix__toolbar input,
-.payroll-matrix__toolbar select {
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.payroll-matrix__panel {
   background: var(--bg-card);
-  color: var(--text-primary);
-  padding: 0.45rem 0.55rem;
-  font-size: 0.8rem;
+}
+
+.payroll-matrix__panel-title {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.payroll-matrix__scroll {
+  max-height: 320px;
+  overflow: auto;
 }
 
 .payroll-matrix__table {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  max-height: 440px;
-  overflow-y: auto;
-  overflow-x: auto;
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  min-width: 1200px;
+  font-size: 0.76rem;
 }
 
-.payroll-matrix__header,
-.payroll-matrix__row {
-  display: grid;
-  grid-template-columns: 1.4fr 1.4fr 1fr 1fr 1fr 28px;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0 10px;
-}
-
-.payroll-matrix__header {
-  background: var(--bg-panel);
+.payroll-matrix__table th,
+.payroll-matrix__table td {
+  padding: 0.4rem 0.55rem;
   border-bottom: 1px solid var(--border);
-  font-size: 10.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.payroll-matrix__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg-panel);
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  font-size: 0.62rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.payroll-matrix__table th.num,
+.payroll-matrix__table td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  padding-left: 0.35rem;
+  padding-right: 0.55rem;
+}
+
+.payroll-matrix__table td.sticky-col,
+.payroll-matrix__table th.sticky-col {
   position: sticky;
-  top: 0;
-  z-index: 2;
-  min-width: fit-content;
+  background: var(--bg-card);
+  z-index: 1;
 }
 
-.payroll-matrix__row {
-  border-bottom: 1px solid var(--border);
-  min-height: 44px;
+.payroll-matrix__table thead th.sticky-col { z-index: 4; background: var(--bg-panel); }
+
+/* Only the Position column clips overflowing text — the other sticky columns
+   (Yearly comp, Reports To, Area) hold self-contained inputs/selects that
+   don't spill over, and the Area cell specifically needs to stay
+   un-clipped so its autocomplete popup isn't cut off. */
+.payroll-matrix__table td.sticky-1,
+.payroll-matrix__table th.sticky-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.payroll-matrix__row:last-child {
-  border-bottom: none;
-}
+.payroll-matrix__table .sticky-1 { left: 0; width: 200px; }
+.payroll-matrix__table .sticky-2 { left: 200px; width: 100px; }
+.payroll-matrix__table .sticky-3 { left: 300px; width: 120px; }
+.payroll-matrix__table .sticky-4 { left: 420px; width: 120px; }
 
-.payroll-matrix__row input {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  padding: 0.35rem 0.4rem;
-  font-size: 0.76rem;
+.payroll-matrix__select {
+  margin: 0 0.45rem 0 0;
+  vertical-align: middle;
 }
 
 .payroll-matrix__position-link {
@@ -89,10 +107,14 @@
   border: none;
   color: var(--text-primary);
   font-weight: 500;
-  text-align: left;
   cursor: pointer;
   padding: 0;
-  font-size: 0.82rem;
+  font: inherit;
+  text-align: left;
+}
+
+.payroll-matrix__table tr.is-selected td {
+  background: rgba(232, 163, 61, 0.14);
 }
 
 .payroll-matrix__position-link:hover {
@@ -100,49 +122,157 @@
   text-decoration: underline;
 }
 
-.payroll-matrix__col--num {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
+.payroll-matrix__table select,
+.payroll-matrix__area-input {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.72rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.payroll-matrix__area-input {
+  font-family: inherit;
+}
+
+.payroll-matrix__area-input::placeholder {
+  color: var(--text-dim);
+}
+
+.payroll-matrix__month-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
   color: var(--text-secondary);
+  border-radius: 5px;
+  padding: 0.2rem 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
   text-align: right;
+}
+
+.payroll-matrix__month-input.is-dirty {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber-text);
+  background: rgba(232, 163, 61, 0.1);
+}
+
+/* category / seat hierarchy — same indent-and-mute language as the Roadmap subtask rows */
+.payroll-matrix__category-row td {
+  background: var(--bg-panel);
+  font-weight: 600;
+}
+
+.payroll-matrix__category-tag {
+  margin-left: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.payroll-matrix__muted {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-style: italic;
+}
+
+.payroll-matrix__seat-row td.sticky-1 {
+  padding-left: 1.6rem;
+  position: relative;
+}
+
+.payroll-matrix__seat-row {
+  display: table-row;
+}
+
+.payroll-matrix__seat-name {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.payroll-matrix__seat-row td.sticky-1::before {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-strong);
 }
 
 .payroll-matrix__remove {
   border: 1px solid var(--border-strong);
   background: var(--bg-panel);
   color: #fca5a5;
-  border-radius: 6px;
-  width: 22px;
-  height: 22px;
+  border-radius: 5px;
+  width: 16px;
+  height: 16px;
   cursor: pointer;
   line-height: 1;
+  font-size: 0.65rem;
+  flex-shrink: 0;
 }
 
 .payroll-matrix__remove:hover {
   background: rgba(185, 28, 28, 0.18);
 }
 
-.payroll-matrix__end-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+.payroll-matrix__comp-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-align: right;
+  /* Reclaim the space the native up/down spinner would otherwise take —
+     there's no room to spare in this column, and the drafts/save workflow
+     already covers the "nudge the value" use case those buttons are for. */
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
-.payroll-matrix__end-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  cursor: pointer;
+.payroll-matrix__comp-input::-webkit-outer-spin-button,
+.payroll-matrix__comp-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-.payroll-matrix__end-toggle input {
-  width: auto;
+.payroll-matrix__table select.is-dirty,
+.payroll-matrix__area-input.is-dirty,
+.payroll-matrix__comp-input.is-dirty {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber-text);
+  background: rgba(232, 163, 61, 0.1);
+}
+
+.payroll-matrix__category-row.is-dirty td {
+  background: rgba(232, 163, 61, 0.08);
+}
+
+.payroll-matrix__total-row td {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-panel);
+  border-top: 2px solid var(--accent-amber);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .payroll-matrix__empty {
   padding: 1rem;
   color: var(--text-muted);
   font-size: 0.78rem;
+  text-align: center;
 }

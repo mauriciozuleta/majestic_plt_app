@@ -1,26 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import * as XLSX from 'xlsx'
 import AddPositionModal from './AddPositionModal'
+import AreaAutocomplete from './AreaAutocomplete'
 import PayrollTable from './PayrollTable'
 import PayrollMatrix from './PayrollMatrix'
+import FileUploadButton from '../../../../shared/FileUploadButton'
 import { useCloneSelection } from './useCloneSelection'
 import { usePayrollData } from './usePayrollData'
+import { useHeadcountDrafts } from './useHeadcountDrafts'
+import { useMatrixFieldDrafts } from './useMatrixFieldDrafts'
+import { useTemplateImport } from './useTemplateImport'
 import { fetchSettings } from '../../../../../services/settings'
 import { broadcastCompanyDataChange, subscribeToCompanyDataChange } from '../../../../../services/companyDataSync'
 import { getDefaultCalendarDate } from '../../../../../services/calendarDates'
-import { parseFlatTemplate } from './importUtils'
 import { clusterResemblingAreas, pickCanonicalArea } from './areaUtils'
 import { SORT_OPTIONS, sortPositions } from './positionSort'
-import { addEmployee, createPosition, updatePosition } from '../../../../../services/payroll'
-import {
-  fetchPayrollTemplateFile,
-  fetchPayrollTemplateStatus,
-  generatePayrollTemplate,
-} from '../../../../../services/payrollTemplate'
+import { updatePosition } from '../../../../../services/payroll'
 import './PayrollView.css'
-
-const TEMPLATE_POLL_INTERVAL_MS = 3000
 
 function PayrollView({ companyId: companyIdProp }) {
   const params = useParams()
@@ -30,19 +26,14 @@ function PayrollView({ companyId: companyIdProp }) {
   const [activeArea, setActiveArea] = useState(null)
   const [sortBy, setSortBy] = useState('level')
   const [isModalOpen, setModalOpen] = useState(false)
-  const [templateState, setTemplateState] = useState('idle')
-  const [templateMessage, setTemplateMessage] = useState('')
-  const lastTemplateModifiedRef = useRef(null)
   const [selectedRowId, setSelectedRowId] = useState(null)
-  const [editorValues, setEditorValues] = useState({
-    officeName: '',
-    area: '',
-    parentNodeId: '',
-    yearSalary: '',
-  })
+  const [editorValues, setEditorValues] = useState({ officeName: '', area: '' })
   const [calendarMode, setCalendarMode] = useState('real')
+  const [defaultRaisePct, setDefaultRaisePct] = useState('')
+  const [defaultRaiseStatus, setDefaultRaiseStatus] = useState('idle')
   const {
     rows,
+    areas,
     loading,
     error,
     projectionYears,
@@ -52,9 +43,9 @@ function PayrollView({ companyId: companyIdProp }) {
     savePosition,
     cloneSelected,
     deleteSelected,
-    addRosterEmployee,
-    saveRosterEmployee,
     removeRosterEmployee,
+    growAllPositionsSalary,
+    clearAllPositionsSalaryRaise,
     reload,
   } = usePayrollData(companyId)
   const {
@@ -82,6 +73,15 @@ function PayrollView({ companyId: companyIdProp }) {
     return counts
   }, [rows])
 
+  // null = no raise applied to any position this year, a number = every position
+  // shares that rate (the normal case, since "Apply to all" is the only way to
+  // set it), undefined = positions disagree (e.g. one was added after the raise).
+  const appliedDefaultRaise = useMemo(() => {
+    if (rows.length === 0) return null
+    const rates = new Set(rows.map((row) => row.growth_rate_pct ?? null))
+    return rates.size === 1 ? [...rates][0] : undefined
+  }, [rows])
+
   const filteredRows = useMemo(() => {
     const areaFiltered = activeArea === null ? rows : rows.filter((row) => (row.area || 'Unassigned') === activeArea)
     return sortPositions(areaFiltered, sortBy)
@@ -99,10 +99,7 @@ function PayrollView({ companyId: companyIdProp }) {
     return { ...totals, positionCount: filteredRows.length }
   }, [filteredRows])
 
-  const distinctAreas = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.area).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [rows],
-  )
+  const distinctAreas = areas
 
   const areaClusters = useMemo(
     () => clusterResemblingAreas(Array.from(areaCounts.keys())),
@@ -118,11 +115,6 @@ function PayrollView({ companyId: companyIdProp }) {
       setActiveArea(canonicalArea)
     }
   }
-
-  const selectableParents = useMemo(
-    () => rows.filter((row) => row.node_id !== selectedRowId),
-    [rows, selectedRowId],
-  )
 
   useEffect(() => {
     let cancelled = false
@@ -151,27 +143,41 @@ function PayrollView({ companyId: companyIdProp }) {
 
   useEffect(() => {
     if (!selectedRow) {
-      setEditorValues({
-        officeName: '',
-        area: '',
-        parentNodeId: '',
-        yearSalary: '',
-      })
+      setEditorValues({ officeName: '', area: '' })
       return undefined
     }
 
     setEditorValues({
       officeName: selectedRow.office_name || '',
       area: selectedRow.area || '',
-      parentNodeId: selectedRow.parent_node_id || '',
-      yearSalary: String(selectedRow.year_salary ?? ''),
     })
   }, [selectedRow])
 
   const defaultStartDate = getDefaultCalendarDate(calendarMode)
 
+  const { headcountDrafts, savingHeadcount, handleDraftMonthChange, handleDiscardHeadcountDrafts, handleSaveHeadcountDrafts } =
+    useHeadcountDrafts({ companyId, rows, selectedYear, calendarMode, reload })
+
+  const {
+    positionDrafts,
+    employeeDrafts,
+    draftCount: fieldDraftCount,
+    savingFieldDrafts,
+    draftPositionField,
+    draftEmployeeField,
+    discardFieldDrafts,
+    saveFieldDrafts,
+  } = useMatrixFieldDrafts({ companyId, selectedYear, reload })
+
+  const { templateState, templateMessage, handleDownloadFormat, handleUploadFormat, dismissTemplateStatus } = useTemplateImport({
+    companyId,
+    rows,
+    defaultStartDate,
+    reload,
+  })
+
   const handleClone = async () => {
-    await cloneSelected(selectedIds)
+    await cloneSelected(selectedIds, defaultStartDate)
     reset()
   }
 
@@ -186,145 +192,60 @@ function PayrollView({ companyId: companyIdProp }) {
     await savePosition(selectedRowId, {
       office_name: editorValues.officeName,
       area: editorValues.area || null,
-      parent_node_id: editorValues.parentNodeId || null,
-      year_salary: Number(editorValues.yearSalary),
     })
   }
 
-  const handleImportTemplate = async (positions) => {
-    setTemplateState('importing')
-    setTemplateMessage('Importing the saved template…')
+  const handleRemoveEmployee = (employeeId) => removeRosterEmployee(employeeId)
 
-    try {
-      const nodeIdByName = new Map(rows.map((row) => [row.office_name, row.node_id]))
-      const existingByName = new Map(rows.map((row) => [row.office_name, row]))
+  const savingMatrixDrafts = savingHeadcount || savingFieldDrafts
+  const totalMatrixDrafts = headcountDrafts.size + fieldDraftCount
 
-      for (const position of positions) {
-        const existing = existingByName.get(position.name)
-
-        if (existing) {
-          const updates = {}
-          if (position.area) updates.area = position.area
-          if (position.compByYear[0]) updates.year_salary = position.compByYear[0]
-          if (Object.keys(updates).length > 0) {
-            // eslint-disable-next-line no-await-in-loop
-            await updatePosition(existing.node_id, updates, 0)
-          }
-          for (let yearIndex = 1; yearIndex < position.compByYear.length; yearIndex += 1) {
-            if (!position.compByYear[yearIndex]) continue
-            // eslint-disable-next-line no-await-in-loop
-            await updatePosition(existing.node_id, { year_salary: position.compByYear[yearIndex] }, yearIndex)
-          }
-
-          const existingHireKeys = new Set(
-            (existing.employees || []).map((employee) => `${employee.employee_name || ''}|${employee.start_date}`),
-          )
-          for (const hire of position.employees) {
-            const key = `${hire.employee_name || ''}|${hire.start_date}`
-            if (existingHireKeys.has(key)) continue
-            // eslint-disable-next-line no-await-in-loop
-            await addEmployee(
-              existing.node_id,
-              { employee_name: hire.employee_name, start_date: hire.start_date || defaultStartDate, end_date: hire.end_date },
-              0,
-            )
-          }
-        } else {
-          const [firstHire, ...remainingHires] = position.employees
-          // eslint-disable-next-line no-await-in-loop
-          const created = await createPosition(
-            companyId,
-            {
-              office_name: position.name,
-              employee_name: firstHire?.employee_name || null,
-              area: position.area || null,
-              parent_node_id: null,
-              year_salary: position.compByYear[0] || 0,
-              start_date: firstHire?.start_date || defaultStartDate,
-            },
-            0,
-          )
-          for (let yearIndex = 1; yearIndex < position.compByYear.length; yearIndex += 1) {
-            if (!position.compByYear[yearIndex]) continue
-            // eslint-disable-next-line no-await-in-loop
-            await updatePosition(created.node_id, { year_salary: position.compByYear[yearIndex] }, yearIndex)
-          }
-          for (const hire of remainingHires) {
-            // eslint-disable-next-line no-await-in-loop
-            await addEmployee(
-              created.node_id,
-              { employee_name: hire.employee_name, start_date: hire.start_date || defaultStartDate, end_date: hire.end_date },
-              0,
-            )
-          }
-          nodeIdByName.set(position.name, created.node_id)
-        }
-      }
-
-      // Second pass: every position (new or pre-existing) now has an id, so "Subordinated To"
-      // can be wired up regardless of which order positions appeared in the sheet.
-      for (const position of positions) {
-        if (!position.parentName) continue
-        const parentId = nodeIdByName.get(position.parentName)
-        const childId = nodeIdByName.get(position.name)
-        if (!parentId || !childId || parentId === childId) continue
-        // eslint-disable-next-line no-await-in-loop
-        await updatePosition(childId, { parent_node_id: parentId }, 0)
-      }
-
-      broadcastCompanyDataChange(companyId, 'payroll:import-template')
-      await reload()
-      setTemplateState('done')
-      setTemplateMessage(`Imported ${positions.length} position${positions.length === 1 ? '' : 's'} from the saved template.`)
-    } catch (err) {
-      setTemplateState('error')
-      setTemplateMessage(err.message || 'Something went wrong importing the template.')
-    }
+  const handleSaveMatrixDrafts = async () => {
+    await Promise.all([
+      headcountDrafts.size > 0 ? handleSaveHeadcountDrafts() : null,
+      fieldDraftCount > 0 ? saveFieldDrafts() : null,
+    ])
   }
 
-  const handleDownloadFormat = async () => {
-    setTemplateState('generating')
-    setTemplateMessage('Opening a template in Excel…')
-    try {
-      const status = await generatePayrollTemplate(companyId)
-      lastTemplateModifiedRef.current = status.modified_at
-      setTemplateState('watching')
-      setTemplateMessage("Template opened in Excel — fill it in, save (Ctrl+S), and this page will pick it up automatically.")
-    } catch (err) {
-      setTemplateState('error')
-      setTemplateMessage(err.message || 'Could not generate the template.')
-    }
+  const handleDiscardMatrixDrafts = () => {
+    handleDiscardHeadcountDrafts()
+    discardFieldDrafts()
   }
 
   useEffect(() => {
-    if (templateState !== 'watching') return undefined
+    if (appliedDefaultRaise === undefined) return
+    setDefaultRaisePct(appliedDefaultRaise != null ? String(appliedDefaultRaise) : '')
+    setDefaultRaiseStatus('idle')
+  }, [appliedDefaultRaise, selectedYear])
 
-    const interval = setInterval(async () => {
-      try {
-        const status = await fetchPayrollTemplateStatus(companyId)
-        if (!status.exists || status.modified_at === lastTemplateModifiedRef.current) return
+  const isDefaultRaiseApplied =
+    defaultRaiseStatus !== 'applying' &&
+    appliedDefaultRaise != null &&
+    defaultRaisePct !== '' &&
+    String(appliedDefaultRaise) === String(Number(defaultRaisePct))
 
-        lastTemplateModifiedRef.current = status.modified_at
-        const buffer = await fetchPayrollTemplateFile(companyId)
-        const workbook = XLSX.read(buffer, { type: 'array' })
-        const sheet = workbook.Sheets.Payroll || workbook.Sheets[workbook.SheetNames[0]]
-        const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
-        const parsed = parseFlatTemplate(jsonRows)
+  const handleClearDefaultRaise = async () => {
+    setDefaultRaiseStatus('applying')
+    try {
+      await clearAllPositionsSalaryRaise()
+      setDefaultRaisePct('')
+      setDefaultRaiseStatus('idle')
+    } catch {
+      setDefaultRaiseStatus('error')
+    }
+  }
 
-        if (parsed.positions.length === 0) {
-          setTemplateMessage(parsed.warnings[0] || 'The saved file has no rows to import yet.')
-          return
-        }
-        await handleImportTemplate(parsed.positions)
-      } catch {
-        // Transient poll failure (e.g. Excel still mid-save) — try again next tick.
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, TEMPLATE_POLL_INTERVAL_MS)
-
-    return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateState, companyId])
+  const handleApplyDefaultRaise = async () => {
+    const parsed = Number(defaultRaisePct)
+    if (!Number.isFinite(parsed) || parsed === 0) return
+    setDefaultRaiseStatus('applying')
+    try {
+      await growAllPositionsSalary(parsed)
+      setDefaultRaiseStatus('idle')
+    } catch {
+      setDefaultRaiseStatus('error')
+    }
+  }
 
   const handleRowReorder = async (fromNodeId, toNodeId) => {
     if (!fromNodeId || !toNodeId || fromNodeId === toNodeId) return
@@ -350,12 +271,6 @@ function PayrollView({ companyId: companyIdProp }) {
 
   return (
     <div className="payroll-view">
-      <datalist id="payroll-area-options">
-        {distinctAreas.map((area) => (
-          <option key={area} value={area} />
-        ))}
-      </datalist>
-
       <div className="payroll-view__stats">
         <div className="payroll-view__stat-tile">
           <div className="payroll-view__stat-label">Headcount (Year {selectedYear})</div>
@@ -391,6 +306,41 @@ function PayrollView({ companyId: companyIdProp }) {
             ))}
           </select>
         </label>
+        <label className="payroll-view__year-selector">
+          Default raise (Year {selectedYear})
+          <div className="payroll-view__default-raise">
+            <input
+              type="number"
+              step="0.5"
+              className="payroll-view__default-raise-input"
+              placeholder="%/yr"
+              value={defaultRaisePct}
+              onChange={(event) => {
+                setDefaultRaisePct(event.target.value)
+                setDefaultRaiseStatus('idle')
+              }}
+            />
+            <button
+              type="button"
+              className={`payroll-view__btn ${isDefaultRaiseApplied ? 'payroll-view__btn--primary' : ''}`}
+              disabled={!defaultRaisePct || defaultRaiseStatus === 'applying'}
+              onClick={handleApplyDefaultRaise}
+            >
+              {defaultRaiseStatus === 'applying' ? 'Applying…' : isDefaultRaiseApplied ? 'Applied' : 'Apply to all'}
+            </button>
+            {appliedDefaultRaise != null && selectedYear > 0 && (
+              <button
+                type="button"
+                className="payroll-view__btn"
+                disabled={defaultRaiseStatus === 'applying'}
+                onClick={handleClearDefaultRaise}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </label>
+        {defaultRaiseStatus === 'error' && <span className="payroll-view__default-raise-status is-error">Failed</span>}
         <label className="payroll-view__year-selector">
           Sort by
           <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort positions by">
@@ -428,10 +378,17 @@ function PayrollView({ companyId: companyIdProp }) {
           type="button"
           className="payroll-view__btn"
           onClick={handleDownloadFormat}
-          disabled={templateState === 'generating' || templateState === 'importing'}
+          disabled={templateState === 'downloading' || templateState === 'importing'}
         >
-          {templateState === 'generating' ? 'Opening…' : 'Download format'}
+          {templateState === 'downloading' ? 'Preparing…' : 'Download format'}
         </button>
+        <FileUploadButton
+          label={templateState === 'importing' ? 'Importing…' : 'Upload filled format'}
+          accept=".xlsx"
+          disabled={templateState === 'downloading' || templateState === 'importing'}
+          className="payroll-view__btn"
+          onFileSelected={handleUploadFormat}
+        />
         <button type="button" className="payroll-view__btn" onClick={toggleCloneMode}>
           {cloneMode ? 'Cancel' : 'Clone position'}
         </button>
@@ -457,9 +414,8 @@ function PayrollView({ companyId: companyIdProp }) {
           }`}
         >
           <span>{templateMessage}</span>
-          {templateState === 'watching' && <span className="payroll-view__template-spinner" aria-hidden="true" />}
           {(templateState === 'done' || templateState === 'error') && (
-            <button type="button" className="payroll-view__btn" onClick={() => setTemplateState('idle')}>
+            <button type="button" className="payroll-view__btn" onClick={dismissTemplateStatus}>
               Dismiss
             </button>
           )}
@@ -534,24 +490,59 @@ function PayrollView({ companyId: companyIdProp }) {
           onRowClick={(row) => {
             if (cloneMode || deleteMode) return
             setSelectedRowId(row.node_id)
+            setView('matrix')
           }}
           onDropRow={handleRowReorder}
         />
       ) : (
-        <PayrollMatrix
-          rows={filteredRows}
-          selectedYear={selectedYear}
-          calendarMode={calendarMode}
-          onPositionClick={(row) => setSelectedRowId(row.node_id)}
-          onAddEmployee={(nodeId, employee) => addRosterEmployee(nodeId, employee)}
-          onUpdateEmployee={(employeeId, updates) => saveRosterEmployee(employeeId, updates)}
-          onRemoveEmployee={(employeeId) => removeRosterEmployee(employeeId)}
-        />
+        <>
+          {totalMatrixDrafts > 0 && (
+            <div className="payroll-view__template-status">
+              <span>
+                {totalMatrixDrafts} unsaved change{totalMatrixDrafts === 1 ? '' : 's'} — the org chart won't reflect these until you save.
+              </span>
+              <span style={{ display: 'flex', gap: '0.5rem' }}>
+                <button type="button" className="payroll-view__btn" onClick={handleDiscardMatrixDrafts} disabled={savingMatrixDrafts}>
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  className="payroll-view__btn payroll-view__btn--primary"
+                  onClick={handleSaveMatrixDrafts}
+                  disabled={savingMatrixDrafts}
+                >
+                  {savingMatrixDrafts ? 'Saving…' : 'Save changes'}
+                </button>
+              </span>
+            </div>
+          )}
+          <PayrollMatrix
+            rows={filteredRows}
+            allPositions={rows}
+            areaOptions={distinctAreas}
+            selectedYear={selectedYear}
+            calendarMode={calendarMode}
+            headcountDrafts={headcountDrafts}
+            onDraftMonthChange={handleDraftMonthChange}
+            onPositionClick={(row) => setSelectedRowId(row.node_id)}
+            positionDrafts={positionDrafts}
+            employeeDrafts={employeeDrafts}
+            onDraftPositionField={draftPositionField}
+            onDraftEmployeeField={draftEmployeeField}
+            onRemoveEmployee={handleRemoveEmployee}
+            selectionMode={cloneMode || deleteMode}
+            selectedIds={selectedIds}
+            onToggleSelected={toggleSelected}
+          />
+        </>
       )}
 
-      {selectedRow ? (
+      {selectedRow && (
         <section className="payroll-view__editor">
-          <h4>Edit position</h4>
+          <h4>Position details</h4>
+          <p className="payroll-view__roster-hint" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
+            Headcount, "Reports to," and comp are all set directly in the Matrix grid above — this is just the name and area.
+          </p>
           <div className="payroll-view__editor-grid">
             <label>
               Position name
@@ -563,36 +554,11 @@ function PayrollView({ companyId: companyIdProp }) {
             </label>
             <label>
               Area
-              <input
-                type="text"
+              <AreaAutocomplete
                 value={editorValues.area}
-                onChange={(event) => setEditorValues((prev) => ({ ...prev, area: event.target.value }))}
-                list="payroll-area-options"
+                options={distinctAreas}
+                onChange={(nextArea) => setEditorValues((prev) => ({ ...prev, area: nextArea }))}
                 placeholder="Pick or type an area"
-              />
-            </label>
-            <label>
-              Subordinated to
-              <select
-                value={editorValues.parentNodeId}
-                onChange={(event) => setEditorValues((prev) => ({ ...prev, parentNodeId: event.target.value }))}
-              >
-                <option value="">— Top of chart —</option>
-                {selectableParents.map((position) => (
-                  <option key={position.node_id} value={position.node_id}>
-                    {position.office_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Year salary (Year {selectedYear})
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={editorValues.yearSalary}
-                onChange={(event) => setEditorValues((prev) => ({ ...prev, yearSalary: event.target.value }))}
               />
             </label>
           </div>
@@ -604,14 +570,7 @@ function PayrollView({ companyId: companyIdProp }) {
               Close
             </button>
           </div>
-
-          <p className="payroll-view__roster-hint">
-            {selectedRow.headcount} {selectedRow.headcount === 1 ? 'employee' : 'employees'} active in Year {selectedYear} —
-            manage who's on this position, and their start/end dates, from the <b>Matrix</b> view.
-          </p>
         </section>
-      ) : (
-        <div className="payroll-view__status">Click a position to edit its details.</div>
       )}
 
       {loading && rows.length === 0 ? <div className="payroll-view__status">Loading payroll...</div> : null}
@@ -622,6 +581,7 @@ function PayrollView({ companyId: companyIdProp }) {
       {isModalOpen && (
         <AddPositionModal
           positions={rows}
+          areaOptions={distinctAreas}
           calendarMode={calendarMode}
           initialStartDate={defaultStartDate}
           selectedYear={selectedYear}

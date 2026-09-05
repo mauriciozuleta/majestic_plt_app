@@ -100,10 +100,16 @@ class PayrollPositionUpdate(BaseModel):
     sort_index: Optional[float] = None
 
 
+class PayrollGrowthApply(BaseModel):
+    rate_pct: float
+
+
 class PayrollEmployeeBase(BaseModel):
     employee_name: Optional[str] = None
     start_date: str
     end_date: Optional[str] = None
+    reports_to_node_id: Optional[str] = None
+    area: Optional[str] = None
 
 
 class PayrollEmployeeCreate(PayrollEmployeeBase):
@@ -116,6 +122,10 @@ class PayrollEmployeeUpdate(BaseModel):
     end_date: Optional[str] = None
     start_projection_year: Optional[int] = None
     end_projection_year: Optional[int] = None
+    reports_to_node_id: Optional[str] = None
+    area: Optional[str] = None
+    position_x: Optional[int] = None
+    position_y: Optional[int] = None
 
 
 class PayrollEmployeeOut(PayrollEmployeeBase):
@@ -143,6 +153,7 @@ class PayrollRowOut(BaseModel):
     headcount: int = 1
     employees: list[PayrollEmployeeOut] = []
     linked_company_id: Optional[str] = None
+    growth_rate_pct: Optional[float] = None
 
     class Config:
         from_attributes = True

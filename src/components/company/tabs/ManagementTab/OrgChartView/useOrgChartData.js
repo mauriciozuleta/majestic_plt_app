@@ -9,16 +9,27 @@ import {
   fetchOrgChartNodes,
   updateOrgChartNode,
 } from '../../../../../services/orgChart'
+import { updateEmployee, deleteEmployee } from '../../../../../services/payroll'
 import { broadcastCompanyDataChange, subscribeToCompanyDataChange } from '../../../../../services/companyDataSync'
 import { fetchSettings } from '../../../../../services/settings'
 import { getLayoutedNodes } from './orgChartLayout'
+
+const SEAT_PREFIX = 'seat-'
+
+function isSeatId(id) {
+  return typeof id === 'string' && id.startsWith(SEAT_PREFIX)
+}
+
+function employeeIdFromSeatId(seatId) {
+  return seatId.slice(SEAT_PREFIX.length)
+}
 
 function toFlowNode(row) {
   return {
     id: row.id,
     type: 'officeNode',
     position: { x: row.position_x, y: row.position_y },
-    data: { officeName: row.office_name, employeeName: row.employee_name, area: row.area },
+    data: { officeName: row.office_name, employeeName: row.employee_name, area: row.area, isSeat: isSeatId(row.id) },
   }
 }
 
@@ -103,37 +114,52 @@ export function useOrgChartData(companyId, selectedYear) {
 
   const editOffice = useCallback(
     async (nodeId, { officeName, employeeName, area }) => {
-      await updateOrgChartNode(nodeId, {
-        office_name: officeName,
-        employee_name: employeeName || null,
-        area: area || null,
-      })
-      setNodes((prev) =>
-        prev.map((node) =>
-          node.id === nodeId
-            ? {
-                ...node,
-                data: { officeName, employeeName, area },
-              }
-            : node,
-        ),
-      )
+      if (isSeatId(nodeId)) {
+        // A seat's name ("Secretary #2") is derived from the position + its
+        // order, not editable directly — only who's in it and their area.
+        await updateEmployee(employeeIdFromSeatId(nodeId), { employee_name: employeeName || null, area: area || null }, selectedYear)
+        setNodes((prev) =>
+          prev.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, employeeName, area } } : node)),
+        )
+      } else {
+        await updateOrgChartNode(nodeId, {
+          office_name: officeName,
+          employee_name: employeeName || null,
+          area: area || null,
+        })
+        setNodes((prev) =>
+          prev.map((node) =>
+            node.id === nodeId
+              ? {
+                  ...node,
+                  data: { ...node.data, officeName, employeeName, area },
+                }
+              : node,
+          ),
+        )
+      }
       broadcastCompanyDataChange(companyId, 'org-chart:edit-office')
     },
-    [companyId, setNodes],
+    [companyId, selectedYear, setNodes],
   )
 
   const persistNodePosition = useCallback(async (nodeId, position) => {
-    await updateOrgChartNode(nodeId, {
-      position_x: Math.round(position.x),
-      position_y: Math.round(position.y),
-    })
+    const rounded = { position_x: Math.round(position.x), position_y: Math.round(position.y) }
+    if (isSeatId(nodeId)) {
+      await updateEmployee(employeeIdFromSeatId(nodeId), rounded, selectedYear)
+    } else {
+      await updateOrgChartNode(nodeId, rounded)
+    }
     broadcastCompanyDataChange(companyId, 'org-chart:move-office')
-  }, [companyId])
+  }, [companyId, selectedYear])
 
   const removeOffice = useCallback(
     async (nodeId) => {
-      await deleteOrgChartNode(nodeId)
+      if (isSeatId(nodeId)) {
+        await deleteEmployee(employeeIdFromSeatId(nodeId))
+      } else {
+        await deleteOrgChartNode(nodeId)
+      }
       setNodes((prev) => prev.filter((node) => node.id !== nodeId))
       setEdges((prev) => prev.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
       broadcastCompanyDataChange(companyId, 'org-chart:delete-office')
@@ -144,23 +170,36 @@ export function useOrgChartData(companyId, selectedYear) {
   const connectOffices = useCallback(
     async (connection) => {
       if (!connection.source || !connection.target) return
-      const created = await createOrgChartEdge(companyId, {
-        source_node_id: connection.source,
-        target_node_id: connection.target,
-      })
-      setEdges((prev) => addEdge({ ...connection, id: created.id }, prev))
+      if (isSeatId(connection.target)) {
+        // A seat's manager is stored on the employee, not as its own edge row.
+        await updateEmployee(employeeIdFromSeatId(connection.target), { reports_to_node_id: connection.source }, selectedYear)
+        await reload()
+      } else {
+        const created = await createOrgChartEdge(companyId, {
+          source_node_id: connection.source,
+          target_node_id: connection.target,
+        })
+        setEdges((prev) => addEdge({ ...connection, id: created.id }, prev))
+      }
       broadcastCompanyDataChange(companyId, 'org-chart:connect-offices')
     },
-    [companyId, setEdges],
+    [companyId, selectedYear, setEdges, reload],
   )
 
   const removeEdge = useCallback(
-    async (edgeId) => {
-      await deleteOrgChartEdge(edgeId)
-      setEdges((prev) => prev.filter((edge) => edge.id !== edgeId))
+    async (edge) => {
+      if (isSeatId(edge.target)) {
+        // Same reasoning as connectOffices: nothing to delete server-side except
+        // the employee's own reports-to value.
+        await updateEmployee(employeeIdFromSeatId(edge.target), { reports_to_node_id: null }, selectedYear)
+        await reload()
+      } else if (!edge.id.startsWith('virtual-')) {
+        await deleteOrgChartEdge(edge.id)
+        setEdges((prev) => prev.filter((existing) => existing.id !== edge.id))
+      }
       broadcastCompanyDataChange(companyId, 'org-chart:delete-edge')
     },
-    [companyId, setEdges],
+    [companyId, selectedYear, setEdges, reload],
   )
 
   const autoArrange = useCallback(
@@ -168,16 +207,16 @@ export function useOrgChartData(companyId, selectedYear) {
       const layouted = getLayoutedNodes(nodes, edges, direction)
       setNodes(layouted)
       await Promise.all(
-        layouted.map((node) =>
-          updateOrgChartNode(node.id, {
-            position_x: Math.round(node.position.x),
-            position_y: Math.round(node.position.y),
-          }),
-        ),
+        layouted.map((node) => {
+          const rounded = { position_x: Math.round(node.position.x), position_y: Math.round(node.position.y) }
+          return isSeatId(node.id)
+            ? updateEmployee(employeeIdFromSeatId(node.id), rounded, selectedYear)
+            : updateOrgChartNode(node.id, rounded)
+        }),
       )
       broadcastCompanyDataChange(companyId, 'org-chart:auto-arrange')
     },
-    [companyId, edges, nodes, setNodes],
+    [companyId, selectedYear, edges, nodes, setNodes],
   )
 
   return {

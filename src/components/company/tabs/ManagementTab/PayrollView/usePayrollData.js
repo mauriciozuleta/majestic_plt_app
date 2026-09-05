@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { deleteOrgChartNode } from '../../../../../services/orgChart'
 import {
   addEmployee,
-  clonePosition,
+  applyGrowthRateAll,
+  clearGrowthRateAll,
   createPosition,
   deleteEmployee,
   fetchPayroll,
+  fetchPayrollAreas,
   updateEmployee,
   updatePosition,
 } from '../../../../../services/payroll'
@@ -14,6 +16,7 @@ import { broadcastCompanyDataChange, subscribeToCompanyDataChange } from '../../
 
 export function usePayrollData(companyId) {
   const [rows, setRows] = useState([])
+  const [areas, setAreas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [projectionYears, setProjectionYears] = useState(5)
@@ -22,6 +25,7 @@ export function usePayrollData(companyId) {
   const reload = useCallback(async () => {
     if (!companyId) {
       setRows([])
+      setAreas([])
       setLoading(false)
       setError('No company selected')
       return
@@ -29,11 +33,16 @@ export function usePayrollData(companyId) {
 
     setLoading(true)
     try {
-      const [nextRows, settings] = await Promise.all([fetchPayroll(companyId, selectedYear), fetchSettings()])
+      const [nextRows, nextAreas, settings] = await Promise.all([
+        fetchPayroll(companyId, selectedYear),
+        fetchPayrollAreas(companyId),
+        fetchSettings(),
+      ])
       const nextProjectionYears = Math.max(5, Math.min(10, Number(settings.projection_years ?? 5)))
       setProjectionYears(nextProjectionYears)
       setSelectedYear((previousYear) => Math.max(0, Math.min(Number(previousYear ?? 0), nextProjectionYears)))
       setRows(nextRows)
+      setAreas(nextAreas)
       setError(null)
     } catch (loadError) {
       setError(loadError.message)
@@ -84,12 +93,16 @@ export function usePayrollData(companyId) {
   }, [companyId, reload, selectedYear])
 
   const cloneSelected = useCallback(
-    async (nodeIds) => {
-      await Promise.all(nodeIds.map((nodeId) => clonePosition(nodeId)))
+    async (nodeIds, startDate) => {
+      // "Cloning" a position adds another seat to the same position — the
+      // position itself isn't duplicated, only its headcount grows.
+      await Promise.all(
+        nodeIds.map((nodeId) => addEmployee(nodeId, { employee_name: null, start_date: startDate }, selectedYear)),
+      )
       broadcastCompanyDataChange(companyId, 'payroll:clone-position')
       await reload()
     },
-    [companyId, reload],
+    [companyId, reload, selectedYear],
   )
 
   const deleteSelected = useCallback(
@@ -128,8 +141,27 @@ export function usePayrollData(companyId) {
     [companyId, reload],
   )
 
+  const growAllPositionsSalary = useCallback(
+    async (ratePct) => {
+      await applyGrowthRateAll(companyId, ratePct, selectedYear)
+      broadcastCompanyDataChange(companyId, 'payroll:apply-growth-rate-all')
+      await reload()
+    },
+    [companyId, reload, selectedYear],
+  )
+
+  const clearAllPositionsSalaryRaise = useCallback(
+    async () => {
+      await clearGrowthRateAll(companyId, selectedYear)
+      broadcastCompanyDataChange(companyId, 'payroll:clear-growth-rate')
+      await reload()
+    },
+    [companyId, reload, selectedYear],
+  )
+
   return {
     rows,
+    areas,
     loading,
     error,
     projectionYears,
@@ -142,6 +174,8 @@ export function usePayrollData(companyId) {
     addRosterEmployee,
     saveRosterEmployee,
     removeRosterEmployee,
+    growAllPositionsSalary,
+    clearAllPositionsSalaryRaise,
     reload,
   }
 }

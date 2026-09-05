@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import AddOfficeModal from './AddOfficeModal'
 import OrgChartCanvas from './OrgChartCanvas'
@@ -33,20 +33,6 @@ function OrgChartView({ companyId: companyIdProp }) {
   useEffect(() => {
     setSelectedYear((previousYear) => Math.max(0, Math.min(Number(previousYear ?? 0), projectionYears)))
   }, [projectionYears])
-
-  const lastAutoArrangedYearRef = useRef(null)
-
-  useEffect(() => {
-    if (loading || nodes.length < 2) return
-    // autoArrange persists new node positions, which broadcasts a data-change event that
-    // triggers a reload of this same hook — without this guard, that reload flips `loading`
-    // again and re-fires this effect, arranging on an endless loop (visible as erratic,
-    // constantly-shifting nodes). Only arrange once per year actually viewed.
-    if (lastAutoArrangedYearRef.current === selectedYear) return
-    lastAutoArrangedYearRef.current = selectedYear
-    autoArrange('TB')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear, loading, nodes.length])
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) ?? null,
@@ -90,6 +76,9 @@ function OrgChartView({ companyId: companyIdProp }) {
         >
           + Add office
         </button>
+        <button type="button" className="org-chart-view__add-btn" onClick={() => autoArrange('TB')}>
+          Auto-arrange
+        </button>
       </div>
 
       <OrgChartCanvas
@@ -101,9 +90,7 @@ function OrgChartView({ companyId: companyIdProp }) {
         onNodeDragStop={persistNodePosition}
         onNodeClick={(node) => setSelectedNodeId(node.id)}
         onEdgesDelete={(deletedEdges) => {
-          deletedEdges.forEach((edge) => {
-            removeEdge(edge.id)
-          })
+          deletedEdges.forEach((edge) => removeEdge(edge))
         }}
       />
 
@@ -129,6 +116,8 @@ function OrgChartView({ companyId: companyIdProp }) {
               <input
                 type="text"
                 value={editorValues.officeName}
+                disabled={selectedNode.data.isSeat}
+                title={selectedNode.data.isSeat ? 'A seat\'s name is derived from its position — edit the position itself to rename it' : undefined}
                 onChange={(event) =>
                   setEditorValues((prev) => ({ ...prev, officeName: event.target.value }))
                 }

@@ -28,11 +28,29 @@ export async function updatePosition(nodeId, updates, year = 0) {
   return response.json()
 }
 
-export async function clonePosition(nodeId) {
-  const response = await fetch(`${API_BASE}/payroll-positions/${nodeId}/clone`, {
+export async function fetchPayrollAreas(companyId) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/payroll-areas`)
+  if (!response.ok) throw new Error('Failed to load payroll areas')
+  return response.json()
+}
+
+export async function applyGrowthRateAll(companyId, ratePct, year = 0) {
+  const params = new URLSearchParams({ year: String(Number(year)) })
+  const response = await fetch(`${API_BASE}/companies/${companyId}/apply-growth-rate-all?${params.toString()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rate_pct: ratePct }),
+  })
+  if (!response.ok) throw new Error('Failed to apply growth rate to all positions')
+  return response.json()
+}
+
+export async function clearGrowthRateAll(companyId, year = 0) {
+  const params = new URLSearchParams({ year: String(Number(year)) })
+  const response = await fetch(`${API_BASE}/companies/${companyId}/clear-growth-rate?${params.toString()}`, {
     method: 'POST',
   })
-  if (!response.ok) throw new Error('Failed to clone position')
+  if (!response.ok) throw new Error('Failed to clear the applied raise')
   return response.json()
 }
 

@@ -72,6 +72,19 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE payroll_yearly_salaries ADD COLUMN projection_year INTEGER DEFAULT 1'))
             if 'year_salary' not in yearly_columns:
                 connection.execute(text('ALTER TABLE payroll_yearly_salaries ADD COLUMN year_salary FLOAT DEFAULT 0.0'))
+            if 'growth_rate_pct' not in yearly_columns:
+                connection.execute(text('ALTER TABLE payroll_yearly_salaries ADD COLUMN growth_rate_pct FLOAT'))
+
+        if 'payroll_employees' in inspector.get_table_names():
+            employee_columns = {column['name'] for column in inspector.get_columns('payroll_employees')}
+            if 'reports_to_node_id' not in employee_columns:
+                connection.execute(text('ALTER TABLE payroll_employees ADD COLUMN reports_to_node_id VARCHAR'))
+            if 'area' not in employee_columns:
+                connection.execute(text('ALTER TABLE payroll_employees ADD COLUMN area VARCHAR'))
+            if 'position_x' not in employee_columns:
+                connection.execute(text('ALTER TABLE payroll_employees ADD COLUMN position_x INTEGER'))
+            if 'position_y' not in employee_columns:
+                connection.execute(text('ALTER TABLE payroll_employees ADD COLUMN position_y INTEGER'))
 
         if 'commercial_countries' in inspector.get_table_names():
             commercial_country_columns = {column['name'] for column in inspector.get_columns('commercial_countries')}
