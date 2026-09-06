@@ -35,6 +35,7 @@ def list_expenses(company_id: str, year: int = 0, db: Session = Depends(get_db))
             company_id=company_id, category_id=category.id, projection_year=year,
         ).first()
         months = json.loads(entry.months_json) if entry else [0.0] * 12
+        hardcoded = json.loads(entry.hardcoded_json) if entry and entry.hardcoded_json else [False] * 12
         rows.append(
             schemas.ExpenseEntryOut(
                 category_id=category.id,
@@ -42,6 +43,7 @@ def list_expenses(company_id: str, year: int = 0, db: Session = Depends(get_db))
                 sort_order=category.sort_order,
                 projection_year=year,
                 months=months,
+                hardcoded=hardcoded,
                 editable=category.name != PAYROLL_CATEGORY_NAME,
             )
         )
@@ -63,6 +65,8 @@ def update_expense_entry(
         raise HTTPException(status_code=400, detail='Payroll costs are imported automatically and cannot be edited here.')
     if len(payload.months) != 12:
         raise HTTPException(status_code=400, detail='Expected exactly 12 month values.')
+    if len(payload.hardcoded) != 12:
+        raise HTTPException(status_code=400, detail='Expected exactly 12 hardcoded flags.')
 
     entry = db.query(models.ExpenseEntry).filter_by(
         company_id=company_id, category_id=category_id, projection_year=year,
@@ -77,6 +81,7 @@ def update_expense_entry(
         db.add(entry)
 
     entry.months_json = json.dumps(payload.months)
+    entry.hardcoded_json = json.dumps(payload.hardcoded)
     db.commit()
 
     return schemas.ExpenseEntryOut(
@@ -85,5 +90,6 @@ def update_expense_entry(
         sort_order=category.sort_order,
         projection_year=year,
         months=payload.months,
+        hardcoded=payload.hardcoded,
         editable=True,
     )

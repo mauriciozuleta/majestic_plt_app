@@ -170,6 +170,16 @@ def _ensure_schema_migrations():
                         },
                     )
 
+        if 'expense_entries' in inspector.get_table_names():
+            expense_entry_columns = {column['name'] for column in inspector.get_columns('expense_entries')}
+            if 'hardcoded_json' not in expense_entry_columns:
+                connection.execute(
+                    text(
+                        "ALTER TABLE expense_entries ADD COLUMN hardcoded_json VARCHAR "
+                        "DEFAULT '[false,false,false,false,false,false,false,false,false,false,false,false]'"
+                    )
+                )
+
         if 'payroll_employees' in inspector.get_table_names():
             employee_columns = {column['name'] for column in inspector.get_columns('payroll_employees')}
             if 'reports_to_node_id' not in employee_columns:

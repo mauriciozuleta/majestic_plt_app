@@ -127,13 +127,17 @@ function ExpensesView() {
 
   const draftCount = drafts.size
 
-  const handleDraftMonthChange = (categoryId, monthIndex, value, currentMonths) => {
+  const handleDraftMonthChange = (categoryId, monthIndex, value, currentMonths, currentHardcoded) => {
     setDrafts((prev) => {
       const next = new Map(prev)
-      const base = next.get(categoryId) || [...currentMonths]
-      const updated = [...base]
-      updated[monthIndex] = value
-      next.set(categoryId, updated)
+      const base = next.get(categoryId) || { months: [...currentMonths], hardcoded: [...currentHardcoded] }
+      const months = [...base.months]
+      const hardcoded = [...base.hardcoded]
+      months[monthIndex] = value
+      // Any month the user types directly here is hardcoded from that point on —
+      // it stays marked even after saving, until a future integration overwrites it.
+      hardcoded[monthIndex] = true
+      next.set(categoryId, { months, hardcoded })
       return next
     })
   }
@@ -142,9 +146,9 @@ function ExpensesView() {
     setSaving(true)
     setError('')
     try {
-      for (const [categoryId, months] of drafts.entries()) {
+      for (const [categoryId, draft] of drafts.entries()) {
         // eslint-disable-next-line no-await-in-loop
-        await saveExpenseEntry(companyId, categoryId, selectedYear, months)
+        await saveExpenseEntry(companyId, categoryId, selectedYear, draft.months, draft.hardcoded)
       }
       await reloadMonthly()
     } catch (err) {
@@ -158,7 +162,7 @@ function ExpensesView() {
 
   const grandTotal = new Array(12).fill(0)
   entries.forEach((entry) => {
-    const months = entry.name === PAYROLL_CATEGORY_NAME ? payrollMonthly : drafts.get(entry.category_id) || entry.months
+    const months = entry.name === PAYROLL_CATEGORY_NAME ? payrollMonthly : drafts.get(entry.category_id)?.months || entry.months
     months.forEach((value, index) => {
       grandTotal[index] += Number(value) || 0
     })
@@ -236,8 +240,9 @@ function ExpensesView() {
             <tbody>
               {entries.map((entry) => {
                 const isPayroll = entry.name === PAYROLL_CATEGORY_NAME
-                const draftMonths = drafts.get(entry.category_id) || null
-                const displayMonths = isPayroll ? payrollMonthly : draftMonths || entry.months
+                const draft = drafts.get(entry.category_id) || null
+                const displayMonths = isPayroll ? payrollMonthly : draft?.months || entry.months
+                const displayHardcoded = draft?.hardcoded || entry.hardcoded
                 const rowTotal = displayMonths.reduce((sum, value) => sum + (Number(value) || 0), 0)
 
                 return (
@@ -253,15 +258,30 @@ function ExpensesView() {
                         </td>
                       ) : (
                         <td key={index} className="num">
-                          <input
-                            type="number"
-                            className={`expenses-view__month-input ${draftMonths ? 'is-dirty' : ''}`}
-                            value={value}
-                            onChange={(event) => {
-                              const next = Number(event.target.value)
-                              handleDraftMonthChange(entry.category_id, index, Number.isFinite(next) ? next : 0, entry.months)
-                            }}
-                          />
+                          <span className="expenses-view__cell">
+                            <input
+                              type="number"
+                              className={`expenses-view__month-input ${draft ? 'is-dirty' : ''} ${
+                                displayHardcoded[index] ? 'is-hardcoded' : ''
+                              }`}
+                              value={value}
+                              onChange={(event) => {
+                                const next = Number(event.target.value)
+                                handleDraftMonthChange(
+                                  entry.category_id,
+                                  index,
+                                  Number.isFinite(next) ? next : 0,
+                                  entry.months,
+                                  entry.hardcoded,
+                                )
+                              }}
+                            />
+                            {displayHardcoded[index] && (
+                              <span className="expenses-view__hardcoded-mark" title="Hardcoded value — not imported from another module">
+                                *
+                              </span>
+                            )}
+                          </span>
                         </td>
                       ),
                     )}

@@ -82,7 +82,8 @@
 }
 
 .expenses-view__scroll {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 65vh;
   border: 1px solid var(--border);
   border-radius: 10px;
 }
@@ -103,6 +104,9 @@
 }
 
 .expenses-view__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   background: var(--bg-panel);
   color: var(--text-dim);
   text-transform: uppercase;
@@ -129,7 +133,7 @@
 
 .expenses-view__table thead .sticky-col {
   background: var(--bg-panel);
-  z-index: 2;
+  z-index: 4;
 }
 
 .expenses-view__row--imported td {
@@ -165,7 +169,35 @@
 }
 
 .expenses-view__total-row td {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-panel);
   border-top: 2px solid var(--accent-amber);
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.expenses-view__total-row td.sticky-col {
+  z-index: 3;
+}
+
+.expenses-view__cell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+}
+
+.expenses-view__month-input.is-hardcoded {
+  border-color: #facc15;
+  box-shadow: 0 0 0 1px #facc15;
+}
+
+.expenses-view__hardcoded-mark {
+  position: absolute;
+  right: -0.7rem;
+  color: #facc15;
+  font-weight: 700;
+  font-size: 0.85rem;
+  pointer-events: none;
 }

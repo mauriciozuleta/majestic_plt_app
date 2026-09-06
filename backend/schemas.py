@@ -192,8 +192,10 @@ class ExpenseEntryOut(BaseModel):
     sort_order: int
     projection_year: int
     months: list[float]
+    hardcoded: list[bool]
     editable: bool
 
 
 class ExpenseEntryUpdate(BaseModel):
     months: list[float]
+    hardcoded: list[bool]

@@ -158,6 +158,7 @@ class ExpenseEntry(Base):
     category_id = Column(String, ForeignKey('expense_categories.id'), nullable=False, index=True)
     projection_year = Column(Integer, nullable=False)
     months_json = Column(String, nullable=False, default='[0,0,0,0,0,0,0,0,0,0,0,0]')
+    hardcoded_json = Column(String, nullable=False, default='[false,false,false,false,false,false,false,false,false,false,false,false]')
 
 
 class PayrollEmployee(Base):
