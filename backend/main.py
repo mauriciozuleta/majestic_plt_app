@@ -18,6 +18,7 @@ from .routers import (
     payroll_template,
     roadmap,
     settings,
+    startup_investment,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -285,3 +286,4 @@ app.include_router(expense_categories.router)
 app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)
 app.include_router(commercial_operations.router)
+app.include_router(startup_investment.router)

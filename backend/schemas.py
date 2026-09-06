@@ -216,3 +216,24 @@ class CommercialOperationEntryOut(CommercialOperationEntryCreate):
 
     class Config:
         from_attributes = True
+
+
+class StartupInvestmentPlanCreate(BaseModel):
+    pre_operational_months: int
+
+
+class StartupInvestmentPlanOut(StartupInvestmentPlanCreate):
+    id: str
+    company_id: str
+
+    class Config:
+        from_attributes = True
+
+
+class StartupInvestmentEntryOut(BaseModel):
+    category: str
+    months: list[float]
+
+
+class StartupInvestmentEntryUpdate(BaseModel):
+    months: list[float]

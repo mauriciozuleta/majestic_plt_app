@@ -161,6 +161,23 @@ class ExpenseEntry(Base):
     hardcoded_json = Column(String, nullable=False, default='[false,false,false,false,false,false,false,false,false,false,false,false]')
 
 
+class StartupInvestmentPlan(Base):
+    __tablename__ = 'startup_investment_plans'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, unique=True, nullable=False, index=True)
+    pre_operational_months = Column(Integer, nullable=False)
+
+
+class StartupInvestmentEntry(Base):
+    __tablename__ = 'startup_investment_entries'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    category = Column(String, nullable=False)
+    months_json = Column(String, nullable=False, default='[]')
+
+
 class CommercialOperationEntry(Base):
     __tablename__ = 'commercial_operation_entries'
 

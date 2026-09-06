@@ -9,6 +9,7 @@ const subTabLabels = {
   'overview-management': 'Corporate Structure Management',
   accounting: 'Accounting',
   'financial-modeling': 'Financial Modeling',
+  'startup-investment': 'Start-up Investment',
 }
 
 function slugify(value) {
@@ -29,7 +30,7 @@ const tabConfig = {
   },
   financial: {
     label: 'Financial',
-    subTabs: ['revenue-streams', 'expenses', 'accounting', 'financial-modeling'],
+    subTabs: ['revenue-streams', 'expenses', 'accounting', 'financial-modeling', 'startup-investment'],
   },
   simulator: {
     label: 'Simulator',

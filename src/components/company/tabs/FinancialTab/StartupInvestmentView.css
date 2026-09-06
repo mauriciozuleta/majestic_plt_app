@@ -1,0 +1,250 @@
+.startup-investment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: calc(100vh - 11rem);
+  overflow-y: auto;
+}
+
+.startup-investment__status {
+  padding: 1rem;
+  color: var(--text-muted);
+}
+
+.startup-investment__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+@media (max-width: 720px) {
+  .startup-investment__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.startup-investment__stat-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.startup-investment__stat-tile--primary {
+  border-color: rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.startup-investment__stat-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.startup-investment__stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.startup-investment__draft-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.startup-investment__draft-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.startup-investment__btn {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.startup-investment__btn--primary {
+  border-color: rgba(251, 146, 60, 0.65);
+  color: var(--accent-amber-text);
+  background: rgba(249, 115, 22, 0.18);
+}
+
+.startup-investment__error {
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.startup-investment__scroll {
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.startup-investment__table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 1000px;
+  font-size: 0.76rem;
+}
+
+.startup-investment__table th,
+.startup-investment__table td {
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.startup-investment__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.62rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.startup-investment__table th.num,
+.startup-investment__table td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.startup-investment__table .sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--bg-card);
+  z-index: 1;
+  text-align: left;
+  min-width: 220px;
+}
+
+.startup-investment__table thead .sticky-col {
+  background: var(--bg-panel);
+  z-index: 4;
+}
+
+.startup-investment__month-input {
+  width: 100%;
+  min-width: 64px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 5px;
+  padding: 0.25rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  text-align: right;
+}
+
+.startup-investment__month-input.is-dirty {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber-text);
+  background: rgba(232, 163, 61, 0.1);
+}
+
+.startup-investment__total-row td {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-panel);
+  border-top: 2px solid var(--accent-amber);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.startup-investment__total-row td.sticky-col {
+  z-index: 3;
+}
+
+/* Create-plan modal */
+.startup-investment-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.startup-investment-modal {
+  width: min(24rem, calc(100vw - 2rem));
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1.1rem;
+}
+
+.startup-investment-modal h3 {
+  margin: 0 0 0.4rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.startup-investment-modal p {
+  margin: 0 0 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.startup-investment-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.startup-investment-modal__field select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.55rem 0.6rem;
+}
+
+.startup-investment-modal__error {
+  color: #fca5a5;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.startup-investment-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.9rem;
+}
+
+.startup-investment-modal__create {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
