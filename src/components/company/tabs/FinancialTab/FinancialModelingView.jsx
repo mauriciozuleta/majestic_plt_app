@@ -24,9 +24,19 @@ const SECTIONS = [
     description: 'DCF, comparable-company, and precedent-transaction valuations.',
   },
   {
+    slug: 'comps',
+    label: 'COMPS',
+    description: 'Comparable company analysis — valuation multiples (EV/Revenue, EV/EBITDA) benchmarked against similar public and private companies.',
+  },
+  {
     slug: 'unit-economics',
     label: 'Unit Economics',
     description: 'Revenue and cost per unit — per customer, order, or contract.',
+  },
+  {
+    slug: 'revenue-per-employee',
+    label: 'Rev. per Employee',
+    description: 'Revenue generated per employee — a common efficiency benchmark investors use to gauge operating leverage.',
   },
   {
     slug: 'financial-projections',
