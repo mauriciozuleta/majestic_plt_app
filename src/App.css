@@ -21,6 +21,8 @@
   min-width: 0;
   width: calc(100vw - 18.5rem);
   min-width: calc(100vw - 18.5rem);
+  height: 100%;
+  overflow-y: auto;
   background: var(--bg-page);
   padding: 1rem;
 }
