@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 from .database import Base, engine
 from .routers import (
+    commercial_operations,
     commercial_structure,
     companies,
     expense_categories,
@@ -276,3 +277,4 @@ app.include_router(payroll_levels.router)
 app.include_router(expense_categories.router)
 app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)
+app.include_router(commercial_operations.router)

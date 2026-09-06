@@ -9,6 +9,7 @@ import {
   fetchReferenceCountries,
   fetchReferenceRegions,
 } from '../../../../services/commercialStructure'
+import CommercialOperationsView from './CommercialOperationsView/CommercialOperationsView'
 
 const emptyForm = {
   regionName: '',
@@ -234,15 +235,7 @@ function OperationsTab() {
   }
 
   if (activeSub === 'commercial-structure') {
-    return (
-      <div className="panel-surface" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h3>Operations</h3>
-        <p>Operational plan, service delivery, and execution status.</p>
-        <button type="button" className="payroll-view__btn payroll-view__btn--primary">
-          Add branch
-        </button>
-      </div>
-    )
+    return <CommercialOperationsView companyId={companyId} />
   }
 
   if (activeSub === 'overview-management') {

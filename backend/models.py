@@ -161,6 +161,17 @@ class ExpenseEntry(Base):
     hardcoded_json = Column(String, nullable=False, default='[false,false,false,false,false,false,false,false,false,false,false,false]')
 
 
+class CommercialOperationEntry(Base):
+    __tablename__ = 'commercial_operation_entries'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    category = Column(String, nullable=False)  # 'revenue' | 'cos' | 'expenses'
+    entry_date = Column(String, nullable=False, index=True)
+    description = Column(String, nullable=True)
+    amount = Column(Float, nullable=False)
+
+
 class PayrollEmployee(Base):
     __tablename__ = 'payroll_employees'
 

@@ -199,3 +199,18 @@ class ExpenseEntryOut(BaseModel):
 class ExpenseEntryUpdate(BaseModel):
     months: list[float]
     hardcoded: list[bool]
+
+
+class CommercialOperationEntryCreate(BaseModel):
+    category: str
+    entry_date: str
+    description: Optional[str] = None
+    amount: float
+
+
+class CommercialOperationEntryOut(CommercialOperationEntryCreate):
+    id: str
+    company_id: str
+
+    class Config:
+        from_attributes = True
