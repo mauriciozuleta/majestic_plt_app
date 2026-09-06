@@ -94,6 +94,17 @@ def _get_year_growth_rate(db: Session, record: models.PayrollRecord, projection_
     return yearly_salary.growth_rate_pct if yearly_salary else None
 
 
+def _get_year_payroll_level(db: Session, record: models.PayrollRecord, projection_year: int):
+    """The payroll grade (C1, D2, ...) assigned for this specific year, or
+    None if none was picked — exact-year only, same as the growth rate: a
+    grade chosen for one year must never bleed into another year's view."""
+    yearly_salary = db.query(models.PayrollYearlySalary).filter_by(
+        payroll_record_id=record.id,
+        projection_year=projection_year,
+    ).first()
+    return yearly_salary.payroll_level if yearly_salary else None
+
+
 def _compute_levels(nodes, edges):
     children_by_parent = {}
     has_parent = set()
@@ -203,6 +214,7 @@ def _row_for_node(db: Session, node_id: str, projection_year: int | None = None)
         headcount=headcount,
         employees=roster,
         growth_rate_pct=_get_year_growth_rate(db, record, selected_projection_year),
+        payroll_level=_get_year_payroll_level(db, record, selected_projection_year),
     )
 
 
@@ -260,6 +272,7 @@ def list_payroll(company_id: str, year: int = 0, db: Session = Depends(get_db)):
                     headcount=headcount,
                     employees=roster,
                     growth_rate_pct=_get_year_growth_rate(db, record, selected_projection_year),
+                    payroll_level=_get_year_payroll_level(db, record, selected_projection_year),
                 )
             )
         for child_id in children_by_parent.get(node_id, []):
@@ -327,6 +340,7 @@ def create_position(company_id: str, payload: schemas.PayrollPositionCreate, db:
     selected_projection_year = _clamp_projection_year(payload.projection_year if payload.projection_year is not None else 0, projection_years_limit)
     selected_year_salary = _get_or_create_year_salary(db, record, selected_projection_year)
     selected_year_salary.year_salary = payload.year_salary
+    selected_year_salary.payroll_level = payload.payroll_level
     record.year_salary = payload.year_salary
     record.start_projection_year = selected_projection_year
 
@@ -389,11 +403,14 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
         projection_years_limit,
     )
 
-    if 'year_salary' in updates:
+    if 'year_salary' in updates or 'payroll_level' in updates:
         selected_year_salary = _get_or_create_year_salary(db, record, selected_projection_year)
-        selected_year_salary.year_salary = updates['year_salary']
-        if selected_projection_year == 0:
-            record.year_salary = updates['year_salary']
+        if 'year_salary' in updates:
+            selected_year_salary.year_salary = updates['year_salary']
+            if selected_projection_year == 0:
+                record.year_salary = updates['year_salary']
+        if 'payroll_level' in updates:
+            selected_year_salary.payroll_level = updates['payroll_level']
 
     db.commit()
     return _row_for_node(db, node_id, selected_projection_year)

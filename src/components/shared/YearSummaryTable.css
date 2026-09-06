@@ -1,0 +1,61 @@
+.year-summary-table__scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.year-summary-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 640px;
+  font-size: 0.78rem;
+}
+
+.year-summary-table th,
+.year-summary-table td {
+  padding: 0.45rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.year-summary-table thead th {
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.66rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.year-summary-table th.num,
+.year-summary-table td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.year-summary-table .sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--bg-card);
+  z-index: 1;
+  text-align: left;
+}
+
+.year-summary-table thead .sticky-col {
+  background: var(--bg-panel);
+  z-index: 2;
+}
+
+.year-summary-table__total-row td {
+  border-top: 2px solid var(--accent-amber);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.year-summary-table__empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}

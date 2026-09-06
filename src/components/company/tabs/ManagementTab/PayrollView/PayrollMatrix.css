@@ -40,7 +40,7 @@
   border-collapse: collapse;
   table-layout: fixed;
   width: 100%;
-  min-width: 1200px;
+  min-width: 1250px;
   font-size: 0.76rem;
 }
 
@@ -83,9 +83,9 @@
 .payroll-matrix__table thead th.sticky-col { z-index: 4; background: var(--bg-panel); }
 
 /* Only the Position column clips overflowing text — the other sticky columns
-   (Yearly comp, Reports To, Area) hold self-contained inputs/selects that
-   don't spill over, and the Area cell specifically needs to stay
-   un-clipped so its autocomplete popup isn't cut off. */
+   (Level, Reports To, Area) hold self-contained inputs/selects that don't
+   spill over, and the Area cell specifically needs to stay un-clipped so
+   its autocomplete popup isn't cut off. */
 .payroll-matrix__table td.sticky-1,
 .payroll-matrix__table th.sticky-1 {
   overflow: hidden;
@@ -93,9 +93,9 @@
 }
 
 .payroll-matrix__table .sticky-1 { left: 0; width: 200px; }
-.payroll-matrix__table .sticky-2 { left: 200px; width: 100px; }
-.payroll-matrix__table .sticky-3 { left: 300px; width: 120px; }
-.payroll-matrix__table .sticky-4 { left: 420px; width: 120px; }
+.payroll-matrix__table .sticky-2 { left: 200px; width: 150px; }
+.payroll-matrix__table .sticky-3 { left: 350px; width: 120px; }
+.payroll-matrix__table .sticky-4 { left: 470px; width: 120px; }
 
 .payroll-matrix__select {
   margin: 0 0.45rem 0 0;
@@ -117,6 +117,23 @@
 
 .payroll-matrix__collapse-toggle:hover {
   color: var(--text-primary);
+}
+
+.payroll-matrix__level-select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 5px;
+  padding: 0.25rem 0.2rem;
+  font-size: 0.7rem;
+}
+
+.payroll-matrix__level-select.is-dirty {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber-text);
+  background: rgba(232, 163, 61, 0.1);
 }
 
 .payroll-matrix__position-link {
@@ -242,33 +259,8 @@
   background: rgba(185, 28, 28, 0.18);
 }
 
-.payroll-matrix__comp-input {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  border-radius: 6px;
-  padding: 0.35rem 0.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  text-align: right;
-  /* Reclaim the space the native up/down spinner would otherwise take —
-     there's no room to spare in this column, and the drafts/save workflow
-     already covers the "nudge the value" use case those buttons are for. */
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-
-.payroll-matrix__comp-input::-webkit-outer-spin-button,
-.payroll-matrix__comp-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
 .payroll-matrix__table select.is-dirty,
-.payroll-matrix__area-input.is-dirty,
-.payroll-matrix__comp-input.is-dirty {
+.payroll-matrix__area-input.is-dirty {
   border-color: var(--accent-amber);
   color: var(--accent-amber-text);
   background: rgba(232, 163, 61, 0.1);

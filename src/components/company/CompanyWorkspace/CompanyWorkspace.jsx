@@ -3,6 +3,12 @@ import './CompanyWorkspace.css'
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAppStore } from '../../../store/useAppStore'
 
+const subTabLabels = {
+  'revenue-streams': 'Revenue/COS',
+  'commercial-structure': 'Commercial Structure',
+  'overview-management': 'Corporate Structure Management',
+}
+
 function slugify(value) {
   return value
     .toLowerCase()
@@ -21,7 +27,7 @@ const tabConfig = {
   },
   financial: {
     label: 'Financial',
-    subTabs: ['revenue', 'cost-of-sales', 'expenses', 'reports'],
+    subTabs: ['revenue-streams', 'expenses', 'reports'],
   },
   simulator: {
     label: 'Simulator',
@@ -101,7 +107,7 @@ function CompanyWorkspace() {
                   : key === 'management'
                     ? `/company/${companyId}/management/roadmap`
                     : key === 'financial'
-                      ? `/company/${companyId}/financial/revenue`
+                      ? `/company/${companyId}/financial/revenue-streams`
                       : key === 'simulator'
                         ? `/company/${companyId}/simulator`
                         : key === 'drivers'
@@ -128,11 +134,7 @@ function CompanyWorkspace() {
               to={`/company/${companyId}/${activeTab}/${entry}`}
               className={({ isActive }) => `company-workspace__subtab ${isActive ? 'is-active' : ''}`}
             >
-              {entry === 'commercial-structure'
-                ? 'Commercial Structure'
-                : entry === 'overview-management'
-                  ? 'Overview Management'
-                  : entry.replace(/-/g, ' ')}
+              {subTabLabels[entry] || entry.replace(/-/g, ' ')}
             </NavLink>
           ))
         ) : null}

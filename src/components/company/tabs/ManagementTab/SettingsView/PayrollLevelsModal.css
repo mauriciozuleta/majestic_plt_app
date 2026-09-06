@@ -1,0 +1,139 @@
+.payroll-levels-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.payroll-levels-modal {
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  background: var(--bg-panel, #f8fafc);
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1rem;
+}
+
+.payroll-levels-modal h3 {
+  margin: 0 0 0.4rem;
+  color: var(--text-primary, #0f172a);
+  font-size: 1.05rem;
+}
+
+.payroll-levels-modal__hint {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.78rem;
+}
+
+.payroll-levels-modal__status {
+  padding: 1rem 0;
+  color: var(--text-muted, #64748b);
+}
+
+.payroll-levels-modal__table-scroll {
+  overflow-x: auto;
+}
+
+.payroll-levels-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.payroll-levels-modal__table th {
+  text-align: left;
+  padding: 0.3rem 0.4rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.payroll-levels-modal__table td {
+  padding: 0.25rem 0.4rem;
+}
+
+.payroll-levels-modal__table input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+  padding: 0.35rem 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.payroll-levels-modal__remove {
+  border: 1px solid rgba(185, 28, 28, 0.4);
+  background: rgba(185, 28, 28, 0.1);
+  color: #b91c1c;
+  border-radius: 5px;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.payroll-levels-modal__add {
+  margin-top: 0.6rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.payroll-levels-modal__message {
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+}
+
+.payroll-levels-modal__message--success {
+  color: #15803d;
+}
+
+.payroll-levels-modal__message--error {
+  color: #b91c1c;
+}
+
+.payroll-levels-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.payroll-levels-modal__cancel,
+.payroll-levels-modal__save {
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.payroll-levels-modal__cancel {
+  background: transparent;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  color: var(--text-secondary, #334155);
+}
+
+.payroll-levels-modal__save {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: #c2410c;
+}
+
+.payroll-levels-modal__save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

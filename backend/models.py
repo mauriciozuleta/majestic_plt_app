@@ -128,6 +128,36 @@ class PayrollYearlySalary(Base):
     projection_year = Column(Integer, nullable=False)
     year_salary = Column(Float, nullable=False)
     growth_rate_pct = Column(Float, nullable=True)
+    payroll_level = Column(String, nullable=True)
+
+
+class PayrollLevel(Base):
+    __tablename__ = 'payroll_levels'
+
+    id = Column(String, primary_key=True, index=True)
+    sort_order = Column(Integer, default=0)
+    level = Column(String, nullable=False)
+    yearly = Column(Float, nullable=False)
+    percentage = Column(Float, nullable=True)
+    monthly = Column(Float, nullable=True)
+
+
+class ExpenseCategory(Base):
+    __tablename__ = 'expense_categories'
+
+    id = Column(String, primary_key=True, index=True)
+    sort_order = Column(Integer, default=0)
+    name = Column(String, nullable=False)
+
+
+class ExpenseEntry(Base):
+    __tablename__ = 'expense_entries'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    category_id = Column(String, ForeignKey('expense_categories.id'), nullable=False, index=True)
+    projection_year = Column(Integer, nullable=False)
+    months_json = Column(String, nullable=False, default='[0,0,0,0,0,0,0,0,0,0,0,0]')
 
 
 class PayrollEmployee(Base):

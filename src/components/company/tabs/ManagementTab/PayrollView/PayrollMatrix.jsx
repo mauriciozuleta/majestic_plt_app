@@ -24,19 +24,24 @@ function ParentSelect({ value, isDirty, onChange, allPositions, excludeNodeId })
   )
 }
 
-function CompInput({ yearSalary, isDirty, onChange }) {
+function formatLevelOption(option) {
+  return `${option.level} > $${Math.round(option.yearly).toLocaleString()}`
+}
+
+function LevelSelect({ value, isDirty, options, onChange }) {
   return (
-    <input
-      type="number"
-      min="0"
-      step="500"
-      className={`payroll-matrix__comp-input ${isDirty ? 'is-dirty' : ''}`}
-      value={yearSalary}
-      onChange={(event) => {
-        const nextValue = Number(event.target.value)
-        if (Number.isFinite(nextValue)) onChange(nextValue)
-      }}
-    />
+    <select
+      className={`payroll-matrix__level-select ${isDirty ? 'is-dirty' : ''}`}
+      value={value || ''}
+      onChange={(event) => onChange(event.target.value || null)}
+    >
+      <option value="">— Level —</option>
+      {options.map((option) => (
+        <option key={option.id} value={option.level}>
+          {formatLevelOption(option)}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -62,6 +67,7 @@ function PayrollMatrix({
   rows,
   allPositions,
   areaOptions,
+  payrollLevels,
   selectedYear,
   calendarMode,
   headcountDrafts,
@@ -77,6 +83,7 @@ function PayrollMatrix({
   onToggleSelected,
 }) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set())
+  const levelOptions = payrollLevels || []
 
   const toggleCollapsed = (nodeId) => {
     setCollapsedIds((prev) => {
@@ -87,6 +94,12 @@ function PayrollMatrix({
     })
   }
 
+  const handleLevelChange = (nodeId, nextLevel) => {
+    onDraftPositionField(nodeId, 'payroll_level', nextLevel)
+    const matched = levelOptions.find((option) => option.level === nextLevel)
+    if (matched) onDraftPositionField(nodeId, 'year_salary', matched.yearly)
+  }
+
   const built = useMemo(
     () =>
       rows.map((row) => {
@@ -94,6 +107,7 @@ function PayrollMatrix({
         const effectiveParent = 'parent_node_id' in positionDraft ? positionDraft.parent_node_id : row.parent_node_id
         const effectiveArea = 'area' in positionDraft ? positionDraft.area : row.area
         const effectiveYearSalary = 'year_salary' in positionDraft ? positionDraft.year_salary : row.year_salary
+        const effectiveLevel = 'payroll_level' in positionDraft ? positionDraft.payroll_level : row.payroll_level
 
         const employees = row.employees || []
         const totalMonths = positionMonthlyHeadcount(employees, selectedYear, calendarMode)
@@ -126,6 +140,7 @@ function PayrollMatrix({
           effectiveParent,
           effectiveArea,
           effectiveYearSalary,
+          effectiveLevel,
           hasPositionDraft: positionDrafts.has(row.node_id),
         }
       }),
@@ -150,7 +165,7 @@ function PayrollMatrix({
               <thead>
                 <tr>
                   <th className="sticky-col sticky-1">Position</th>
-                  <th className="sticky-col sticky-2 num">Yearly comp</th>
+                  <th className="sticky-col sticky-2">Level</th>
                   <th className="sticky-col sticky-3">Reports To</th>
                   <th className="sticky-col sticky-4">Area</th>
                   {MONTH_LABELS.map((label) => (
@@ -162,7 +177,7 @@ function PayrollMatrix({
                 {built.length === 0 ? (
                   <tr><td colSpan={16} className="payroll-matrix__empty">No positions active in Year {selectedYear}.</td></tr>
                 ) : (
-                  built.flatMap(({ row, totalMonths, isSplit, seats, effectiveParent, effectiveArea, effectiveYearSalary, hasPositionDraft }) => {
+                  built.flatMap(({ row, totalMonths, isSplit, seats, effectiveParent, effectiveArea, effectiveLevel, hasPositionDraft }) => {
                     const draftMonths = headcountDrafts.get(row.node_id) || null
                     const positionDraft = positionDrafts.get(row.node_id) || {}
 
@@ -186,11 +201,12 @@ function PayrollMatrix({
                               {row.office_name}
                             </button>
                           </td>
-                          <td className="sticky-col sticky-2 num">
-                            <CompInput
-                              yearSalary={effectiveYearSalary}
-                              isDirty={'year_salary' in positionDraft}
-                              onChange={(nextValue) => onDraftPositionField(row.node_id, 'year_salary', nextValue)}
+                          <td className="sticky-col sticky-2">
+                            <LevelSelect
+                              value={effectiveLevel}
+                              isDirty={'payroll_level' in positionDraft}
+                              options={levelOptions}
+                              onChange={(nextLevel) => handleLevelChange(row.node_id, nextLevel)}
                             />
                           </td>
                           <td className="sticky-col sticky-3">
@@ -251,11 +267,12 @@ function PayrollMatrix({
                           </button>
                           <span className="payroll-matrix__category-tag">{seats.length} seats</span>
                         </td>
-                        <td className="sticky-col sticky-2 num">
-                          <CompInput
-                            yearSalary={effectiveYearSalary}
-                            isDirty={'year_salary' in positionDraft}
-                            onChange={(nextValue) => onDraftPositionField(row.node_id, 'year_salary', nextValue)}
+                        <td className="sticky-col sticky-2">
+                          <LevelSelect
+                            value={effectiveLevel}
+                            isDirty={'payroll_level' in positionDraft}
+                            options={levelOptions}
+                            onChange={(nextLevel) => handleLevelChange(row.node_id, nextLevel)}
                           />
                         </td>
                         <td className="sticky-col sticky-3" />

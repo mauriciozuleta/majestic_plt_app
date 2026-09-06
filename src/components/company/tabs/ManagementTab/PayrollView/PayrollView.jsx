@@ -4,6 +4,7 @@ import AddPositionModal from './AddPositionModal'
 import AreaAutocomplete from './AreaAutocomplete'
 import PayrollTable from './PayrollTable'
 import PayrollMatrix from './PayrollMatrix'
+import PayrollYearSummary from './PayrollYearSummary'
 import FileUploadButton from '../../../../shared/FileUploadButton'
 import { useCloneSelection } from './useCloneSelection'
 import { usePayrollData } from './usePayrollData'
@@ -16,6 +17,7 @@ import { getDefaultCalendarDate } from '../../../../../services/calendarDates'
 import { clusterResemblingAreas, pickCanonicalArea } from './areaUtils'
 import { SORT_OPTIONS, sortPositions } from './positionSort'
 import { updatePosition } from '../../../../../services/payroll'
+import { fetchPayrollLevels } from '../../../../../services/payrollLevels'
 import './PayrollView.css'
 
 function PayrollView({ companyId: companyIdProp }) {
@@ -31,6 +33,7 @@ function PayrollView({ companyId: companyIdProp }) {
   const [calendarMode, setCalendarMode] = useState('real')
   const [defaultRaisePct, setDefaultRaisePct] = useState('')
   const [defaultRaiseStatus, setDefaultRaiseStatus] = useState('idle')
+  const [payrollLevels, setPayrollLevels] = useState([])
   const {
     rows,
     areas,
@@ -142,6 +145,20 @@ function PayrollView({ companyId: companyIdProp }) {
   }, [companyId])
 
   useEffect(() => {
+    let cancelled = false
+    fetchPayrollLevels()
+      .then((levels) => {
+        if (!cancelled) setPayrollLevels(levels)
+      })
+      .catch(() => {
+        if (!cancelled) setPayrollLevels([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     if (!selectedRow) {
       setEditorValues({ officeName: '', area: '' })
       return undefined
@@ -172,6 +189,7 @@ function PayrollView({ companyId: companyIdProp }) {
   const { templateState, templateMessage, handleDownloadFormat, handleUploadFormat, dismissTemplateStatus } = useTemplateImport({
     companyId,
     rows,
+    payrollLevels,
     defaultStartDate,
     reload,
   })
@@ -358,6 +376,9 @@ function PayrollView({ companyId: companyIdProp }) {
           <button type="button" className={view === 'matrix' ? 'is-active' : ''} onClick={() => setView('matrix')}>
             Matrix
           </button>
+          <button type="button" className={view === 'year-summary' ? 'is-active' : ''} onClick={() => setView('year-summary')}>
+            Year Summary
+          </button>
         </div>
         <button
           type="button"
@@ -494,6 +515,8 @@ function PayrollView({ companyId: companyIdProp }) {
           }}
           onDropRow={handleRowReorder}
         />
+      ) : view === 'year-summary' ? (
+        <PayrollYearSummary companyId={companyId} projectionYears={projectionYears} calendarMode={calendarMode} />
       ) : (
         <>
           {totalMatrixDrafts > 0 && (
@@ -520,6 +543,7 @@ function PayrollView({ companyId: companyIdProp }) {
             rows={filteredRows}
             allPositions={rows}
             areaOptions={distinctAreas}
+            payrollLevels={payrollLevels}
             selectedYear={selectedYear}
             calendarMode={calendarMode}
             headcountDrafts={headcountDrafts}

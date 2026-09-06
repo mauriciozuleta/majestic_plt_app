@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import RoadmapDateInput from '../RoadmapView/RoadmapDateInput'
+import PayrollLevelsModal from './PayrollLevelsModal'
 import { deleteCompany } from '../../../../../services/companies'
 import { broadcastCompanyDataChange } from '../../../../../services/companyDataSync'
 import { fetchSettings, updateCalendarMode, updateTimeProjection } from '../../../../../services/settings'
@@ -19,6 +20,7 @@ function SettingsView() {
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('info')
+  const [isPayrollLevelsModalOpen, setPayrollLevelsModalOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -185,6 +187,16 @@ function SettingsView() {
 
       <div className="settings-view__card">
         <div className="settings-view__section-heading">
+          <h4>Payroll levels</h4>
+          <p>The grade table (C1, C2, ... F4) positions can be assigned to in the Payroll Matrix.</p>
+        </div>
+        <button type="button" className="settings-view__btn" onClick={() => setPayrollLevelsModalOpen(true)}>
+          Edit payroll settings
+        </button>
+      </div>
+
+      <div className="settings-view__card">
+        <div className="settings-view__section-heading">
           <h4>Delete company</h4>
           <p>Select a company card, then delete it.</p>
         </div>
@@ -269,6 +281,8 @@ function SettingsView() {
           </>
         )}
       </div>
+
+      {isPayrollLevelsModalOpen && <PayrollLevelsModal onClose={() => setPayrollLevelsModalOpen(false)} />}
     </section>
   )
 }

@@ -7,7 +7,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 from .database import Base, engine
-from .routers import commercial_structure, companies, org_chart, payroll, payroll_template, roadmap, settings
+from .routers import (
+    commercial_structure,
+    companies,
+    expense_categories,
+    org_chart,
+    payroll,
+    payroll_levels,
+    payroll_template,
+    roadmap,
+    settings,
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -74,6 +84,91 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE payroll_yearly_salaries ADD COLUMN year_salary FLOAT DEFAULT 0.0'))
             if 'growth_rate_pct' not in yearly_columns:
                 connection.execute(text('ALTER TABLE payroll_yearly_salaries ADD COLUMN growth_rate_pct FLOAT'))
+            if 'payroll_level' not in yearly_columns:
+                connection.execute(text('ALTER TABLE payroll_yearly_salaries ADD COLUMN payroll_level VARCHAR'))
+
+        if 'payroll_levels' in inspector.get_table_names():
+            level_count = connection.execute(text('SELECT COUNT(*) FROM payroll_levels')).scalar() or 0
+            if level_count == 0:
+                default_levels = [
+                    ('C1', 480000.0, 100.0, 40000.0),
+                    ('C2', 432000.0, 90.0, 36000.0),
+                    ('C3', 384000.0, 80.0, 32000.0),
+                    ('D1', 336000.0, 70.0, 28000.0),
+                    ('D2', 288000.0, 60.0, 24000.0),
+                    ('D3', 240000.0, 50.0, 20000.0),
+                    ('D4', 192000.0, 40.0, 16000.0),
+                    ('E1', 144000.0, 30.0, 12000.0),
+                    ('E2', 96000.0, 20.0, 8000.0),
+                    ('E3', 72000.0, 15.0, 6000.0),
+                    ('E4', 48000.0, 10.0, 4000.0),
+                    ('E5', 43200.0, 9.0, 3600.0),
+                    ('F1', 38400.0, 8.0, 3200.0),
+                    ('F2', 33600.0, 7.0, 2800.0),
+                    ('F3', 28800.0, 6.0, 2400.0),
+                    ('F4', 24000.0, 5.0, 2000.0),
+                ]
+                for index, (level, yearly, percentage, monthly) in enumerate(default_levels):
+                    connection.execute(
+                        text(
+                            """
+                            INSERT INTO payroll_levels (id, sort_order, level, yearly, percentage, monthly)
+                            VALUES (:id, :sort_order, :level, :yearly, :percentage, :monthly)
+                            """
+                        ),
+                        {
+                            'id': str(uuid.uuid4()),
+                            'sort_order': index,
+                            'level': level,
+                            'yearly': yearly,
+                            'percentage': percentage,
+                            'monthly': monthly,
+                        },
+                    )
+
+        if 'expense_categories' in inspector.get_table_names():
+            expense_category_count = connection.execute(text('SELECT COUNT(*) FROM expense_categories')).scalar() or 0
+            if expense_category_count == 0:
+                default_expense_categories = [
+                    'Marketing & Advertising',
+                    'Auto Expense',
+                    'Bank Service Charges',
+                    'Dues, Books & Subcriptions',
+                    'Insurance',
+                    'Internet Maintenance',
+                    'Licenses & Permits',
+                    'Meals & Entertainment',
+                    'Merchant Account Fees',
+                    'Office Supplies',
+                    'Outside Services',
+                    'Payroll',
+                    'Payroll Tax Expense',
+                    'Employee Benefits',
+                    'Postage & Delivery',
+                    'Printing & Reproduction',
+                    'Professional Fees',
+                    'Rent St marteen Warehouse',
+                    'Rent / Other warehouses',
+                    'Repairs & Maintenance',
+                    'Telephone Expense',
+                    'Travel Expense',
+                    'Utilities',
+                    'Miscellaneous',
+                ]
+                for index, name in enumerate(default_expense_categories):
+                    connection.execute(
+                        text(
+                            """
+                            INSERT INTO expense_categories (id, sort_order, name)
+                            VALUES (:id, :sort_order, :name)
+                            """
+                        ),
+                        {
+                            'id': str(uuid.uuid4()),
+                            'sort_order': index,
+                            'name': name,
+                        },
+                    )
 
         if 'payroll_employees' in inspector.get_table_names():
             employee_columns = {column['name'] for column in inspector.get_columns('payroll_employees')}
@@ -167,5 +262,7 @@ app.include_router(settings.router)
 app.include_router(companies.router)
 app.include_router(org_chart.router)
 app.include_router(payroll.router)
+app.include_router(payroll_levels.router)
+app.include_router(expense_categories.router)
 app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)

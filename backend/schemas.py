@@ -87,6 +87,7 @@ class PayrollPositionCreate(BaseModel):
     area: Optional[str] = None
     parent_node_id: Optional[str] = None
     year_salary: float
+    payroll_level: Optional[str] = None
     start_date: str
     projection_year: Optional[int] = None
 
@@ -96,6 +97,7 @@ class PayrollPositionUpdate(BaseModel):
     area: Optional[str] = None
     parent_node_id: Optional[str] = None
     year_salary: Optional[float] = None
+    payroll_level: Optional[str] = None
     projection_year: Optional[int] = None
     sort_index: Optional[float] = None
 
@@ -154,6 +156,44 @@ class PayrollRowOut(BaseModel):
     employees: list[PayrollEmployeeOut] = []
     linked_company_id: Optional[str] = None
     growth_rate_pct: Optional[float] = None
+    payroll_level: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class PayrollLevelIn(BaseModel):
+    level: str
+    yearly: float
+    percentage: Optional[float] = None
+    monthly: Optional[float] = None
+
+
+class PayrollLevelOut(PayrollLevelIn):
+    id: str
+    sort_order: int
+
+    class Config:
+        from_attributes = True
+
+
+class ExpenseCategoryOut(BaseModel):
+    id: str
+    sort_order: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class ExpenseEntryOut(BaseModel):
+    category_id: str
+    name: str
+    sort_order: int
+    projection_year: int
+    months: list[float]
+    editable: bool
+
+
+class ExpenseEntryUpdate(BaseModel):
+    months: list[float]

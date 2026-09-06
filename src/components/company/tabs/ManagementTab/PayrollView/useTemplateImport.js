@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addEmployee, createPosition, updatePosition } from '../../../../../services/payroll'
+import { createPosition, updatePosition } from '../../../../../services/payroll'
 import { broadcastCompanyDataChange } from '../../../../../services/companyDataSync'
 import { downloadPayrollTemplate } from '../../../../../services/payrollTemplate'
 import { readWorkbookRows } from '../../../../../services/excelImport'
@@ -13,7 +13,7 @@ import { parseFlatTemplate } from './importUtils'
  * the spreadsheet editor running on the same machine, and there's no
  * background watch state to lose if the user navigates away mid-edit.
  */
-export function useTemplateImport({ companyId, rows, defaultStartDate, reload }) {
+export function useTemplateImport({ companyId, rows, payrollLevels, defaultStartDate, reload }) {
   const [templateState, setTemplateState] = useState('idle')
   const [templateMessage, setTemplateMessage] = useState('')
 
@@ -24,65 +24,38 @@ export function useTemplateImport({ companyId, rows, defaultStartDate, reload })
     try {
       const nodeIdByName = new Map(rows.map((row) => [row.office_name, row.node_id]))
       const existingByName = new Map(rows.map((row) => [row.office_name, row]))
+      const levelByCode = new Map((payrollLevels || []).map((level) => [level.level, level]))
 
       for (const position of positions) {
         const existing = existingByName.get(position.name)
+        const matchedLevel = position.level ? levelByCode.get(position.level) : null
 
         if (existing) {
           const updates = {}
           if (position.area) updates.area = position.area
-          if (position.compByYear[0]) updates.year_salary = position.compByYear[0]
+          if (matchedLevel) {
+            updates.payroll_level = matchedLevel.level
+            updates.year_salary = matchedLevel.yearly
+          }
           if (Object.keys(updates).length > 0) {
             // eslint-disable-next-line no-await-in-loop
             await updatePosition(existing.node_id, updates, 0)
           }
-          for (let yearIndex = 1; yearIndex < position.compByYear.length; yearIndex += 1) {
-            if (!position.compByYear[yearIndex]) continue
-            // eslint-disable-next-line no-await-in-loop
-            await updatePosition(existing.node_id, { year_salary: position.compByYear[yearIndex] }, yearIndex)
-          }
-
-          const existingHireKeys = new Set(
-            (existing.employees || []).map((employee) => `${employee.employee_name || ''}|${employee.start_date}`),
-          )
-          for (const hire of position.employees) {
-            const key = `${hire.employee_name || ''}|${hire.start_date}`
-            if (existingHireKeys.has(key)) continue
-            // eslint-disable-next-line no-await-in-loop
-            await addEmployee(
-              existing.node_id,
-              { employee_name: hire.employee_name, start_date: hire.start_date || defaultStartDate, end_date: hire.end_date },
-              0,
-            )
-          }
         } else {
-          const [firstHire, ...remainingHires] = position.employees
           // eslint-disable-next-line no-await-in-loop
           const created = await createPosition(
             companyId,
             {
               office_name: position.name,
-              employee_name: firstHire?.employee_name || null,
+              employee_name: null,
               area: position.area || null,
               parent_node_id: null,
-              year_salary: position.compByYear[0] || 0,
-              start_date: firstHire?.start_date || defaultStartDate,
+              year_salary: matchedLevel ? matchedLevel.yearly : 0,
+              payroll_level: matchedLevel ? matchedLevel.level : null,
+              start_date: defaultStartDate,
             },
             0,
           )
-          for (let yearIndex = 1; yearIndex < position.compByYear.length; yearIndex += 1) {
-            if (!position.compByYear[yearIndex]) continue
-            // eslint-disable-next-line no-await-in-loop
-            await updatePosition(created.node_id, { year_salary: position.compByYear[yearIndex] }, yearIndex)
-          }
-          for (const hire of remainingHires) {
-            // eslint-disable-next-line no-await-in-loop
-            await addEmployee(
-              created.node_id,
-              { employee_name: hire.employee_name, start_date: hire.start_date || defaultStartDate, end_date: hire.end_date },
-              0,
-            )
-          }
           nodeIdByName.set(position.name, created.node_id)
         }
       }

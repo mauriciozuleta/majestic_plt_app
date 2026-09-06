@@ -1,0 +1,171 @@
+.expenses-view__toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
+.expenses-view__view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.expenses-view__view-toggle button {
+  border: none;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border-right: 1px solid var(--border-strong);
+}
+
+.expenses-view__view-toggle button:last-child {
+  border-right: none;
+}
+
+.expenses-view__view-toggle button.is-active {
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}
+
+.expenses-view__year-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.expenses-view__year-selector select {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  min-width: 8rem;
+}
+
+.expenses-view__draft-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.expenses-view__btn {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.expenses-view__btn--primary {
+  border-color: rgba(251, 146, 60, 0.65);
+  color: var(--accent-amber-text);
+  background: rgba(249, 115, 22, 0.18);
+}
+
+.expenses-view__error {
+  color: #fca5a5;
+  font-size: 0.78rem;
+  margin-bottom: 0.5rem;
+}
+
+.expenses-view__status {
+  padding: 1rem;
+  color: var(--text-muted);
+}
+
+.expenses-view__scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.expenses-view__table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 1100px;
+  font-size: 0.76rem;
+}
+
+.expenses-view__table th,
+.expenses-view__table td {
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.expenses-view__table thead th {
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.62rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.expenses-view__table th.num,
+.expenses-view__table td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.expenses-view__table .sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--bg-card);
+  z-index: 1;
+  text-align: left;
+  min-width: 200px;
+}
+
+.expenses-view__table thead .sticky-col {
+  background: var(--bg-panel);
+  z-index: 2;
+}
+
+.expenses-view__row--imported td {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.expenses-view__imported-tag {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.expenses-view__month-input {
+  width: 100%;
+  min-width: 64px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 5px;
+  padding: 0.25rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  text-align: right;
+}
+
+.expenses-view__month-input.is-dirty {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber-text);
+  background: rgba(232, 163, 61, 0.1);
+}
+
+.expenses-view__total-row td {
+  border-top: 2px solid var(--accent-amber);
+  color: var(--text-primary);
+  font-weight: 600;
+}
