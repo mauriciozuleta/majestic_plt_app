@@ -169,6 +169,8 @@ class CommercialOperationEntry(Base):
     category = Column(String, nullable=False)  # 'revenue' | 'cos' | 'expenses'
     entry_date = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
+    entry_type = Column(String, nullable=True)  # revenue entries: a free-text type
+    client = Column(String, nullable=True)  # revenue entries: the client name
     amount = Column(Float, nullable=False)
 
 

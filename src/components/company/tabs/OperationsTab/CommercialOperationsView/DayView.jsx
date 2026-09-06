@@ -22,7 +22,11 @@ function DayView({ dayEntries, onDeleteEntry }) {
               <ul className="commercial-ops-day__list">
                 {entries.map((entry) => (
                   <li key={entry.id} className="commercial-ops-day__entry">
-                    <span className="commercial-ops-day__entry-description">{entry.description || '—'}</span>
+                    <span className="commercial-ops-day__entry-description">
+                      {category.key === 'revenue'
+                        ? [entry.entry_type, entry.client].filter(Boolean).join(' — ') || '—'
+                        : entry.description || '—'}
+                    </span>
                     <span className="commercial-ops-day__entry-amount">${entry.amount.toLocaleString()}</span>
                     <button
                       type="button"

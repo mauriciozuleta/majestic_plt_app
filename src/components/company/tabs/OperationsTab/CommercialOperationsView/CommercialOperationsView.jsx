@@ -6,12 +6,23 @@ import {
 } from '../../../../../services/commercialOperations'
 import { fetchSettings } from '../../../../../services/settings'
 import { getDefaultCalendarDate } from '../../../../../services/calendarDates'
-import RoadmapDateInput from '../../ManagementTab/RoadmapView/RoadmapDateInput'
-import SimulationDatePicker from '../../../../shared/SimulationCalendar/SimulationDatePicker'
+import JumpToDatePicker from './JumpToDatePicker'
 import MonthView from './MonthView'
 import DayView from './DayView'
+import YearView from './YearView'
 import AddEntryModal from './AddEntryModal'
-import { getDayLabel, getMonthLabel, getYear, setYear, shiftIsoDate, shiftMonth } from './calendarViewMath'
+import {
+  getDayLabel,
+  getMonthLabel,
+  getMonthRange,
+  getYear,
+  getYearLabel,
+  getYearRange,
+  setYear,
+  shiftIsoDate,
+  shiftMonth,
+} from './calendarViewMath'
+import { entriesInRange, sumByCategory } from './entryTotals'
 import { CATEGORIES } from './categories'
 import './CommercialOperationsView.css'
 
@@ -58,6 +69,17 @@ function CommercialOperationsView({ companyId }) {
 
   const dayEntries = referenceDate ? entriesByDate.get(referenceDate) || [] : []
 
+  const periodTotals = useMemo(() => {
+    if (!referenceDate) return []
+    if (viewMode === 'day') return sumByCategory(entriesByDate.get(referenceDate) || [])
+    if (viewMode === 'month') {
+      const { start, endExclusive } = getMonthRange(calendarMode, referenceDate)
+      return sumByCategory(entriesInRange(entries, start, endExclusive))
+    }
+    const { start, endExclusive } = getYearRange(calendarMode, referenceDate)
+    return sumByCategory(entriesInRange(entries, start, endExclusive))
+  }, [viewMode, referenceDate, calendarMode, entries, entriesByDate])
+
   const handleAddNew = (categoryKey) => setModalCategory(categoryKey)
 
   const handleSaveEntry = async (payload) => {
@@ -76,12 +98,25 @@ function CommercialOperationsView({ companyId }) {
     setViewMode('day')
   }
 
+  const handleSelectMonth = (isoDate) => {
+    setReferenceDate(isoDate)
+    setViewMode('month')
+  }
+
   const handlePrev = () => {
-    setReferenceDate((prev) => (viewMode === 'month' ? shiftMonth(calendarMode, prev, -1) : shiftIsoDate(prev, -1)))
+    setReferenceDate((prev) => {
+      if (viewMode === 'year') return setYear(calendarMode, prev, getYear(calendarMode, prev) - 1)
+      if (viewMode === 'month') return shiftMonth(calendarMode, prev, -1)
+      return shiftIsoDate(prev, -1)
+    })
   }
 
   const handleNext = () => {
-    setReferenceDate((prev) => (viewMode === 'month' ? shiftMonth(calendarMode, prev, 1) : shiftIsoDate(prev, 1)))
+    setReferenceDate((prev) => {
+      if (viewMode === 'year') return setYear(calendarMode, prev, getYear(calendarMode, prev) + 1)
+      if (viewMode === 'month') return shiftMonth(calendarMode, prev, 1)
+      return shiftIsoDate(prev, 1)
+    })
   }
 
   const handleJumpToDate = (isoDate) => setReferenceDate(isoDate)
@@ -102,6 +137,13 @@ function CommercialOperationsView({ companyId }) {
     return <div className="commercial-ops-status">Loading commercial operations...</div>
   }
 
+  const periodLabel =
+    viewMode === 'month'
+      ? getMonthLabel(calendarMode, referenceDate)
+      : viewMode === 'year'
+        ? getYearLabel(calendarMode, referenceDate)
+        : getDayLabel(calendarMode, referenceDate)
+
   return (
     <div className="commercial-ops">
       <div className="commercial-ops__toolbar">
@@ -112,15 +154,16 @@ function CommercialOperationsView({ companyId }) {
           <button type="button" className={viewMode === 'month' ? 'is-active' : ''} onClick={() => setViewMode('month')}>
             Month
           </button>
+          <button type="button" className={viewMode === 'year' ? 'is-active' : ''} onClick={() => setViewMode('year')}>
+            Year
+          </button>
         </div>
 
         <div className="commercial-ops__nav">
           <button type="button" className="commercial-ops__nav-btn" onClick={handlePrev} aria-label="Previous">
             {'<'}
           </button>
-          <strong className="commercial-ops__period-label">
-            {viewMode === 'month' ? getMonthLabel(calendarMode, referenceDate) : getDayLabel(calendarMode, referenceDate)}
-          </strong>
+          <strong className="commercial-ops__period-label">{periodLabel}</strong>
           <button type="button" className="commercial-ops__nav-btn" onClick={handleNext} aria-label="Next">
             {'>'}
           </button>
@@ -137,13 +180,15 @@ function CommercialOperationsView({ companyId }) {
           </select>
         </label>
 
-        <div className="commercial-ops__jump-to-date">
-          {calendarMode === 'simulation' ? (
-            <SimulationDatePicker value={referenceDate} onChange={handleJumpToDate} />
-          ) : (
-            <RoadmapDateInput value={referenceDate} onChange={handleJumpToDate} ariaLabel="Jump to date" />
-          )}
-        </div>
+        <JumpToDatePicker calendarMode={calendarMode} value={referenceDate} onChange={handleJumpToDate} />
+      </div>
+
+      <div className="commercial-ops__totals">
+        {periodTotals.map((category) => (
+          <span key={category.key} className="commercial-ops__total-pill" style={{ borderColor: category.color, color: category.color }}>
+            {category.label} total: ${category.total.toLocaleString()}
+          </span>
+        ))}
       </div>
 
       <div className="commercial-ops__category-actions">
@@ -162,10 +207,12 @@ function CommercialOperationsView({ companyId }) {
 
       {error && <div className="commercial-ops__error">{error}</div>}
 
-      {viewMode === 'month' ? (
+      {viewMode === 'month' && (
         <MonthView calendarMode={calendarMode} referenceDate={referenceDate} entriesByDate={entriesByDate} onSelectDay={handleSelectDay} />
-      ) : (
-        <DayView dayEntries={dayEntries} onDeleteEntry={handleDeleteEntry} />
+      )}
+      {viewMode === 'day' && <DayView dayEntries={dayEntries} onDeleteEntry={handleDeleteEntry} />}
+      {viewMode === 'year' && (
+        <YearView calendarMode={calendarMode} referenceDate={referenceDate} entries={entries} onSelectMonth={handleSelectMonth} />
       )}
 
       {modalCategory && (

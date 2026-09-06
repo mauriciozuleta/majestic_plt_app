@@ -205,6 +205,8 @@ class CommercialOperationEntryCreate(BaseModel):
     category: str
     entry_date: str
     description: Optional[str] = None
+    entry_type: Optional[str] = None
+    client: Optional[str] = None
     amount: float
 
 

@@ -44,6 +44,8 @@ def create_commercial_operation_entry(
         category=payload.category,
         entry_date=payload.entry_date,
         description=payload.description,
+        entry_type=payload.entry_type,
+        client=payload.client,
         amount=payload.amount,
     )
     db.add(entry)

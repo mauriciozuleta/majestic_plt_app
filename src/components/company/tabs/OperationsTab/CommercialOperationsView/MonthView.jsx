@@ -1,5 +1,5 @@
 import { WEEKDAY_LABELS, getDayNumber, getMonthCells } from './calendarViewMath'
-import { CATEGORIES } from './categories'
+import { formatCategoryTooltip, sumByCategory } from './entryTotals'
 
 function MonthView({ calendarMode, referenceDate, entriesByDate, onSelectDay }) {
   const cells = getMonthCells(calendarMode, referenceDate)
@@ -16,10 +16,8 @@ function MonthView({ calendarMode, referenceDate, entriesByDate, onSelectDay }) 
       <div className="commercial-ops-month__grid">
         {cells.map((cell) => {
           const dayEntries = entriesByDate.get(cell.isoDate) || []
-          const totalsByCategory = CATEGORIES.map((category) => ({
-            ...category,
-            total: dayEntries.filter((entry) => entry.category === category.key).reduce((sum, entry) => sum + entry.amount, 0),
-          })).filter((category) => category.total > 0)
+          const totalsByCategory = sumByCategory(dayEntries)
+          const nonZeroCategories = totalsByCategory.filter((category) => category.total > 0)
 
           return (
             <button
@@ -27,11 +25,12 @@ function MonthView({ calendarMode, referenceDate, entriesByDate, onSelectDay }) 
               key={cell.isoDate}
               className={`commercial-ops-month__day ${cell.inCurrentPeriod ? '' : 'is-muted'}`}
               onClick={() => onSelectDay(cell.isoDate)}
+              title={dayEntries.length > 0 ? formatCategoryTooltip(dayEntries) : undefined}
             >
               <span className="commercial-ops-month__day-number">{getDayNumber(calendarMode, cell.isoDate)}</span>
-              {totalsByCategory.length > 0 && (
+              {nonZeroCategories.length > 0 && (
                 <span className="commercial-ops-month__day-markers">
-                  {totalsByCategory.map((category) => (
+                  {nonZeroCategories.map((category) => (
                     <span key={category.key} className="commercial-ops-month__marker" style={{ background: category.color }} />
                   ))}
                 </span>

@@ -1,4 +1,10 @@
-import { DAYS_PER_MONTH, isoDateToSimDate, simDateToIsoDate } from '../../../../shared/SimulationCalendar/simulationCalendarMath'
+import {
+  DAYS_PER_MONTH,
+  DAYS_PER_YEAR,
+  MONTHS_PER_YEAR,
+  isoDateToSimDate,
+  simDateToIsoDate,
+} from '../../../../shared/SimulationCalendar/simulationCalendarMath'
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const REAL_MONTH_LABELS = [
@@ -112,4 +118,49 @@ export function getDayLabel(calendarMode, isoDate) {
   }
   const date = new Date(`${isoDate}T00:00:00`)
   return date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+/** [start, endExclusive) covering the month referenceIsoDate falls in —
+ * for summing entries by exact ISO-string comparison, not for display. */
+export function getMonthRange(calendarMode, referenceIsoDate) {
+  if (calendarMode === 'simulation') {
+    const { year, month } = isoDateToSimDate(referenceIsoDate)
+    const start = simDateToIsoDate({ year, month, day: 1 })
+    return { start, endExclusive: shiftIsoDate(start, DAYS_PER_MONTH) }
+  }
+  const date = new Date(`${referenceIsoDate}T00:00:00`)
+  return {
+    start: toIsoDate(new Date(date.getFullYear(), date.getMonth(), 1)),
+    endExclusive: toIsoDate(new Date(date.getFullYear(), date.getMonth() + 1, 1)),
+  }
+}
+
+/** [start, endExclusive) covering the whole year referenceIsoDate falls in. */
+export function getYearRange(calendarMode, referenceIsoDate) {
+  const year = getYear(calendarMode, referenceIsoDate)
+  if (calendarMode === 'simulation') {
+    const start = simDateToIsoDate({ year, month: 1, day: 1 })
+    return { start, endExclusive: shiftIsoDate(start, DAYS_PER_YEAR) }
+  }
+  return {
+    start: `${String(year).padStart(4, '0')}-01-01`,
+    endExclusive: `${String(year + 1).padStart(4, '0')}-01-01`,
+  }
+}
+
+/** The 12 months of the year referenceIsoDate falls in, each as the ISO date
+ * of that month's first day (for range math) plus a display label. */
+export function getYearMonths(calendarMode, referenceIsoDate) {
+  const year = getYear(calendarMode, referenceIsoDate)
+  return Array.from({ length: MONTHS_PER_YEAR }, (_, index) => {
+    const month = index + 1
+    if (calendarMode === 'simulation') {
+      return { isoDate: simDateToIsoDate({ year, month, day: 1 }), label: `Month ${month}` }
+    }
+    return { isoDate: toIsoDate(new Date(year, index, 1)), label: REAL_MONTH_LABELS[index] }
+  })
+}
+
+export function getYearLabel(calendarMode, referenceIsoDate) {
+  return `Year ${getYear(calendarMode, referenceIsoDate)}`
 }

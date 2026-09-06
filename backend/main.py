@@ -181,6 +181,13 @@ def _ensure_schema_migrations():
                     )
                 )
 
+        if 'commercial_operation_entries' in inspector.get_table_names():
+            commercial_op_columns = {column['name'] for column in inspector.get_columns('commercial_operation_entries')}
+            if 'entry_type' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN entry_type VARCHAR'))
+            if 'client' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN client VARCHAR'))
+
         if 'payroll_employees' in inspector.get_table_names():
             employee_columns = {column['name'] for column in inspector.get_columns('payroll_employees')}
             if 'reports_to_node_id' not in employee_columns:
