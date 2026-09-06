@@ -6,10 +6,12 @@ import {
 } from '../../../../../services/commercialOperations'
 import { fetchSettings } from '../../../../../services/settings'
 import { getDefaultCalendarDate } from '../../../../../services/calendarDates'
+import RoadmapDateInput from '../../ManagementTab/RoadmapView/RoadmapDateInput'
+import SimulationDatePicker from '../../../../shared/SimulationCalendar/SimulationDatePicker'
 import MonthView from './MonthView'
 import DayView from './DayView'
 import AddEntryModal from './AddEntryModal'
-import { getDayLabel, getMonthLabel, shiftIsoDate, shiftMonth } from './calendarViewMath'
+import { getDayLabel, getMonthLabel, getYear, setYear, shiftIsoDate, shiftMonth } from './calendarViewMath'
 import { CATEGORIES } from './categories'
 import './CommercialOperationsView.css'
 
@@ -82,7 +84,19 @@ function CommercialOperationsView({ companyId }) {
     setReferenceDate((prev) => (viewMode === 'month' ? shiftMonth(calendarMode, prev, 1) : shiftIsoDate(prev, 1)))
   }
 
-  const handleToday = () => setReferenceDate(getDefaultCalendarDate(calendarMode))
+  const handleJumpToDate = (isoDate) => setReferenceDate(isoDate)
+
+  const handleYearChange = (year) => {
+    setReferenceDate((prev) => setYear(calendarMode, prev, year))
+  }
+
+  const yearOptions = useMemo(() => {
+    if (calendarMode === 'simulation') {
+      return Array.from({ length: 21 }, (_, index) => index)
+    }
+    const currentYear = new Date().getFullYear()
+    return Array.from({ length: 21 }, (_, index) => currentYear - 10 + index)
+  }, [calendarMode])
 
   if (loading || !referenceDate) {
     return <div className="commercial-ops-status">Loading commercial operations...</div>
@@ -110,9 +124,25 @@ function CommercialOperationsView({ companyId }) {
           <button type="button" className="commercial-ops__nav-btn" onClick={handleNext} aria-label="Next">
             {'>'}
           </button>
-          <button type="button" className="commercial-ops__today-btn" onClick={handleToday}>
-            Today
-          </button>
+        </div>
+
+        <label className="commercial-ops__year-selector">
+          Year
+          <select value={getYear(calendarMode, referenceDate)} onChange={(event) => handleYearChange(Number(event.target.value))}>
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="commercial-ops__jump-to-date">
+          {calendarMode === 'simulation' ? (
+            <SimulationDatePicker value={referenceDate} onChange={handleJumpToDate} />
+          ) : (
+            <RoadmapDateInput value={referenceDate} onChange={handleJumpToDate} ariaLabel="Jump to date" />
+          )}
         </div>
       </div>
 

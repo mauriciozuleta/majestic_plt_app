@@ -85,6 +85,26 @@ export function getDayNumber(calendarMode, isoDate) {
   return new Date(`${isoDate}T00:00:00`).getDate()
 }
 
+export function getYear(calendarMode, isoDate) {
+  if (calendarMode === 'simulation') {
+    return isoDateToSimDate(isoDate).year
+  }
+  return new Date(`${isoDate}T00:00:00`).getFullYear()
+}
+
+/** Jumps the reference date to a different year, keeping the same month/day
+ * (or the same simulation month/day) so a year pick doesn't also reset
+ * whatever month or day the user was looking at. */
+export function setYear(calendarMode, isoDate, year) {
+  if (calendarMode === 'simulation') {
+    const { month, day } = isoDateToSimDate(isoDate)
+    return simDateToIsoDate({ year, month, day })
+  }
+  const date = new Date(`${isoDate}T00:00:00`)
+  date.setFullYear(year)
+  return toIsoDate(date)
+}
+
 export function getDayLabel(calendarMode, isoDate) {
   if (calendarMode === 'simulation') {
     const { year, month, day } = isoDateToSimDate(isoDate)
