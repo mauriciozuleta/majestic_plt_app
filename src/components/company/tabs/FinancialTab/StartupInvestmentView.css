@@ -180,15 +180,29 @@
   color: var(--text-primary);
 }
 
-.startup-investment__add-record-btn {
+.startup-investment__category-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.startup-investment__add-record-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgba(251, 146, 60, 0.65);
   background: rgba(249, 115, 22, 0.18);
   color: var(--accent-amber-text);
-  border-radius: 6px;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.7rem;
+  border-radius: 5px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   cursor: pointer;
-  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.startup-investment__add-record-icon:hover {
+  background: rgba(249, 115, 22, 0.3);
 }
 
 .startup-investment__record-row td {

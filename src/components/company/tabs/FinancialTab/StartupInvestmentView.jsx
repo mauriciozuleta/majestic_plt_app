@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { IconPencil } from '@tabler/icons-react'
+import { IconPencil, IconPlus } from '@tabler/icons-react'
 import {
   createStartupInvestmentPlan,
   createStartupInvestmentRecord,
@@ -239,13 +239,18 @@ function StartupInvestmentView() {
               return (
                 <Fragment key={category.key}>
                   <tr className="startup-investment__category-row">
-                    <td className="sticky-col" colSpan={monthCount + 2}>
-                      {category.label}
-                    </td>
-                    <td>
-                      <button type="button" className="startup-investment__add-record-btn" onClick={() => setModalCategory(category.key)}>
-                        + Add record
-                      </button>
+                    <td className="sticky-col" colSpan={monthCount + 3}>
+                      <span className="startup-investment__category-title">
+                        {category.label}
+                        <button
+                          type="button"
+                          className="startup-investment__add-record-icon"
+                          onClick={() => setModalCategory(category.key)}
+                          title={`Add ${category.label} record`}
+                        >
+                          <IconPlus size={13} stroke={2.2} />
+                        </button>
+                      </span>
                     </td>
                   </tr>
 
