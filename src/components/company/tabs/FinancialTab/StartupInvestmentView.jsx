@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { IconPencil } from '@tabler/icons-react'
 import {
   createStartupInvestmentPlan,
-  fetchStartupInvestmentEntries,
+  createStartupInvestmentRecord,
+  deleteStartupInvestmentRecord,
   fetchStartupInvestmentPlan,
-  saveStartupInvestmentEntry,
+  fetchStartupInvestmentRecords,
+  updateStartupInvestmentPlan,
 } from '../../../../services/startupInvestment'
+import AddStartupRecordModal from './AddStartupRecordModal'
 import './StartupInvestmentView.css'
 
 const CATEGORIES = [
@@ -51,13 +55,15 @@ function CreatePlanModal({ onCreate, creating, error }) {
 function StartupInvestmentView() {
   const { companyId } = useParams()
   const [plan, setPlan] = useState(null)
-  const [entries, setEntries] = useState([])
+  const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [createError, setCreateError] = useState('')
-  const [drafts, setDrafts] = useState(() => new Map())
+  const [modalCategory, setModalCategory] = useState(null)
+  const [isEditingMonths, setIsEditingMonths] = useState(false)
+  const [pendingMonths, setPendingMonths] = useState(12)
+  const [savingMonths, setSavingMonths] = useState(false)
 
   const reload = async () => {
     if (!companyId) return
@@ -67,9 +73,9 @@ function StartupInvestmentView() {
       const nextPlan = await fetchStartupInvestmentPlan(companyId)
       setPlan(nextPlan)
       if (nextPlan) {
-        const nextEntries = await fetchStartupInvestmentEntries(companyId)
-        setEntries(nextEntries)
-        setDrafts(new Map())
+        const nextRecords = await fetchStartupInvestmentRecords(companyId)
+        setRecords(nextRecords)
+        setPendingMonths(nextPlan.pre_operational_months)
       }
     } catch (err) {
       setError(err.message)
@@ -96,6 +102,31 @@ function StartupInvestmentView() {
     }
   }
 
+  const handleSaveMonths = async () => {
+    setSavingMonths(true)
+    setError('')
+    try {
+      await updateStartupInvestmentPlan(companyId, pendingMonths)
+      setIsEditingMonths(false)
+      await reload()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSavingMonths(false)
+    }
+  }
+
+  const handleAddRecord = async (payload) => {
+    await createStartupInvestmentRecord(companyId, payload)
+    setModalCategory(null)
+    await reload()
+  }
+
+  const handleDeleteRecord = async (recordId) => {
+    await deleteStartupInvestmentRecord(companyId, recordId)
+    await reload()
+  }
+
   if (loading) {
     return <div className="startup-investment__status">Loading start-up investment...</div>
   }
@@ -105,55 +136,69 @@ function StartupInvestmentView() {
   }
 
   const monthCount = plan.pre_operational_months
-  const entriesByCategory = new Map(entries.map((entry) => [entry.category, entry.months]))
+  const recordsByCategory = new Map(CATEGORIES.map((category) => [category.key, []]))
+  records.forEach((record) => {
+    const list = recordsByCategory.get(record.category)
+    if (list) list.push(record)
+  })
 
-  const displayMonths = (category) => drafts.get(category) || entriesByCategory.get(category) || new Array(monthCount).fill(0)
+  const categoryTotals = (key) =>
+    (recordsByCategory.get(key) || []).reduce((sum, record) => sum + record.total_amount, 0)
 
-  const rowTotal = (category) => displayMonths(category).reduce((sum, value) => sum + (Number(value) || 0), 0)
+  const categoryMonths = (key) => {
+    const totals = new Array(monthCount).fill(0)
+    ;(recordsByCategory.get(key) || []).forEach((record) => {
+      record.months.forEach((value, index) => {
+        totals[index] += value
+      })
+    })
+    return totals
+  }
 
-  const totalStartupExpenses = EXPENSE_CATEGORY_KEYS.reduce((sum, key) => sum + rowTotal(key), 0)
-  const totalWorkingCapital = rowTotal(WORKING_CAPITAL_KEY)
+  const totalStartupExpenses = EXPENSE_CATEGORY_KEYS.reduce((sum, key) => sum + categoryTotals(key), 0)
+  const totalWorkingCapital = categoryTotals(WORKING_CAPITAL_KEY)
   const totalRequiredInvestment = totalStartupExpenses + totalWorkingCapital
 
   const monthlyCashRequirement = Array.from({ length: monthCount }, (_, index) =>
-    CATEGORIES.reduce((sum, category) => sum + (Number(displayMonths(category.key)[index]) || 0), 0),
+    CATEGORIES.reduce((sum, category) => sum + categoryMonths(category.key)[index], 0),
   )
 
-  const draftCount = drafts.size
-
-  const handleDraftMonthChange = (category, monthIndex, value, currentMonths) => {
-    setDrafts((prev) => {
-      const next = new Map(prev)
-      const base = next.get(category) || [...currentMonths]
-      const updated = [...base]
-      updated[monthIndex] = value
-      next.set(category, updated)
-      return next
-    })
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    setError('')
-    try {
-      for (const [category, months] of drafts.entries()) {
-        // eslint-disable-next-line no-await-in-loop
-        await saveStartupInvestmentEntry(companyId, category, months)
-      }
-      await reload()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDiscard = () => setDrafts(new Map())
+  const modalCategoryMeta = CATEGORIES.find((category) => category.key === modalCategory)
 
   return (
     <div className="panel-surface startup-investment">
       <h3>Start-up Investment</h3>
-      <p>Pre-operational cash requirement over {monthCount} month{monthCount === 1 ? '' : 's'}.</p>
+      <div className="startup-investment__subtitle">
+        <p>
+          Pre-operational cash requirement over {monthCount} month{monthCount === 1 ? '' : 's'}.
+        </p>
+        {!isEditingMonths ? (
+          <button type="button" className="startup-investment__edit-months-btn" onClick={() => setIsEditingMonths(true)} title="Edit pre-operational months">
+            <IconPencil size={14} stroke={1.8} />
+          </button>
+        ) : (
+          <span className="startup-investment__edit-months">
+            <select value={pendingMonths} onChange={(event) => setPendingMonths(Number(event.target.value))}>
+              {MONTH_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="startup-investment__btn" onClick={() => setIsEditingMonths(false)} disabled={savingMonths}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="startup-investment__btn startup-investment__btn--primary"
+              onClick={handleSaveMonths}
+              disabled={savingMonths}
+            >
+              {savingMonths ? 'Saving…' : 'Save'}
+            </button>
+          </span>
+        )}
+      </div>
 
       <div className="startup-investment__stats">
         <div className="startup-investment__stat-tile">
@@ -170,60 +215,75 @@ function StartupInvestmentView() {
         </div>
       </div>
 
-      {draftCount > 0 && (
-        <div className="startup-investment__draft-bar">
-          <span>
-            {draftCount} unsaved change{draftCount === 1 ? '' : 's'}
-          </span>
-          <span className="startup-investment__draft-actions">
-            <button type="button" className="startup-investment__btn" onClick={handleDiscard} disabled={saving}>
-              Discard
-            </button>
-            <button type="button" className="startup-investment__btn startup-investment__btn--primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : `Save ${draftCount} change${draftCount === 1 ? '' : 's'}`}
-            </button>
-          </span>
-        </div>
-      )}
-
       {error && <div className="startup-investment__error">{error}</div>}
 
       <div className="startup-investment__scroll">
         <table className="startup-investment__table">
           <thead>
             <tr>
-              <th className="sticky-col">Category</th>
+              <th className="sticky-col">Category / Record</th>
               {Array.from({ length: monthCount }, (_, index) => (
                 <th key={index} className="num">
                   M{index + 1}
                 </th>
               ))}
               <th className="num">Total</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {CATEGORIES.map((category) => {
-              const draft = drafts.get(category.key) || null
-              const months = displayMonths(category.key)
+              const categoryRecords = recordsByCategory.get(category.key) || []
+              const monthTotals = categoryMonths(category.key)
 
               return (
-                <tr key={category.key}>
-                  <td className="sticky-col">{category.label}</td>
-                  {months.map((value, index) => (
-                    <td key={index} className="num">
-                      <input
-                        type="number"
-                        className={`startup-investment__month-input ${draft ? 'is-dirty' : ''}`}
-                        value={value}
-                        onChange={(event) => {
-                          const next = Number(event.target.value)
-                          handleDraftMonthChange(category.key, index, Number.isFinite(next) ? next : 0, entriesByCategory.get(category.key) || months)
-                        }}
-                      />
+                <Fragment key={category.key}>
+                  <tr className="startup-investment__category-row">
+                    <td className="sticky-col" colSpan={monthCount + 2}>
+                      {category.label}
                     </td>
+                    <td>
+                      <button type="button" className="startup-investment__add-record-btn" onClick={() => setModalCategory(category.key)}>
+                        + Add record
+                      </button>
+                    </td>
+                  </tr>
+
+                  {categoryRecords.map((record) => (
+                    <tr key={record.id} className="startup-investment__record-row">
+                      <td className="sticky-col" title={record.description || undefined}>
+                        {record.name}
+                      </td>
+                      {record.months.map((value, index) => (
+                        <td key={index} className="num">
+                          ${value.toLocaleString()}
+                        </td>
+                      ))}
+                      <td className="num">${record.total_amount.toLocaleString()}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="startup-investment__remove"
+                          title="Remove this record"
+                          onClick={() => handleDeleteRecord(record.id)}
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
                   ))}
-                  <td className="num">${rowTotal(category.key).toLocaleString()}</td>
-                </tr>
+
+                  <tr className="startup-investment__subtotal-row">
+                    <td className="sticky-col">{category.label} — subtotal</td>
+                    {monthTotals.map((value, index) => (
+                      <td key={index} className="num">
+                        ${value.toLocaleString()}
+                      </td>
+                    ))}
+                    <td className="num">${categoryTotals(category.key).toLocaleString()}</td>
+                    <td />
+                  </tr>
+                </Fragment>
               )
             })}
           </tbody>
@@ -236,10 +296,21 @@ function StartupInvestmentView() {
                 </td>
               ))}
               <td className="num">${monthlyCashRequirement.reduce((sum, value) => sum + value, 0).toLocaleString()}</td>
+              <td />
             </tr>
           </tfoot>
         </table>
       </div>
+
+      {modalCategory && (
+        <AddStartupRecordModal
+          category={modalCategory}
+          categoryLabel={modalCategoryMeta?.label ?? ''}
+          monthCount={monthCount}
+          onSave={handleAddRecord}
+          onCancel={() => setModalCategory(null)}
+        />
+      )}
     </div>
   )
 }

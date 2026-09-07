@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
 from .database import Base
 
 
@@ -169,13 +169,18 @@ class StartupInvestmentPlan(Base):
     pre_operational_months = Column(Integer, nullable=False)
 
 
-class StartupInvestmentEntry(Base):
-    __tablename__ = 'startup_investment_entries'
+class StartupInvestmentRecord(Base):
+    __tablename__ = 'startup_investment_records'
 
     id = Column(String, primary_key=True, index=True)
     company_id = Column(String, index=True, nullable=False)
     category = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    total_amount = Column(Float, nullable=False)
+    use_installments = Column(Boolean, default=False)
     months_json = Column(String, nullable=False, default='[]')
+    attachment_name = Column(String, nullable=True)
 
 
 class CommercialOperationEntry(Base):

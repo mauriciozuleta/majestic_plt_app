@@ -52,22 +52,50 @@
   font-weight: 500;
 }
 
-.startup-investment__draft-bar {
+.startup-investment__subtitle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-card);
-  border-radius: 10px;
-  padding: 0.6rem 0.8rem;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
+  gap: 0.5rem;
+  margin-top: -0.4rem;
 }
 
-.startup-investment__draft-actions {
+.startup-investment__subtitle p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.startup-investment__edit-months-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.startup-investment__edit-months-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.startup-investment__edit-months {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.startup-investment__edit-months select {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.3rem 0.45rem;
+  font-family: var(--font-mono);
 }
 
 .startup-investment__btn {
@@ -146,24 +174,54 @@
   z-index: 4;
 }
 
-.startup-investment__month-input {
-  width: 100%;
-  min-width: 64px;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
+.startup-investment__category-row td {
   background: var(--bg-panel);
-  color: var(--text-secondary);
-  border-radius: 5px;
-  padding: 0.25rem 0.35rem;
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  text-align: right;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.startup-investment__month-input.is-dirty {
-  border-color: var(--accent-amber);
+.startup-investment__add-record-btn {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
   color: var(--accent-amber-text);
-  background: rgba(232, 163, 61, 0.1);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.startup-investment__record-row td {
+  color: var(--text-secondary);
+}
+
+.startup-investment__record-row td.sticky-col {
+  padding-left: 1.4rem;
+}
+
+.startup-investment__subtotal-row td {
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-style: italic;
+  font-size: 0.72rem;
+}
+
+.startup-investment__remove {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: #fca5a5;
+  border-radius: 5px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 0.68rem;
+  flex-shrink: 0;
+}
+
+.startup-investment__remove:hover {
+  background: rgba(185, 28, 28, 0.18);
 }
 
 .startup-investment__total-row td {
@@ -247,4 +305,156 @@
   padding: 0.5rem 0.9rem;
   font-size: 0.78rem;
   cursor: pointer;
+}
+
+/* Add-record modal */
+.startup-record-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.startup-record-modal {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1.1rem;
+}
+
+.startup-record-modal h3 {
+  margin: 0 0 0.7rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.startup-record-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.startup-record-modal__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.startup-record-modal__form input[type='text'],
+.startup-record-modal__form input[type='number'] {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.55rem 0.6rem;
+}
+
+.startup-record-modal__checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  color: var(--text-secondary) !important;
+  font-size: 0.8rem !important;
+}
+
+.startup-record-modal__installments {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem;
+  background: var(--bg-card);
+}
+
+.startup-record-modal__installments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.2rem, 1fr));
+  gap: 0.4rem;
+}
+
+.startup-record-modal__installment-cell {
+  font-size: 0.65rem !important;
+  color: var(--text-dim) !important;
+}
+
+.startup-record-modal__installment-cell input {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.startup-record-modal__installment-sum {
+  margin-top: 0.5rem;
+  font-size: 0.74rem;
+  font-family: var(--font-mono);
+}
+
+.startup-record-modal__installment-sum.is-match {
+  color: var(--accent-teal, #35d399);
+}
+
+.startup-record-modal__installment-sum.is-mismatch {
+  color: #fca5a5;
+}
+
+.startup-record-modal__attach {
+  display: flex;
+}
+
+.startup-record-modal__attach-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px dashed var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.74rem;
+  cursor: not-allowed;
+}
+
+.startup-record-modal__error {
+  color: #fca5a5;
+  font-size: 0.75rem;
+}
+
+.startup-record-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.startup-record-modal__cancel,
+.startup-record-modal__save {
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.startup-record-modal__cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.startup-record-modal__save {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
 }

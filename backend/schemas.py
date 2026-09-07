@@ -230,10 +230,29 @@ class StartupInvestmentPlanOut(StartupInvestmentPlanCreate):
         from_attributes = True
 
 
-class StartupInvestmentEntryOut(BaseModel):
+class StartupInvestmentPlanUpdate(BaseModel):
+    pre_operational_months: int
+
+
+class StartupInvestmentRecordCreate(BaseModel):
     category: str
-    months: list[float]
+    name: str
+    description: Optional[str] = None
+    total_amount: float
+    use_installments: bool = False
+    months: Optional[list[float]] = None
 
 
-class StartupInvestmentEntryUpdate(BaseModel):
+class StartupInvestmentRecordOut(BaseModel):
+    id: str
+    company_id: str
+    category: str
+    name: str
+    description: Optional[str] = None
+    total_amount: float
+    use_installments: bool
     months: list[float]
+    attachment_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True

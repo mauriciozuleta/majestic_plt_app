@@ -29,6 +29,13 @@ EXTERNAL_COUNTRY_DB = r'D:\OneDrive\0. software Lab\AI_FRESH24\db.sqlite3'
 def _ensure_schema_migrations():
     inspector = inspect(engine)
     with engine.begin() as connection:
+        # Start-up investment moved from one flat months-array per category to
+        # per-record entries (with name/description/installments) grouped by
+        # category — the old table only ever held zero-filled placeholder
+        # rows, so there's nothing meaningful to migrate forward.
+        if 'startup_investment_entries' in inspector.get_table_names():
+            connection.execute(text('DROP TABLE startup_investment_entries'))
+
         if 'portfolio_settings' in inspector.get_table_names():
             settings_columns = {column['name'] for column in inspector.get_columns('portfolio_settings')}
             if 'projection_years' not in settings_columns:
