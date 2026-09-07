@@ -46,6 +46,19 @@ export async function createStartupInvestmentRecord(companyId, record) {
   return response.json()
 }
 
+export async function updateStartupInvestmentRecord(companyId, recordId, record) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/startup-investment/records/${recordId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
+  })
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null)
+    throw new Error(detail?.detail || 'Failed to update the record')
+  }
+  return response.json()
+}
+
 export async function deleteStartupInvestmentRecord(companyId, recordId) {
   const response = await fetch(`${API_BASE}/companies/${companyId}/startup-investment/records/${recordId}`, {
     method: 'DELETE',

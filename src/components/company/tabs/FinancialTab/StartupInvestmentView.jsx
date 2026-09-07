@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { IconPencil, IconPlus } from '@tabler/icons-react'
+import { IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
 import {
   createStartupInvestmentPlan,
   createStartupInvestmentRecord,
@@ -8,6 +8,7 @@ import {
   fetchStartupInvestmentPlan,
   fetchStartupInvestmentRecords,
   updateStartupInvestmentPlan,
+  updateStartupInvestmentRecord,
 } from '../../../../services/startupInvestment'
 import AddStartupRecordModal from './AddStartupRecordModal'
 import './StartupInvestmentView.css'
@@ -60,10 +61,20 @@ function StartupInvestmentView() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [createError, setCreateError] = useState('')
-  const [modalCategory, setModalCategory] = useState(null)
+  const [recordModal, setRecordModal] = useState(null)
   const [isEditingMonths, setIsEditingMonths] = useState(false)
   const [pendingMonths, setPendingMonths] = useState(12)
   const [savingMonths, setSavingMonths] = useState(false)
+  const [collapsedCategories, setCollapsedCategories] = useState(() => new Set())
+
+  const toggleCategoryCollapsed = (key) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   const reload = async () => {
     if (!companyId) return
@@ -116,9 +127,13 @@ function StartupInvestmentView() {
     }
   }
 
-  const handleAddRecord = async (payload) => {
-    await createStartupInvestmentRecord(companyId, payload)
-    setModalCategory(null)
+  const handleSaveRecord = async (payload) => {
+    if (recordModal.mode === 'edit') {
+      await updateStartupInvestmentRecord(companyId, recordModal.record.id, payload)
+    } else {
+      await createStartupInvestmentRecord(companyId, payload)
+    }
+    setRecordModal(null)
     await reload()
   }
 
@@ -163,7 +178,8 @@ function StartupInvestmentView() {
     CATEGORIES.reduce((sum, category) => sum + categoryMonths(category.key)[index], 0),
   )
 
-  const modalCategoryMeta = CATEGORIES.find((category) => category.key === modalCategory)
+  const activeCategoryKey = recordModal ? (recordModal.mode === 'edit' ? recordModal.record.category : recordModal.category) : null
+  const activeCategoryMeta = CATEGORIES.find((category) => category.key === activeCategoryKey)
 
   return (
     <div className="panel-surface startup-investment">
@@ -235,6 +251,7 @@ function StartupInvestmentView() {
             {CATEGORIES.map((category) => {
               const categoryRecords = recordsByCategory.get(category.key) || []
               const monthTotals = categoryMonths(category.key)
+              const isCollapsed = collapsedCategories.has(category.key)
 
               return (
                 <Fragment key={category.key}>
@@ -243,51 +260,73 @@ function StartupInvestmentView() {
                       <span className="startup-investment__category-title">
                         <button
                           type="button"
+                          className="startup-investment__collapse-toggle"
+                          onClick={() => toggleCategoryCollapsed(category.key)}
+                          title={isCollapsed ? 'Expand category' : 'Collapse category'}
+                        >
+                          {isCollapsed ? '▸' : '▾'}
+                        </button>
+                        <button
+                          type="button"
                           className="startup-investment__add-record-icon"
-                          onClick={() => setModalCategory(category.key)}
+                          onClick={() => setRecordModal({ mode: 'create', category: category.key })}
                           title={`Add ${category.label} record`}
                         >
                           <IconPlus size={13} stroke={2.2} />
                         </button>
                         {category.label}
+                        <span className="startup-investment__category-tag">{categoryRecords.length} record{categoryRecords.length === 1 ? '' : 's'}</span>
                       </span>
                     </td>
                   </tr>
 
-                  {categoryRecords.map((record) => (
-                    <tr key={record.id} className="startup-investment__record-row">
-                      <td className="sticky-col" title={record.description || undefined}>
-                        {record.name}
-                      </td>
-                      {record.months.map((value, index) => (
+                  {!isCollapsed &&
+                    categoryRecords.map((record) => (
+                      <tr key={record.id} className="startup-investment__record-row">
+                        <td className="sticky-col" title={record.description || undefined}>
+                          {record.name}
+                        </td>
+                        {record.months.map((value, index) => (
+                          <td key={index} className="num">
+                            ${value.toLocaleString()}
+                          </td>
+                        ))}
+                        <td className="num">${record.total_amount.toLocaleString()}</td>
+                        <td>
+                          <span className="startup-investment__record-actions">
+                            <button
+                              type="button"
+                              className="startup-investment__edit-record"
+                              title="Edit this record"
+                              onClick={() => setRecordModal({ mode: 'edit', record })}
+                            >
+                              <IconPencil size={12} stroke={2} />
+                            </button>
+                            <button
+                              type="button"
+                              className="startup-investment__remove"
+                              title="Remove this record"
+                              onClick={() => handleDeleteRecord(record.id)}
+                            >
+                              <IconTrash size={12} stroke={2} />
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+
+                  {!isCollapsed && (
+                    <tr className="startup-investment__subtotal-row">
+                      <td className="sticky-col">{category.label} — subtotal</td>
+                      {monthTotals.map((value, index) => (
                         <td key={index} className="num">
                           ${value.toLocaleString()}
                         </td>
                       ))}
-                      <td className="num">${record.total_amount.toLocaleString()}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="startup-investment__remove"
-                          title="Remove this record"
-                          onClick={() => handleDeleteRecord(record.id)}
-                        >
-                          ×
-                        </button>
-                      </td>
+                      <td className="num">${categoryTotals(category.key).toLocaleString()}</td>
+                      <td />
                     </tr>
-                  ))}
-
-                  <tr className="startup-investment__subtotal-row">
-                    <td className="sticky-col">{category.label} — subtotal</td>
-                    {monthTotals.map((value, index) => (
-                      <td key={index} className="num">
-                        ${value.toLocaleString()}
-                      </td>
-                    ))}
-                    <td className="num">${categoryTotals(category.key).toLocaleString()}</td>
-                    <td />
-                  </tr>
+                  )}
                 </Fragment>
               )
             })}
@@ -307,13 +346,14 @@ function StartupInvestmentView() {
         </table>
       </div>
 
-      {modalCategory && (
+      {recordModal && (
         <AddStartupRecordModal
-          category={modalCategory}
-          categoryLabel={modalCategoryMeta?.label ?? ''}
+          category={activeCategoryKey}
+          categoryLabel={activeCategoryMeta?.label ?? ''}
           monthCount={monthCount}
-          onSave={handleAddRecord}
-          onCancel={() => setModalCategory(null)}
+          initialRecord={recordModal.mode === 'edit' ? recordModal.record : null}
+          onSave={handleSaveRecord}
+          onCancel={() => setRecordModal(null)}
         />
       )}
     </div>

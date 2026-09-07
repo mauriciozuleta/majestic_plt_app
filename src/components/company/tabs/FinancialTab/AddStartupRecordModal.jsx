@@ -3,12 +3,15 @@ import { IconPaperclip } from '@tabler/icons-react'
 
 const AMOUNT_TOLERANCE = 0.01
 
-function AddStartupRecordModal({ category, categoryLabel, monthCount, onSave, onCancel }) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [totalAmount, setTotalAmount] = useState('')
-  const [useInstallments, setUseInstallments] = useState(false)
-  const [installments, setInstallments] = useState(() => new Array(monthCount).fill(''))
+function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRecord, onSave, onCancel }) {
+  const isEditing = Boolean(initialRecord)
+  const [name, setName] = useState(initialRecord?.name ?? '')
+  const [description, setDescription] = useState(initialRecord?.description ?? '')
+  const [totalAmount, setTotalAmount] = useState(initialRecord ? String(initialRecord.total_amount) : '')
+  const [useInstallments, setUseInstallments] = useState(initialRecord?.use_installments ?? false)
+  const [installments, setInstallments] = useState(() =>
+    initialRecord?.use_installments ? initialRecord.months.map((value) => String(value)) : new Array(monthCount).fill(''),
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -68,7 +71,7 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, onSave, on
   return (
     <div className="startup-record-modal__overlay" onClick={onCancel}>
       <div className="startup-record-modal" onClick={(event) => event.stopPropagation()}>
-        <h3>Add record — {categoryLabel}</h3>
+        <h3>{isEditing ? 'Edit record' : 'Add record'} — {categoryLabel}</h3>
         <form className="startup-record-modal__form" onSubmit={handleSubmit}>
           <label>
             Name
@@ -137,7 +140,7 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, onSave, on
               Cancel
             </button>
             <button type="submit" className="startup-record-modal__save" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Save'}
             </button>
           </div>
         </form>
