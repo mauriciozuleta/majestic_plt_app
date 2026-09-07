@@ -454,18 +454,11 @@
   box-sizing: border-box;
 }
 
-.startup-record-modal__installment-sum {
-  margin-top: 0.5rem;
-  font-size: 0.74rem;
+.startup-record-modal__form input[readonly] {
+  background: var(--bg-panel);
+  color: var(--text-muted);
   font-family: var(--font-mono);
-}
-
-.startup-record-modal__installment-sum.is-match {
-  color: var(--accent-teal, #35d399);
-}
-
-.startup-record-modal__installment-sum.is-mismatch {
-  color: #fca5a5;
+  cursor: default;
 }
 
 .startup-record-modal__attach {

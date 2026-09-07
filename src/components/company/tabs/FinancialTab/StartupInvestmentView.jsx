@@ -14,11 +14,11 @@ import AddStartupRecordModal from './AddStartupRecordModal'
 import './StartupInvestmentView.css'
 
 const CATEGORIES = [
-  { key: 'assets_acquisition', label: 'Start-up Assets Acquisition' },
-  { key: 'other_assets_purchases', label: 'Other assets Purchases' },
-  { key: 'startup_expenses', label: 'Start-up Expenses' },
-  { key: 'startup_payroll', label: 'Start-up development payroll' },
-  { key: 'working_capital', label: 'Start-up Working capital requirement' },
+  { key: 'assets_acquisition', label: 'Start-up Assets Acquisition', color: '#35D399' },
+  { key: 'other_assets_purchases', label: 'Other assets Purchases', color: '#38bdf8' },
+  { key: 'startup_expenses', label: 'Start-up Expenses', color: '#f59e0b' },
+  { key: 'startup_payroll', label: 'Start-up development payroll', color: '#a78bfa' },
+  { key: 'working_capital', label: 'Start-up Working capital requirement', color: '#f87171' },
 ]
 const EXPENSE_CATEGORY_KEYS = ['assets_acquisition', 'other_assets_purchases', 'startup_expenses', 'startup_payroll']
 const WORKING_CAPITAL_KEY = 'working_capital'
@@ -274,8 +274,12 @@ function StartupInvestmentView() {
                         >
                           <IconPlus size={13} stroke={2.2} />
                         </button>
-                        {category.label}
-                        <span className="startup-investment__category-tag">{categoryRecords.length} record{categoryRecords.length === 1 ? '' : 's'}</span>
+                        <span className="startup-investment__category-label" style={{ color: category.color }}>
+                          {category.label}
+                        </span>
+                        <span className="startup-investment__category-tag">
+                          {categoryRecords.length} record{categoryRecords.length === 1 ? '' : 's'} · ${categoryTotals(category.key).toLocaleString()}
+                        </span>
                       </span>
                     </td>
                   </tr>

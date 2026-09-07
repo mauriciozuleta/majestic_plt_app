@@ -1,25 +1,20 @@
 import { useMemo, useState } from 'react'
 import { IconPaperclip } from '@tabler/icons-react'
 
-const AMOUNT_TOLERANCE = 0.01
-
 function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRecord, onSave, onCancel }) {
   const isEditing = Boolean(initialRecord)
   const [name, setName] = useState(initialRecord?.name ?? '')
   const [description, setDescription] = useState(initialRecord?.description ?? '')
-  const [totalAmount, setTotalAmount] = useState(initialRecord ? String(initialRecord.total_amount) : '')
   const [installments, setInstallments] = useState(() =>
     initialRecord ? initialRecord.months.map((value) => String(value)) : new Array(monthCount).fill(''),
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const installmentSum = useMemo(
+  const totalAmount = useMemo(
     () => installments.reduce((sum, value) => sum + (Number(value) || 0), 0),
     [installments],
   )
-  const parsedTotal = Number(totalAmount) || 0
-  const installmentsMatch = Math.abs(installmentSum - parsedTotal) <= AMOUNT_TOLERANCE
 
   const handleInstallmentChange = (index, value) => {
     setInstallments((prev) => {
@@ -37,12 +32,8 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
       setError('Name is required.')
       return
     }
-    if (!Number.isFinite(parsedTotal) || parsedTotal <= 0) {
-      setError('Total amount must be greater than 0.')
-      return
-    }
-    if (!installmentsMatch) {
-      setError(`The months must add up to the total amount (currently $${installmentSum.toLocaleString()}).`)
+    if (totalAmount <= 0) {
+      setError('Enter at least one month value greater than 0.')
       return
     }
 
@@ -52,7 +43,7 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
         category,
         name: name.trim(),
         description: description.trim() || null,
-        total_amount: parsedTotal,
+        total_amount: totalAmount,
         use_installments: true,
         months: installments.map((value) => Number(value) || 0),
       })
@@ -83,18 +74,6 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
             />
           </label>
 
-          <label>
-            Total amount
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={totalAmount}
-              onChange={(event) => setTotalAmount(event.target.value)}
-              placeholder="0.00"
-            />
-          </label>
-
           <div className="startup-record-modal__installments">
             <div className="startup-record-modal__installments-grid">
               {installments.map((value, index) => (
@@ -109,10 +88,12 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
                 </label>
               ))}
             </div>
-            <div className={`startup-record-modal__installment-sum ${installmentsMatch ? 'is-match' : 'is-mismatch'}`}>
-              Months total: ${installmentSum.toLocaleString()} {installmentsMatch ? '✓' : `(expected $${parsedTotal.toLocaleString()})`}
-            </div>
           </div>
+
+          <label>
+            Total amount
+            <input type="text" value={`$${totalAmount.toLocaleString()}`} readOnly />
+          </label>
 
           <div className="startup-record-modal__attach">
             <button type="button" className="startup-record-modal__attach-btn" title="Attach supporting documents (coming soon)" disabled>
