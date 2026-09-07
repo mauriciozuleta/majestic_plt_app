@@ -64,8 +64,8 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
   }
 
   return (
-    <div className="startup-record-modal__overlay" onClick={onCancel}>
-      <div className="startup-record-modal" onClick={(event) => event.stopPropagation()}>
+    <div className="startup-record-modal__overlay">
+      <div className="startup-record-modal">
         <h3>{isEditing ? 'Edit record' : 'Add record'} — {categoryLabel}</h3>
         <form className="startup-record-modal__form" onSubmit={handleSubmit}>
           <label>
