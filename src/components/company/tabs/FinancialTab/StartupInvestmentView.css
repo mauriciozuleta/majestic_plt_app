@@ -223,7 +223,6 @@
 .startup-investment__subtotal-row td {
   border-top: 1px solid var(--border-strong);
   border-bottom: 1px solid var(--border-strong);
-  color: var(--text-primary);
   font-style: italic;
   font-size: 0.72rem;
 }

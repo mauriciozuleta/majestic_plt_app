@@ -322,13 +322,17 @@ function StartupInvestmentView() {
 
                   {!isCollapsed && (
                     <tr className="startup-investment__subtotal-row">
-                      <td className="sticky-col">{category.label} — subtotal</td>
+                      <td className="sticky-col" style={{ color: category.color }}>
+                        {category.label} — subtotal
+                      </td>
                       {monthTotals.map((value, index) => (
-                        <td key={index} className="num">
+                        <td key={index} className="num" style={{ color: category.color }}>
                           ${value.toLocaleString()}
                         </td>
                       ))}
-                      <td className="num">${categoryTotals(category.key).toLocaleString()}</td>
+                      <td className="num" style={{ color: category.color }}>
+                        ${categoryTotals(category.key).toLocaleString()}
+                      </td>
                       <td />
                     </tr>
                   )}
