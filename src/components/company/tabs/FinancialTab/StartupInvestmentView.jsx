@@ -241,7 +241,6 @@ function StartupInvestmentView() {
                   <tr className="startup-investment__category-row">
                     <td className="sticky-col" colSpan={monthCount + 3}>
                       <span className="startup-investment__category-title">
-                        {category.label}
                         <button
                           type="button"
                           className="startup-investment__add-record-icon"
@@ -250,6 +249,7 @@ function StartupInvestmentView() {
                         >
                           <IconPlus size={13} stroke={2.2} />
                         </button>
+                        {category.label}
                       </span>
                     </td>
                   </tr>
