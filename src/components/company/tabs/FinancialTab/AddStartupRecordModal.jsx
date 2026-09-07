@@ -8,9 +8,8 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
   const [name, setName] = useState(initialRecord?.name ?? '')
   const [description, setDescription] = useState(initialRecord?.description ?? '')
   const [totalAmount, setTotalAmount] = useState(initialRecord ? String(initialRecord.total_amount) : '')
-  const [useInstallments, setUseInstallments] = useState(initialRecord?.use_installments ?? false)
   const [installments, setInstallments] = useState(() =>
-    initialRecord?.use_installments ? initialRecord.months.map((value) => String(value)) : new Array(monthCount).fill(''),
+    initialRecord ? initialRecord.months.map((value) => String(value)) : new Array(monthCount).fill(''),
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -30,10 +29,6 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
     })
   }
 
-  const handleToggleInstallments = (event) => {
-    setUseInstallments(event.target.checked)
-  }
-
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
@@ -46,8 +41,8 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
       setError('Total amount must be greater than 0.')
       return
     }
-    if (useInstallments && !installmentsMatch) {
-      setError(`Installments must add up to the total amount (currently $${installmentSum.toLocaleString()}).`)
+    if (!installmentsMatch) {
+      setError(`The months must add up to the total amount (currently $${installmentSum.toLocaleString()}).`)
       return
     }
 
@@ -58,8 +53,8 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
         name: name.trim(),
         description: description.trim() || null,
         total_amount: parsedTotal,
-        use_installments: useInstallments,
-        months: useInstallments ? installments.map((value) => Number(value) || 0) : undefined,
+        use_installments: true,
+        months: installments.map((value) => Number(value) || 0),
       })
     } catch (err) {
       setError(err.message)
@@ -100,31 +95,24 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
             />
           </label>
 
-          <label className="startup-record-modal__checkbox">
-            <input type="checkbox" checked={useInstallments} onChange={handleToggleInstallments} />
-            Installments
-          </label>
-
-          {useInstallments && (
-            <div className="startup-record-modal__installments">
-              <div className="startup-record-modal__installments-grid">
-                {installments.map((value, index) => (
-                  <label key={index} className="startup-record-modal__installment-cell">
-                    M{index + 1}
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={value}
-                      onChange={(event) => handleInstallmentChange(index, event.target.value)}
-                    />
-                  </label>
-                ))}
-              </div>
-              <div className={`startup-record-modal__installment-sum ${installmentsMatch ? 'is-match' : 'is-mismatch'}`}>
-                Installments total: ${installmentSum.toLocaleString()} {installmentsMatch ? '✓' : `(expected $${parsedTotal.toLocaleString()})`}
-              </div>
+          <div className="startup-record-modal__installments">
+            <div className="startup-record-modal__installments-grid">
+              {installments.map((value, index) => (
+                <label key={index} className="startup-record-modal__installment-cell">
+                  M{index + 1}
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={value}
+                    onChange={(event) => handleInstallmentChange(index, event.target.value)}
+                  />
+                </label>
+              ))}
             </div>
-          )}
+            <div className={`startup-record-modal__installment-sum ${installmentsMatch ? 'is-match' : 'is-mismatch'}`}>
+              Months total: ${installmentSum.toLocaleString()} {installmentsMatch ? '✓' : `(expected $${parsedTotal.toLocaleString()})`}
+            </div>
+          </div>
 
           <div className="startup-record-modal__attach">
             <button type="button" className="startup-record-modal__attach-btn" title="Attach supporting documents (coming soon)" disabled>

@@ -213,6 +213,13 @@
   padding-left: 1.4rem;
 }
 
+.startup-investment__record-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .startup-investment__subtotal-row td {
   border-top: 1px solid var(--border-strong);
   border-bottom: 1px solid var(--border-strong);
@@ -415,14 +422,6 @@
   background: var(--bg-card);
   color: var(--text-primary);
   padding: 0.55rem 0.6rem;
-}
-
-.startup-record-modal__checkbox {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 0.5rem !important;
-  color: var(--text-secondary) !important;
-  font-size: 0.8rem !important;
 }
 
 .startup-record-modal__installments {

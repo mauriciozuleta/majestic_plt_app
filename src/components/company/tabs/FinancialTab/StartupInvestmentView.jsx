@@ -284,7 +284,27 @@ function StartupInvestmentView() {
                     categoryRecords.map((record) => (
                       <tr key={record.id} className="startup-investment__record-row">
                         <td className="sticky-col" title={record.description || undefined}>
-                          {record.name}
+                          <span className="startup-investment__record-name">
+                            {record.name}
+                            <span className="startup-investment__record-actions">
+                              <button
+                                type="button"
+                                className="startup-investment__edit-record"
+                                title="Edit this record"
+                                onClick={() => setRecordModal({ mode: 'edit', record })}
+                              >
+                                <IconPencil size={12} stroke={2} />
+                              </button>
+                              <button
+                                type="button"
+                                className="startup-investment__remove"
+                                title="Remove this record"
+                                onClick={() => handleDeleteRecord(record.id)}
+                              >
+                                <IconTrash size={12} stroke={2} />
+                              </button>
+                            </span>
+                          </span>
                         </td>
                         {record.months.map((value, index) => (
                           <td key={index} className="num">
@@ -292,26 +312,7 @@ function StartupInvestmentView() {
                           </td>
                         ))}
                         <td className="num">${record.total_amount.toLocaleString()}</td>
-                        <td>
-                          <span className="startup-investment__record-actions">
-                            <button
-                              type="button"
-                              className="startup-investment__edit-record"
-                              title="Edit this record"
-                              onClick={() => setRecordModal({ mode: 'edit', record })}
-                            >
-                              <IconPencil size={12} stroke={2} />
-                            </button>
-                            <button
-                              type="button"
-                              className="startup-investment__remove"
-                              title="Remove this record"
-                              onClick={() => handleDeleteRecord(record.id)}
-                            >
-                              <IconTrash size={12} stroke={2} />
-                            </button>
-                          </span>
-                        </td>
+                        <td />
                       </tr>
                     ))}
 
