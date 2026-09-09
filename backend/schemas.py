@@ -177,6 +177,25 @@ class PayrollLevelOut(PayrollLevelIn):
         from_attributes = True
 
 
+class PriceComparisonSnapshotOut(BaseModel):
+    source: str
+    products: list[dict]
+    fetched_at: str
+
+
+class ProductTranslationOverrideIn(BaseModel):
+    product_key: str
+    translation_en: str
+
+
+class ProductTranslationOverrideOut(BaseModel):
+    product_key: str
+    translation_en: str
+
+    class Config:
+        from_attributes = True
+
+
 class ExpenseCategoryOut(BaseModel):
     id: str
     sort_order: int
@@ -208,6 +227,10 @@ class CommercialOperationEntryCreate(BaseModel):
     entry_type: Optional[str] = None
     client: Optional[str] = None
     amount: float
+    accounting_treatment: Optional[str] = None
+    is_recurring: Optional[bool] = False
+    is_discount: Optional[bool] = False
+    settlement_date: Optional[str] = None
 
 
 class CommercialOperationEntryOut(CommercialOperationEntryCreate):

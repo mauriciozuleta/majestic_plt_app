@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
 from .. import schemas
+from ..gl_engine import sync_opening_balance
 
 router = APIRouter()
 
@@ -92,6 +93,7 @@ def update_plan(company_id: str, payload: schemas.StartupInvestmentPlanUpdate, d
     plan.pre_operational_months = payload.pre_operational_months
     _resize_all_records(db, company_id, payload.pre_operational_months)
     db.commit()
+    sync_opening_balance(db, company_id)
     return plan
 
 
@@ -139,6 +141,7 @@ def create_record(company_id: str, payload: schemas.StartupInvestmentRecordCreat
     )
     db.add(record)
     db.commit()
+    sync_opening_balance(db, company_id)
     return _record_out(record)
 
 
@@ -166,6 +169,7 @@ def update_record(
     record.use_installments = payload.use_installments
     record.months_json = json.dumps(months)
     db.commit()
+    sync_opening_balance(db, company_id)
     return _record_out(record)
 
 
@@ -176,4 +180,5 @@ def delete_record(company_id: str, record_id: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail='Record not found')
     db.delete(record)
     db.commit()
+    sync_opening_balance(db, company_id)
     return {'ok': True}

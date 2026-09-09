@@ -26,5 +26,12 @@ dist-ssr
 # Generated payroll import templates (per-company, regenerated on demand)
 backend/payroll_templates/
 
+# AI-researched country commercial profiles (generated on demand)
+backend/country_profiles/
+backend/competitiveness_analyses/
+
 # Graphify knowledge-graph cache (regenerate with `graphify update .`)
 graphify-out/
+
+# Local secrets (API keys, etc.) — never committed
+.env

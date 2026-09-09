@@ -8,7 +8,7 @@ import YearSummaryTable from '../../../../shared/YearSummaryTable'
 function PayrollYearSummary({ companyId, projectionYears, calendarMode }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
-  const years = Array.from({ length: projectionYears + 1 }, (_, index) => index)
+  const years = Array.from({ length: projectionYears }, (_, index) => index + 1)
 
   useEffect(() => {
     let cancelled = false

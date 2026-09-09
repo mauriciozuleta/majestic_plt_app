@@ -11,7 +11,13 @@ function isoToUtcDate(isoDate) {
     throw new Error(`Invalid ISO date: ${isoDate}`)
   }
 
-  return new Date(Date.UTC(year, month - 1, day))
+  // Date.UTC(year, ...) silently treats any year 0-99 as 1900+year (a
+  // legacy two-digit-year quirk) — the fictitious epoch's year 1 would
+  // otherwise become 1901. Building with a safe year and overwriting it via
+  // setUTCFullYear sidesteps that: setUTCFullYear has no such special case.
+  const date = new Date(Date.UTC(2000, month - 1, day))
+  date.setUTCFullYear(year)
+  return date
 }
 
 function utcDateToIsoDate(date) {
@@ -27,7 +33,10 @@ function daysBetween(a, b) {
 
 export function isoDateToSimDate(isoDate) {
   const elapsed = daysBetween(FICTITIOUS_EPOCH, isoDate)
-  const year = Math.floor(elapsed / DAYS_PER_YEAR)
+  // Year 1 is the first operational year, starting exactly at the fictitious
+  // epoch — there is no "Year 0" (all pre-operational activity now lives in
+  // the Start-up Investment module, not on this calendar).
+  const year = Math.floor(elapsed / DAYS_PER_YEAR) + 1
   const dayOfYear = ((elapsed % DAYS_PER_YEAR) + DAYS_PER_YEAR) % DAYS_PER_YEAR
   const month = Math.floor(dayOfYear / DAYS_PER_MONTH) + 1
   const day = (dayOfYear % DAYS_PER_MONTH) + 1
@@ -45,7 +54,7 @@ export function simDateToIsoDate({ year, month, day }) {
     throw new Error('Simulation day must be between 1 and 30')
   }
 
-  const elapsedDays = year * DAYS_PER_YEAR + (month - 1) * DAYS_PER_MONTH + (day - 1)
+  const elapsedDays = (year - 1) * DAYS_PER_YEAR + (month - 1) * DAYS_PER_MONTH + (day - 1)
   const epoch = isoToUtcDate(FICTITIOUS_EPOCH)
   epoch.setUTCDate(epoch.getUTCDate() + elapsedDays)
   return utcDateToIsoDate(epoch)

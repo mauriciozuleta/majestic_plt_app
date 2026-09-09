@@ -1,0 +1,139 @@
+.pdf-export-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1.5rem;
+}
+
+.pdf-export-modal {
+  width: min(60rem, 100%);
+  max-height: calc(100vh - 3rem);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pdf-export-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+.pdf-export-modal__header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.pdf-export-modal__toggle {
+  display: flex;
+  gap: 0.3rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem;
+  margin-left: auto;
+}
+.pdf-export-modal__toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.pdf-export-modal__toggle button[aria-pressed='true'] {
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}
+
+.pdf-export-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pdf-export-modal__close:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.pdf-export-modal__preview-wrap {
+  flex: 1;
+  overflow: auto;
+  background: #e4e7ea;
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.pdf-export-modal__preview {
+  flex-shrink: 0;
+}
+
+.pdf-export-modal__footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 1.1rem;
+  border-top: 1px solid var(--border);
+}
+
+.pdf-export-modal__hint {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.pdf-export-modal__error {
+  color: #fca5a5;
+}
+
+.pdf-export-modal__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.pdf-export-modal__cancel,
+.pdf-export-modal__print {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.pdf-export-modal__cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.pdf-export-modal__print {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}

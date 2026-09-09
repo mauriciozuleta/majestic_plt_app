@@ -6,7 +6,8 @@ import Sidebar from './components/layout/Sidebar/Sidebar'
 import Footer from './components/layout/Footer/Footer'
 import HomeView from './components/home/HomeView'
 import ControlDashboardView from './components/dashboard/ControlDashboardView'
-import SimulationsView from './components/simulations/SimulationsView'
+import SimulationsView, { SimulationsIndexRedirect } from './components/simulations/SimulationsView'
+import SimParametersView from './components/simulations/SimParametersView'
 import CompanyWorkspace from './components/company/CompanyWorkspace/CompanyWorkspace'
 import ManagementTab from './components/company/tabs/ManagementTab/ManagementTab'
 import FinancialTab from './components/company/tabs/FinancialTab/FinancialTab'
@@ -32,7 +33,11 @@ function Layout() {
             <Routes>
               <Route path="/" element={<HomeView />} />
               <Route path="/dashboard" element={<ControlDashboardView />} />
-              <Route path="/simulations" element={<SimulationsView />} />
+              <Route path="/simulations" element={<SimulationsView />}>
+                <Route index element={<SimulationsIndexRedirect />} />
+                <Route path=":companyId" element={<Navigate to="parameters" replace />} />
+                <Route path=":companyId/:sub" element={<SimParametersView />} />
+              </Route>
               <Route path="/settings" element={<SettingsView />} />
 
               <Route path="/company/:companyId" element={<CompanyWorkspace />}>

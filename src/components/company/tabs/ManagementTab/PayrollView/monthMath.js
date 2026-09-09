@@ -27,7 +27,7 @@ export function monthWithinYear(dateStr, calendarMode) {
  * which month within those years their start/end date falls in.
  */
 export function employeeMonthlyActive(employee, selectedYear, calendarMode) {
-  const startYear = employee.start_projection_year ?? 0
+  const startYear = employee.start_projection_year ?? 1
   const endYear = employee.end_projection_year
 
   let startMonth

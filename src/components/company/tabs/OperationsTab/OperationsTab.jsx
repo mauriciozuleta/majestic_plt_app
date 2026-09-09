@@ -1,15 +1,63 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useAppStore } from '../../../../store/useAppStore'
 import {
+  createCommercialBranch,
   createCommercialCountry,
   createCommercialRegion,
+  deleteCommercialBranch,
+  deleteCommercialCountry,
   fetchCommercialBranches,
   fetchCommercialCountries,
   fetchCommercialRegions,
   fetchReferenceCountries,
   fetchReferenceRegions,
+  updateCommercialBranch,
+  updateCommercialCountry,
+  updateCommercialRegion,
 } from '../../../../services/commercialStructure'
 import CommercialOperationsView from './CommercialOperationsView/CommercialOperationsView'
+import AddAirportModal from './AddAirportModal'
+import CountryCommercialProfile from './CountryCommercialProfile'
+import CountryCompetitivenessAnalysis from './CountryCompetitivenessAnalysis'
+import CommercialStructureChart from './CommercialStructureChart/CommercialStructureChart'
+import ColombiaProductAnalysisView from './MarketAnalysis/ColombiaProductAnalysisView'
+import USASourcingView from './MarketAnalysis/USASourcingView'
+
+const FRESH24_COMPANY_NAME = 'FRESH24'
+// Each country's Market Analysis view is grouped into 3 tabs. Import
+// Analysis deliberately mirrors Export Analysis's pill labels but is not
+// wired to any real content yet — its sections all render the same
+// "coming soon" placeholder regardless of which pill is picked.
+const MARKET_ANALYSIS_TABS = [
+  {
+    key: 'overview',
+    label: 'Overview',
+    sections: [
+      { key: 'commercial-profile', label: 'Country Commercial Profile' },
+      { key: 'country-competitiveness', label: 'Country Competitiveness Analysis' },
+    ],
+  },
+  {
+    key: 'export-analysis',
+    label: 'Export Analysis',
+    sections: [
+      { key: 'products', label: 'Product Analysis' },
+      { key: 'historical', label: 'Historical Analysis' },
+      { key: 'product-competitiveness', label: 'Product Competitiveness Analysis' },
+    ],
+  },
+  {
+    key: 'import-analysis',
+    label: 'Import Analysis',
+    inert: true,
+    sections: [
+      { key: 'import-products', label: 'Product Analysis' },
+      { key: 'import-historical', label: 'Historical Analysis' },
+      { key: 'import-product-competitiveness', label: 'Product Competitiveness Analysis' },
+    ],
+  },
+]
 
 const emptyForm = {
   regionName: '',
@@ -42,6 +90,12 @@ const fallbackRegions = [
 function OperationsTab() {
   const { sub, companyId } = useParams()
   const activeSub = sub ?? 'commercial-structure'
+  const companies = useAppStore((state) => state.companies)
+  const companyName = companies.find((company) => company.id === companyId)?.name ?? ''
+  const isFresh24 = companyName.trim().toUpperCase() === FRESH24_COMPANY_NAME
+  const [marketAnalysisCountryId, setMarketAnalysisCountryId] = useState(null)
+  const [marketAnalysisTab, setMarketAnalysisTab] = useState(null)
+  const [marketAnalysisSection, setMarketAnalysisSection] = useState(null)
   const [regions, setRegions] = useState([])
   const [countries, setCountries] = useState([])
   const [branches, setBranches] = useState([])
@@ -49,6 +103,8 @@ function OperationsTab() {
   const [allReferenceCountries, setAllReferenceCountries] = useState([])
   const [selectedRegionName, setSelectedRegionName] = useState('')
   const [selectedCountryCode, setSelectedCountryCode] = useState('')
+  const [selectedBranchId, setSelectedBranchId] = useState('')
+  const [airportModal, setAirportModal] = useState(null)
   const [form, setForm] = useState(emptyForm)
 
   const loadStructure = async () => {
@@ -106,36 +162,82 @@ function OperationsTab() {
     [filteredReferenceCountries, selectedCountryCode],
   )
 
-  const overviewRows = useMemo(() => {
-    return branches.map((branch) => {
-      const country = countries.find((item) => item.id === branch.country_id)
-      const region = regions.find((item) => item.id === country?.region_id)
-      return {
-        region: region?.name ?? '—',
-        regionalManager: region?.manager_name ?? '—',
-        regionUser: region?.user_name ?? '—',
-        country: country?.name ?? '—',
-        countryCode: country?.country_code ?? '—',
-        currency: country?.currency_code ?? country?.currency ?? '—',
-        countryManager: country?.manager_name ?? '—',
-        countryUser: country?.user_name ?? '—',
-        airport: branch.airport ?? '—',
-        branch: branch.name,
-        branchManager: branch.manager_name ?? '—',
-        branchUser: branch.user_name ?? '—',
+  const savedCountry = useMemo(
+    () =>
+      countries.find(
+        (country) => country.region_id === selectedRegion?.id && country.country_code === selectedCountryCode,
+      ) ?? null,
+    [countries, selectedRegion, selectedCountryCode],
+  )
+
+  const branchesForCountry = useMemo(
+    () => branches.filter((branch) => branch.country_id === savedCountry?.id),
+    [branches, savedCountry],
+  )
+
+  const selectedBranch = useMemo(
+    () => branchesForCountry.find((branch) => branch.id === selectedBranchId) ?? null,
+    [branchesForCountry, selectedBranchId],
+  )
+
+  const handleChartNodeSelect = (kind, record) => {
+    if (kind === 'region') {
+      setSelectedRegionName(record.name)
+      setSelectedCountryCode('')
+      return
+    }
+
+    if (kind === 'country') {
+      const region = regions.find((item) => item.id === record.region_id)
+      if (region) setSelectedRegionName(region.name)
+      setSelectedCountryCode(record.country_code || '')
+      return
+    }
+
+    const country = countries.find((item) => item.id === record.country_id)
+    if (country) {
+      const region = regions.find((item) => item.id === country.region_id)
+      if (region) setSelectedRegionName(region.name)
+      setSelectedCountryCode(country.country_code || '')
+    }
+    setSelectedBranchId(record.id)
+  }
+
+  const handleChartNodeDelete = async (kind, record) => {
+    const confirmed = window.confirm(
+      kind === 'country'
+        ? `Delete "${record.name}" and all of its branches? This can't be undone.`
+        : `Delete branch "${record.name}"? This can't be undone.`,
+    )
+    if (!confirmed) return
+
+    try {
+      if (kind === 'country') {
+        await deleteCommercialCountry(companyId, record.id)
+        if (record.id === savedCountry?.id) {
+          setSelectedCountryCode('')
+          setSelectedBranchId('')
+        }
+      } else {
+        await deleteCommercialBranch(companyId, record.id)
+        if (record.id === selectedBranchId) {
+          setSelectedBranchId('')
+        }
       }
-    })
-  }, [branches, countries, regions])
+      await loadStructure()
+    } catch (error) {
+      window.alert(error.message || `Failed to delete ${kind}`)
+    }
+  }
 
   useEffect(() => {
-    if (!selectedRegion) return
     setForm((previous) => ({
       ...previous,
-      regionName: selectedRegion.name,
-      regionManager: selectedRegion.manager_name ?? '',
-      regionUser: selectedRegion.user_name ?? '',
+      regionName: selectedRegionName,
+      regionManager: selectedRegion?.manager_name ?? '',
+      regionUser: selectedRegion?.user_name ?? '',
     }))
-  }, [selectedRegion])
+  }, [selectedRegionName, selectedRegion])
 
   useEffect(() => {
     if (!selectedRegionName) {
@@ -183,18 +285,43 @@ function OperationsTab() {
     }))
   }, [selectedReferenceCountry])
 
-  const handleCreateRegion = async () => {
+  useEffect(() => {
+    setForm((previous) => ({
+      ...previous,
+      countryManager: savedCountry?.manager_name ?? '',
+      countryUser: savedCountry?.user_name ?? '',
+    }))
+  }, [savedCountry])
+
+  const handleSaveRegion = async () => {
     if (!companyId || !selectedRegionName.trim()) return
-    await createCommercialRegion(companyId, {
-      name: selectedRegionName,
-      manager_name: form.regionManager || null,
-      user_name: form.regionUser || null,
-    })
+
+    if (selectedRegion) {
+      await updateCommercialRegion(companyId, selectedRegion.id, {
+        manager_name: form.regionManager || null,
+        user_name: form.regionUser || null,
+      })
+    } else {
+      await createCommercialRegion(companyId, {
+        name: selectedRegionName,
+        manager_name: form.regionManager || null,
+        user_name: form.regionUser || null,
+      })
+    }
     await loadStructure()
   }
 
-  const handleCreateCountry = async () => {
+  const handleSaveCountry = async () => {
     if (!companyId || !selectedRegionName || !form.countryName.trim()) return
+
+    if (savedCountry) {
+      await updateCommercialCountry(companyId, savedCountry.id, {
+        manager_name: form.countryManager || null,
+        user_name: form.countryUser || null,
+      })
+      await loadStructure()
+      return
+    }
 
     let targetRegionId = selectedRegion?.id
     if (!targetRegionId) {
@@ -223,6 +350,19 @@ function OperationsTab() {
     setForm((previous) => ({ ...previous, [field]: value }))
   }
 
+  const handleSaveAirport = async (payload) => {
+    if (!companyId || !savedCountry) return
+
+    if (airportModal?.mode === 'edit' && airportModal.branch) {
+      await updateCommercialBranch(companyId, airportModal.branch.id, payload)
+    } else {
+      const created = await createCommercialBranch(companyId, { ...payload, country_id: savedCountry.id })
+      setSelectedBranchId(created.id)
+    }
+    setAirportModal(null)
+    await loadStructure()
+  }
+
   const buttonStyle = {
     background: '#1d4ed8',
     color: '#fff',
@@ -243,7 +383,7 @@ function OperationsTab() {
       <div className="panel-surface" style={{ padding: '16px 0', boxSizing: 'border-box' }}>
         <div style={{ padding: '0 8px', width: '100%' }}>
           <h3 style={{ margin: '0 0 18px', fontSize: '2rem', fontWeight: 700, color: '#e6edf8' }}>
-            Corporate Structure Management
+            Commercial Structure
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '22px' }}>
@@ -262,6 +402,7 @@ function OperationsTab() {
                   onChange={(event) => {
                     setSelectedRegionName(event.target.value)
                     setSelectedCountryCode('')
+                    setSelectedBranchId('')
                   }}
                   style={{
                     width: '100%',
@@ -283,12 +424,12 @@ function OperationsTab() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Regional Manager</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Regional Branch</label>
                 <input
                   type="text"
                   value={form.regionManager}
                   onChange={(event) => handleInputChange('regionManager', event.target.value)}
-                  placeholder="Enter manager name"
+                  placeholder="Enter branch name"
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -302,12 +443,12 @@ function OperationsTab() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Region User</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Region Branch director</label>
                 <input
                   type="text"
                   value={form.regionUser}
                   onChange={(event) => handleInputChange('regionUser', event.target.value)}
-                  placeholder="Enter user name"
+                  placeholder="Enter director name"
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -320,8 +461,8 @@ function OperationsTab() {
                 />
               </div>
 
-              <button type="button" style={buttonStyle} onClick={handleCreateRegion}>
-                Edit Region
+              <button type="button" style={buttonStyle} onClick={handleSaveRegion} disabled={!selectedRegionName.trim()}>
+                {selectedRegion ? 'Edit Region Branch' : 'Add Regional Branch'}
               </button>
             </div>
 
@@ -337,7 +478,11 @@ function OperationsTab() {
                 <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Select Country</label>
                 <select
                   value={selectedCountryCode}
-                  onChange={(event) => setSelectedCountryCode(event.target.value)}
+                  onChange={(event) => {
+                    setSelectedCountryCode(event.target.value)
+                    setSelectedBranchId('')
+                  }}
+                  disabled={!selectedRegion}
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -346,6 +491,8 @@ function OperationsTab() {
                     borderRadius: '8px',
                     padding: '10px 12px',
                     fontSize: '15px',
+                    opacity: selectedRegion ? 1 : 0.5,
+                    cursor: selectedRegion ? 'auto' : 'not-allowed',
                   }}
                 >
                   <option value="">-- Select --</option>
@@ -358,12 +505,13 @@ function OperationsTab() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country Manager</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country Branch</label>
                 <input
                   type="text"
                   value={form.countryManager}
                   onChange={(event) => handleInputChange('countryManager', event.target.value)}
-                  placeholder="Enter country manager name"
+                  placeholder="Enter branch name"
+                  disabled={!selectedRegion}
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -372,17 +520,19 @@ function OperationsTab() {
                     borderRadius: '8px',
                     padding: '10px 12px',
                     fontSize: '15px',
+                    opacity: selectedRegion ? 1 : 0.5,
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country User</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country Branch director</label>
                 <input
                   type="text"
                   value={form.countryUser}
                   onChange={(event) => handleInputChange('countryUser', event.target.value)}
-                  placeholder="Enter country user name"
+                  placeholder="Enter director name"
+                  disabled={!selectedRegion}
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -391,12 +541,18 @@ function OperationsTab() {
                     borderRadius: '8px',
                     padding: '10px 12px',
                     fontSize: '15px',
+                    opacity: selectedRegion ? 1 : 0.5,
                   }}
                 />
               </div>
 
-              <button type="button" style={buttonStyle} onClick={handleCreateCountry}>
-                Add Country
+              <button
+                type="button"
+                style={buttonStyle}
+                onClick={handleSaveCountry}
+                disabled={!selectedRegion || !form.countryName.trim()}
+              >
+                {savedCountry ? 'Edit Country Branch' : 'Add Country Branch'}
               </button>
             </div>
 
@@ -409,12 +565,11 @@ function OperationsTab() {
               }}
             >
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country Code / Currency</label>
-                <input
-                  type="text"
-                  value={form.countryCode && form.currencyCode ? `${form.countryCode} / ${form.currencyCode}` : ''}
-                  readOnly
-                  placeholder="Auto from selected country"
+                <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Local Branches</label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(event) => setSelectedBranchId(event.target.value)}
+                  disabled={!savedCountry || branchesForCountry.length === 0}
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -423,17 +578,29 @@ function OperationsTab() {
                     borderRadius: '8px',
                     padding: '10px 12px',
                     fontSize: '15px',
+                    opacity: savedCountry && branchesForCountry.length > 0 ? 1 : 0.5,
+                    cursor: savedCountry && branchesForCountry.length > 0 ? 'auto' : 'not-allowed',
                   }}
-                />
+                >
+                  <option value="">
+                    {branchesForCountry.length === 0 ? 'No local branches yet' : '-- Select --'}
+                  </option>
+                  {branchesForCountry.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} {branch.airport ? `(${branch.airport})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Branch Manager</label>
                 <input
                   type="text"
-                  value={form.branchManager}
-                  onChange={(event) => handleInputChange('branchManager', event.target.value)}
-                  placeholder="Enter branch manager name"
+                  value={selectedBranch?.manager_name ?? ''}
+                  readOnly
+                  placeholder="Select a local branch"
+                  disabled={!savedCountry}
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -442,6 +609,7 @@ function OperationsTab() {
                     borderRadius: '8px',
                     padding: '10px 12px',
                     fontSize: '15px',
+                    opacity: savedCountry ? 1 : 0.5,
                   }}
                 />
               </div>
@@ -450,9 +618,10 @@ function OperationsTab() {
                 <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Branch User</label>
                 <input
                   type="text"
-                  value={form.branchUser}
-                  onChange={(event) => handleInputChange('branchUser', event.target.value)}
-                  placeholder="Enter branch user name"
+                  value={selectedBranch?.user_name ?? ''}
+                  readOnly
+                  placeholder="Select a local branch"
+                  disabled={!savedCountry}
                   style={{
                     width: '100%',
                     background: '#111f31',
@@ -461,15 +630,31 @@ function OperationsTab() {
                     borderRadius: '8px',
                     padding: '10px 12px',
                     fontSize: '15px',
+                    opacity: savedCountry ? 1 : 0.5,
                   }}
                 />
               </div>
 
-              <button type="button" style={buttonStyle} onClick={handleCreateRegion}>
-                Region Core Data
+              <button
+                type="button"
+                style={buttonStyle}
+                onClick={() => setAirportModal(selectedBranch ? { mode: 'edit', branch: selectedBranch } : { mode: 'create' })}
+                disabled={!savedCountry}
+              >
+                {selectedBranch ? 'Edit Airport' : 'Add Airport'}
               </button>
             </div>
           </div>
+
+          {airportModal && (
+            <AddAirportModal
+              mode={airportModal.mode}
+              initialBranch={airportModal.mode === 'edit' ? airportModal.branch : null}
+              countryName={savedCountry?.name ?? ''}
+              onSave={handleSaveAirport}
+              onCancel={() => setAirportModal(null)}
+            />
+          )}
 
           <div
             style={{
@@ -493,50 +678,18 @@ function OperationsTab() {
               Commercial Structure Overview
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
-                <thead>
-                  <tr style={{ background: '#2d425d' }}>
-                    {['Region', 'Regional Manager', 'Region User', 'Country', 'Country Code', 'Currency', 'Country Manager', 'Country User', 'Airport', 'Branch', 'Branch Manager', 'Branch User'].map((header) => (
-                      <th key={header} style={{ border: '1px solid rgba(148,163,184,0.25)', padding: '12px 10px', textAlign: 'left', color: '#eaf3ff', fontWeight: 700 }}>
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {overviewRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={12} style={{ padding: '18px', color: '#cfe0f8', textAlign: 'center' }}>
-                        No commercial structure data yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    overviewRows.map((row, index) => (
-                      <tr key={`${row.region}-${row.country}-${row.branch}-${index}`} style={{ background: index % 2 === 0 ? '#1f2d3d' : '#1a2435' }}>
-                        {[
-                          row.region,
-                          row.regionalManager,
-                          row.regionUser,
-                          row.country,
-                          row.countryCode,
-                          row.currency,
-                          row.countryManager,
-                          row.countryUser,
-                          row.airport,
-                          row.branch,
-                          row.branchManager,
-                          row.branchUser,
-                        ].map((cell, cellIndex) => (
-                          <td key={`${index}-${cellIndex}`} style={{ border: '1px solid rgba(148,163,184,0.25)', padding: '12px 10px', color: '#dbeafe', verticalAlign: 'top' }}>
-                            {cell}
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            <div style={{ padding: '14px' }}>
+              <CommercialStructureChart
+                companyName={companyName}
+                regions={regions}
+                countries={countries}
+                branches={branches}
+                selectedRegionId={selectedRegion?.id}
+                selectedCountryId={savedCountry?.id}
+                selectedBranchId={selectedBranchId}
+                onSelectNode={handleChartNodeSelect}
+                onDeleteNode={handleChartNodeDelete}
+              />
             </div>
           </div>
         </div>
@@ -545,9 +698,190 @@ function OperationsTab() {
   }
 
   return (
-    <div className="panel-surface">
-      <h3>Operations</h3>
-      <p>Market analysis insights and local demand review.</p>
+    <div className="panel-surface" style={{ padding: '16px 0', boxSizing: 'border-box' }}>
+      <div style={{ padding: '0 8px', width: '100%' }}>
+        <h3 style={{ margin: '0 0 12px', fontSize: '2rem', fontWeight: 700, color: '#e6edf8' }}>Market Analysis</h3>
+        <p style={{ color: '#cfe0f8', marginBottom: '18px' }}>Market analysis insights and local demand review.</p>
+
+        <div>
+          <span style={{ display: 'block', marginBottom: '10px', color: '#cfe0f8', fontWeight: 600 }}>
+            Countries in Commercial Structure
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {countries.length === 0 ? (
+              <span style={{ color: '#8ea3c2', fontSize: '0.85rem' }}>No countries added yet.</span>
+            ) : (
+              countries.map((country) => {
+                const isSelected = marketAnalysisCountryId === country.id
+                return (
+                  <button
+                    key={country.id}
+                    type="button"
+                    onClick={
+                      isFresh24
+                        ? () => {
+                            setMarketAnalysisCountryId(isSelected ? null : country.id)
+                            setMarketAnalysisTab(null)
+                            setMarketAnalysisSection(null)
+                          }
+                        : undefined
+                    }
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '6px 14px',
+                      borderRadius: '999px',
+                      border: isSelected ? '1px solid #f59e0b' : '1px solid #2a3f5c',
+                      background: isSelected ? 'rgba(245, 158, 11, 0.3)' : 'transparent',
+                      boxShadow: isSelected ? '0 0 0 1px rgba(245, 158, 11, 0.35)' : 'none',
+                      color: isSelected ? '#fff7ed' : '#8ea3c2',
+                      fontSize: '0.8rem',
+                      fontWeight: isSelected ? 700 : 500,
+                      cursor: isFresh24 ? 'pointer' : 'default',
+                    }}
+                  >
+                    {country.name}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {isFresh24 && marketAnalysisCountryId && (
+          <div style={{ marginTop: '26px' }}>
+            <span style={{ display: 'block', marginBottom: '10px', color: '#cfe0f8', fontWeight: 600 }}>
+              {countries.find((item) => item.id === marketAnalysisCountryId)?.name ?? 'Selected country'}
+            </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {MARKET_ANALYSIS_TABS.map((tab) => {
+                const isSelected = marketAnalysisTab === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setMarketAnalysisTab(tab.key)
+                      setMarketAnalysisSection(null)
+                    }}
+                    style={{
+                      padding: '7px 16px',
+                      borderRadius: '999px',
+                      border: isSelected ? '1px solid #3b82f6' : '1px solid #2a3f5c',
+                      background: isSelected ? 'rgba(59, 130, 246, 0.28)' : 'transparent',
+                      boxShadow: isSelected ? '0 0 0 1px rgba(59, 130, 246, 0.4)' : 'none',
+                      color: isSelected ? '#eaf3ff' : '#8ea3c2',
+                      fontSize: '0.82rem',
+                      fontWeight: isSelected ? 700 : 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {marketAnalysisTab &&
+              (() => {
+                const activeTab = MARKET_ANALYSIS_TABS.find((tab) => tab.key === marketAnalysisTab)
+                if (!activeTab) return null
+                return (
+                  <div style={{ marginTop: '18px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {activeTab.sections.map((section) => {
+                        const isSelected = marketAnalysisSection === section.key
+                        return (
+                          <button
+                            key={section.key}
+                            type="button"
+                            onClick={() => setMarketAnalysisSection(section.key)}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '999px',
+                              border: isSelected ? '1px solid #35D399' : '1px solid #2a3f5c',
+                              background: isSelected ? 'rgba(53, 211, 153, 0.3)' : 'transparent',
+                              boxShadow: isSelected ? '0 0 0 1px rgba(53, 211, 153, 0.35)' : 'none',
+                              color: isSelected ? '#ecfdf5' : '#8ea3c2',
+                              fontSize: '0.76rem',
+                              fontWeight: isSelected ? 700 : 500,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {section.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {marketAnalysisSection && (
+                      <div
+                        style={{
+                          marginTop: '16px',
+                          border: '1px solid #2a3f5c',
+                          borderRadius: '12px',
+                          background: '#111f31',
+                          padding: '16px',
+                        }}
+                      >
+                        {activeTab.inert ? (
+                          <p style={{ color: '#8ea3c2', margin: 0 }}>
+                            Import Analysis is not wired up yet — this pill is a placeholder for a future module.
+                          </p>
+                        ) : (
+                          <>
+                            {marketAnalysisSection === 'products' &&
+                              (() => {
+                                const country = countries.find((item) => item.id === marketAnalysisCountryId)
+                                const countryName = country?.name?.trim().toLowerCase()
+                                if (countryName === 'colombia') {
+                                  return <ColombiaProductAnalysisView />
+                                }
+                                if (countryName === 'united states') {
+                                  return <USASourcingView />
+                                }
+                                return (
+                                  <p style={{ color: '#8ea3c2', margin: 0 }}>
+                                    Product analysis is not yet available for {country?.name ?? 'this country'}.
+                                  </p>
+                                )
+                              })()}
+
+                            {marketAnalysisSection === 'historical' && (
+                              <p style={{ color: '#8ea3c2', margin: 0 }}>Historical analysis is coming soon.</p>
+                            )}
+
+                            {marketAnalysisSection === 'commercial-profile' &&
+                              (() => {
+                                const country = countries.find((item) => item.id === marketAnalysisCountryId)
+                                if (!country) {
+                                  return <p style={{ color: '#8ea3c2', margin: 0 }}>Select a country to build its commercial profile.</p>
+                                }
+                                return <CountryCommercialProfile companyId={companyId} country={country} />
+                              })()}
+
+                            {marketAnalysisSection === 'country-competitiveness' &&
+                              (() => {
+                                const country = countries.find((item) => item.id === marketAnalysisCountryId)
+                                if (!country) {
+                                  return <p style={{ color: '#8ea3c2', margin: 0 }}>Select a country to run a competitiveness analysis.</p>
+                                }
+                                return <CountryCompetitivenessAnalysis companyId={companyId} sourceCountry={country} />
+                              })()}
+
+                            {marketAnalysisSection === 'product-competitiveness' && (
+                              <p style={{ color: '#8ea3c2', margin: 0 }}>Product Competitiveness Analysis is coming soon.</p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

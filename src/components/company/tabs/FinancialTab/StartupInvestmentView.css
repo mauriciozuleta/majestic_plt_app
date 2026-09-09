@@ -6,6 +6,17 @@
   overflow-y: auto;
 }
 
+.startup-investment__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.startup-investment__header-row h3 {
+  margin: 0;
+}
+
 .startup-investment__status {
   padding: 1rem;
   color: var(--text-muted);

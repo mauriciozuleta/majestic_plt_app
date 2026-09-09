@@ -3,22 +3,36 @@ import os
 import sqlite3
 import uuid
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
+
+load_dotenv()
+
 from .database import Base, engine
 from .routers import (
     commercial_operations,
     commercial_structure,
     companies,
+    competitiveness,
+    country_profile,
+    currency,
     expense_categories,
+    general_ledger,
     org_chart,
     payroll,
     payroll_levels,
     payroll_template,
+    price_comparison,
+    product_overrides,
+    revenue_streams,
     roadmap,
     settings,
+    sim_parameters,
     startup_investment,
+    usa_sourcing,
+    weight_research,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -195,6 +209,14 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN entry_type VARCHAR'))
             if 'client' not in commercial_op_columns:
                 connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN client VARCHAR'))
+            if 'accounting_treatment' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN accounting_treatment VARCHAR'))
+            if 'is_recurring' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN is_recurring BOOLEAN DEFAULT 0'))
+            if 'is_discount' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN is_discount BOOLEAN DEFAULT 0'))
+            if 'settlement_date' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN settlement_date VARCHAR'))
 
         if 'payroll_employees' in inspector.get_table_names():
             employee_columns = {column['name'] for column in inspector.get_columns('payroll_employees')}
@@ -215,6 +237,26 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE commercial_countries ADD COLUMN currency VARCHAR'))
             if 'currency_code' not in commercial_country_columns:
                 connection.execute(text('ALTER TABLE commercial_countries ADD COLUMN currency_code VARCHAR'))
+
+        if 'commercial_branches' in inspector.get_table_names():
+            commercial_branch_columns = {column['name'] for column in inspector.get_columns('commercial_branches')}
+            branch_float_columns = [
+                'latitude',
+                'longitude',
+                'altitude_ft',
+                'fuel_cost_gl',
+                'cargo_handling_cost_kg',
+                'airport_fee',
+                'turnaround_cost',
+                'other_cost',
+            ]
+            for column_name in branch_float_columns:
+                if column_name not in commercial_branch_columns:
+                    connection.execute(text(f'ALTER TABLE commercial_branches ADD COLUMN {column_name} FLOAT'))
+            if 'city' not in commercial_branch_columns:
+                connection.execute(text('ALTER TABLE commercial_branches ADD COLUMN city VARCHAR'))
+            if 'other_desc' not in commercial_branch_columns:
+                connection.execute(text('ALTER TABLE commercial_branches ADD COLUMN other_desc VARCHAR'))
 
         if 'country_reference_catalog' in inspector.get_table_names():
             country_rows: list[tuple[str, str, str, str, str]] = []
@@ -294,3 +336,13 @@ app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)
 app.include_router(commercial_operations.router)
 app.include_router(startup_investment.router)
+app.include_router(sim_parameters.router)
+app.include_router(revenue_streams.router)
+app.include_router(general_ledger.router)
+app.include_router(price_comparison.router)
+app.include_router(currency.router)
+app.include_router(usa_sourcing.router)
+app.include_router(country_profile.router)
+app.include_router(competitiveness.router)
+app.include_router(weight_research.router)
+app.include_router(product_overrides.router)

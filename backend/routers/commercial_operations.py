@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
 from .. import schemas
+from ..gl_engine import post_commercial_operation_entry, unpost_commercial_operation_entry
 
 router = APIRouter()
 
@@ -47,9 +48,14 @@ def create_commercial_operation_entry(
         entry_type=payload.entry_type,
         client=payload.client,
         amount=payload.amount,
+        accounting_treatment=payload.accounting_treatment,
+        is_recurring=payload.is_recurring,
+        is_discount=payload.is_discount,
+        settlement_date=payload.settlement_date,
     )
     db.add(entry)
     db.commit()
+    post_commercial_operation_entry(db, entry)
     return entry
 
 
@@ -58,6 +64,8 @@ def delete_commercial_operation_entry(company_id: str, entry_id: str, db: Sessio
     entry = db.query(models.CommercialOperationEntry).filter_by(id=entry_id, company_id=company_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail='Entry not found')
+    unpost_commercial_operation_entry(db, entry_id)
+    db.query(models.SimParameter).filter_by(entry_id=entry_id).delete(synchronize_session=False)
     db.delete(entry)
     db.commit()
     return {'ok': True}

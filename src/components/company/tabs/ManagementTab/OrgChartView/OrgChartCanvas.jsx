@@ -13,8 +13,11 @@ function OrgChartCanvas({
   onNodeDragStop,
   onNodeClick,
   onEdgesDelete,
+  nodeTypes: nodeTypesProp,
+  showMiniMap = true,
+  showInteractive = true,
 }) {
-  const nodeTypes = useMemo(() => ({ officeNode: OfficeNode }), [])
+  const nodeTypes = useMemo(() => nodeTypesProp ?? { officeNode: OfficeNode }, [nodeTypesProp])
   const canvasRef = useRef(null)
   const [reactFlowInstance, setReactFlowInstance] = useState(null)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
@@ -68,10 +71,11 @@ function OrgChartCanvas({
           onNodeClick={(_, node) => onNodeClick(node)}
           onEdgesDelete={onEdgesDelete}
           onInit={setReactFlowInstance}
+          proOptions={{ hideAttribution: true }}
         >
           <Background gap={16} />
-          <Controls />
-          <MiniMap pannable zoomable />
+          <Controls showInteractive={showInteractive} />
+          {showMiniMap ? <MiniMap pannable zoomable /> : null}
         </ReactFlow>
       ) : null}
     </div>

@@ -1,6 +1,12 @@
 import { Navigate, useParams } from 'react-router-dom'
 import FinancialSubNav from './FinancialSubNav'
 import StubSection from './StubSection'
+import GeneralLedgerView from './Accounting/GeneralLedgerView'
+import ChartOfAccountsView from './Accounting/ChartOfAccountsView'
+import IncomeStatementView from './Accounting/IncomeStatementView'
+import BalanceSheetView from './Accounting/BalanceSheetView'
+import CashFlowStatementView from './Accounting/CashFlowStatementView'
+import TrialBalanceView from './Accounting/TrialBalanceView'
 
 const SECTIONS = [
   {
@@ -44,12 +50,22 @@ function AccountingView() {
 
   const activeSection = SECTIONS.find((item) => item.slug === section) ?? SECTIONS[0]
 
+  const renderSection = () => {
+    if (activeSection.slug === 'general-ledger') return <GeneralLedgerView />
+    if (activeSection.slug === 'chart-of-accounts') return <ChartOfAccountsView />
+    if (activeSection.slug === 'income-statement') return <IncomeStatementView />
+    if (activeSection.slug === 'balance-sheet') return <BalanceSheetView />
+    if (activeSection.slug === 'cash-flow-statement') return <CashFlowStatementView />
+    if (activeSection.slug === 'trial-balance') return <TrialBalanceView />
+    return <StubSection title={activeSection.label} description={activeSection.description} />
+  }
+
   return (
     <div className="panel-surface">
       <h3>Accounting</h3>
       <p>Statements and ledgers derived from the company's recorded financial activity.</p>
       <FinancialSubNav basePath={`/company/${companyId}/financial/accounting`} items={SECTIONS} />
-      <StubSection title={activeSection.label} description={activeSection.description} />
+      {renderSection()}
     </div>
   )
 }

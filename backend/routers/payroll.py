@@ -19,8 +19,8 @@ def _get_projection_years_limit(db: Session):
 
 
 def _clamp_projection_year(year: int, max_projection_years: int):
-    if year < 0:
-        return 0
+    if year < 1:
+        return 1
     if year > max_projection_years:
         return max_projection_years
     return year
@@ -153,7 +153,7 @@ def _ensure_payroll_record(db: Session, node: models.OrgChartNode):
         org_chart_node_id=node.id,
         year_salary=0.0,
         start_date=date.today().isoformat(),
-        start_projection_year=0,
+        start_projection_year=1,
     )
     db.add(record)
     db.flush()
@@ -161,7 +161,7 @@ def _ensure_payroll_record(db: Session, node: models.OrgChartNode):
 
 
 def _employee_active_in_year(employee: models.PayrollEmployee, projection_year: int):
-    if (employee.start_projection_year or 0) > projection_year:
+    if (employee.start_projection_year or 1) > projection_year:
         return False
     if employee.end_projection_year is not None and employee.end_projection_year < projection_year:
         return False
@@ -189,7 +189,7 @@ def _row_for_node(db: Session, node_id: str, projection_year: int | None = None)
 
     record = _ensure_payroll_record(db, node)
     projection_years_limit = _get_projection_years_limit(db)
-    selected_projection_year = _clamp_projection_year(projection_year if projection_year is not None else 0, projection_years_limit)
+    selected_projection_year = _clamp_projection_year(projection_year if projection_year is not None else 1, projection_years_limit)
     year_salary_value = _get_effective_year_salary(db, record, selected_projection_year)
     roster = _roster_for_node(db, node.id)
     headcount = sum(1 for employee in roster if _employee_active_in_year(employee, selected_projection_year))
@@ -219,7 +219,7 @@ def _row_for_node(db: Session, node_id: str, projection_year: int | None = None)
 
 
 @router.get('/companies/{company_id}/payroll', response_model=list[schemas.PayrollRowOut])
-def list_payroll(company_id: str, year: int = 0, db: Session = Depends(get_db)):
+def list_payroll(company_id: str, year: int = 1, db: Session = Depends(get_db)):
     nodes = db.query(models.OrgChartNode).filter_by(company_id=company_id).all()
     edges = db.query(models.OrgChartEdge).filter_by(company_id=company_id).all()
     projection_years_limit = _get_projection_years_limit(db)
@@ -331,13 +331,13 @@ def create_position(company_id: str, payload: schemas.PayrollPositionCreate, db:
         org_chart_node_id=node.id,
         year_salary=payload.year_salary,
         start_date=payload.start_date,
-        start_projection_year=0,
+        start_projection_year=1,
     )
     db.add(record)
     db.flush()
 
     projection_years_limit = _get_projection_years_limit(db)
-    selected_projection_year = _clamp_projection_year(payload.projection_year if payload.projection_year is not None else 0, projection_years_limit)
+    selected_projection_year = _clamp_projection_year(payload.projection_year if payload.projection_year is not None else 1, projection_years_limit)
     selected_year_salary = _get_or_create_year_salary(db, record, selected_projection_year)
     selected_year_salary.year_salary = payload.year_salary
     selected_year_salary.payroll_level = payload.payroll_level
@@ -399,7 +399,7 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
 
     projection_years_limit = _get_projection_years_limit(db)
     selected_projection_year = _clamp_projection_year(
-        updates.get('projection_year') if updates.get('projection_year') is not None else 0,
+        updates.get('projection_year') if updates.get('projection_year') is not None else 1,
         projection_years_limit,
     )
 
@@ -407,7 +407,7 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
         selected_year_salary = _get_or_create_year_salary(db, record, selected_projection_year)
         if 'year_salary' in updates:
             selected_year_salary.year_salary = updates['year_salary']
-            if selected_projection_year == 0:
+            if selected_projection_year == 1:
                 record.year_salary = updates['year_salary']
         if 'payroll_level' in updates:
             selected_year_salary.payroll_level = updates['payroll_level']
@@ -422,14 +422,14 @@ def _apply_growth_rate_to_record(db: Session, record: models.PayrollRecord, rate
     times 1.03. Anchoring on the previous year (not the target year's own,
     possibly already-raised value) is what makes this idempotent: changing
     the % and re-applying always recomputes from the same stable base
-    instead of compounding on top of whatever was applied last time. Year 0
+    instead of compounding on top of whatever was applied last time. Year 1
     has no previous year, so it bumps its own base salary directly. The rate
     itself is persisted on the *year's own* PayrollYearlySalary row, not on
     the position as a whole — otherwise applying a different rate to Year 2
     would silently overwrite Year 1's stored rate, since a position only has
     one of those rows per year but the record itself is shared across all of
     them."""
-    if target_year == 0:
+    if target_year == 1:
         new_salary = round(record.year_salary * (1 + rate_pct / 100), 2)
         record.year_salary = new_salary
     else:
@@ -445,7 +445,7 @@ def _clear_growth_rate_from_record(db: Session, record: models.PayrollRecord, ta
     """Reverses whatever raise is applied for this year: drops the explicit
     override so the year falls back to inheriting the previous year's salary
     again, taking its stored rate down with it."""
-    if target_year == 0:
+    if target_year == 1:
         return
     db.query(models.PayrollYearlySalary).filter_by(
         payroll_record_id=record.id,
@@ -454,7 +454,7 @@ def _clear_growth_rate_from_record(db: Session, record: models.PayrollRecord, ta
 
 
 @router.post('/companies/{company_id}/apply-growth-rate-all', response_model=list[schemas.PayrollRowOut])
-def apply_growth_rate_all(company_id: str, payload: schemas.PayrollGrowthApply, year: int = 0, db: Session = Depends(get_db)):
+def apply_growth_rate_all(company_id: str, payload: schemas.PayrollGrowthApply, year: int = 1, db: Session = Depends(get_db)):
     nodes = db.query(models.OrgChartNode).filter_by(company_id=company_id).all()
     projection_years_limit = _get_projection_years_limit(db)
     target_year = _clamp_projection_year(year, projection_years_limit)
@@ -470,7 +470,7 @@ def apply_growth_rate_all(company_id: str, payload: schemas.PayrollGrowthApply, 
 
 
 @router.post('/companies/{company_id}/clear-growth-rate', response_model=list[schemas.PayrollRowOut])
-def clear_growth_rate(company_id: str, year: int = 0, db: Session = Depends(get_db)):
+def clear_growth_rate(company_id: str, year: int = 1, db: Session = Depends(get_db)):
     nodes = db.query(models.OrgChartNode).filter_by(company_id=company_id).all()
     projection_years_limit = _get_projection_years_limit(db)
     target_year = _clamp_projection_year(year, projection_years_limit)
@@ -494,7 +494,7 @@ def list_employees(node_id: str, db: Session = Depends(get_db)):
 
 
 @router.post('/payroll-positions/{node_id}/employees', response_model=schemas.PayrollRowOut)
-def add_employee(node_id: str, payload: schemas.PayrollEmployeeCreate, year: int = 0, db: Session = Depends(get_db)):
+def add_employee(node_id: str, payload: schemas.PayrollEmployeeCreate, year: int = 1, db: Session = Depends(get_db)):
     node = db.query(models.OrgChartNode).filter_by(id=node_id).first()
     if not node:
         raise HTTPException(status_code=404, detail='Position not found')
@@ -519,7 +519,7 @@ def add_employee(node_id: str, payload: schemas.PayrollEmployeeCreate, year: int
 
 
 @router.patch('/payroll-employees/{employee_id}', response_model=schemas.PayrollRowOut)
-def update_employee(employee_id: str, payload: schemas.PayrollEmployeeUpdate, year: int = 0, db: Session = Depends(get_db)):
+def update_employee(employee_id: str, payload: schemas.PayrollEmployeeUpdate, year: int = 1, db: Session = Depends(get_db)):
     employee = db.query(models.PayrollEmployee).filter_by(id=employee_id).first()
     if not employee:
         raise HTTPException(status_code=404, detail='Employee not found')

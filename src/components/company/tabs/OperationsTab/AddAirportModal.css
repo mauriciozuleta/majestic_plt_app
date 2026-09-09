@@ -1,0 +1,117 @@
+.add-airport-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1.5rem;
+}
+
+.add-airport-modal {
+  width: min(38rem, 100%);
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  background: #0f172a;
+  border: 1px solid #3b82f6;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  padding: 1.3rem 1.5rem;
+}
+
+.add-airport-modal h3 {
+  margin: 0 0 1rem;
+  color: #eaf3ff;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.add-airport-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.add-airport-modal__section h4 {
+  margin: 0 0 0.6rem;
+  color: #7fb2ff;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.add-airport-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.add-airport-modal__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: #cfe0f8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.add-airport-modal__form input {
+  background: #111f31;
+  color: #eaf3ff;
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.add-airport-modal__form input[readonly] {
+  color: #9fb7d6;
+  border-color: #2a3f5c;
+}
+
+.add-airport-modal__hint {
+  margin: 0.5rem 0 0;
+  color: #fbbf24;
+  font-size: 0.74rem;
+}
+
+.add-airport-modal__error {
+  color: #fca5a5;
+  font-size: 0.8rem;
+}
+
+.add-airport-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid #1e293b;
+}
+
+.add-airport-modal__actions button {
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.add-airport-modal__actions button[type='button'] {
+  background: transparent;
+  border: 1px solid #3b82f6;
+  color: #cfe0f8;
+}
+
+.add-airport-modal__actions button[type='submit'] {
+  background: #1d4ed8;
+  border: none;
+  color: #fff;
+}
+
+.add-airport-modal__actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -6,6 +6,7 @@ import {
 } from '../../../../../services/commercialOperations'
 import { fetchSettings } from '../../../../../services/settings'
 import { getDefaultCalendarDate } from '../../../../../services/calendarDates'
+import { createSimParameter } from '../../../../../services/simParameters'
 import JumpToDatePicker from './JumpToDatePicker'
 import MonthView from './MonthView'
 import DayView from './DayView'
@@ -82,8 +83,16 @@ function CommercialOperationsView({ companyId }) {
 
   const handleAddNew = (categoryKey) => setModalCategory(categoryKey)
 
-  const handleSaveEntry = async (payload) => {
-    await createCommercialOperationEntry(companyId, payload)
+  const handleSaveEntry = async (payloads) => {
+    const entries = Array.isArray(payloads) ? payloads : [payloads]
+    for (const { is_sim_parameter, ...entry } of entries) {
+      // eslint-disable-next-line no-await-in-loop
+      const created = await createCommercialOperationEntry(companyId, entry)
+      if (is_sim_parameter) {
+        // eslint-disable-next-line no-await-in-loop
+        await createSimParameter(companyId, created.id)
+      }
+    }
     setModalCategory(null)
     await reload()
   }
@@ -127,7 +136,7 @@ function CommercialOperationsView({ companyId }) {
 
   const yearOptions = useMemo(() => {
     if (calendarMode === 'simulation') {
-      return Array.from({ length: 21 }, (_, index) => index)
+      return Array.from({ length: 21 }, (_, index) => index + 1)
     }
     const currentYear = new Date().getFullYear()
     return Array.from({ length: 21 }, (_, index) => currentYear - 10 + index)

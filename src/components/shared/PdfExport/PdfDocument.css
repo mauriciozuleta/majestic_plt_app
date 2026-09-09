@@ -1,0 +1,286 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+.pdf-doc {
+  --pdf-paper: #fdfcf9;
+  --pdf-ink: #171b1f;
+  --pdf-ink-muted: #5b6570;
+  --pdf-rule: #dfe3e6;
+  --pdf-rule-strong: #c7ccd1;
+  --pdf-tile-bg: #f4f6f5;
+  --pdf-tile-border: #e0e4e2;
+  --pdf-emphasis-bg: #eef8f3;
+  --pdf-emphasis-border: #b9e4cd;
+  --pdf-accent-from: #35d399;
+  --pdf-accent-to: #0ea5e9;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-doc__page {
+  box-sizing: border-box;
+  padding: 2.3rem 2.4rem 1.9rem;
+  background: var(--pdf-paper);
+  color: var(--pdf-ink);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  position: relative;
+}
+.pdf-doc__page[data-variant='preview'] {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 18px 40px -12px rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+}
+
+.pdf-doc__letterhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--pdf-rule-strong);
+}
+.pdf-doc__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.pdf-doc__logo {
+  width: 46px;
+  height: 46px;
+  border-radius: 9px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--pdf-rule);
+  padding: 3px;
+}
+.pdf-doc__logo--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  color: var(--pdf-ink-muted);
+}
+.pdf-doc__name {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 1.32rem;
+  letter-spacing: -0.01em;
+}
+.pdf-doc__type {
+  font-size: 0.68rem;
+  color: var(--pdf-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.15rem;
+}
+.pdf-doc__doc-meta {
+  text-align: right;
+}
+.pdf-doc__eyebrow {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pdf-ink-muted);
+}
+.pdf-doc__title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-top: 0.15rem;
+  text-wrap: balance;
+}
+.pdf-doc__confidential {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a45400;
+  background: #fdf1e2;
+  border: 1px solid #f0d6ac;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+
+.pdf-doc__subhead {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--pdf-ink-muted);
+  padding: 0.6rem 0 1.1rem;
+}
+
+.pdf-doc__summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+  margin-bottom: 1.3rem;
+}
+.pdf-doc__tile {
+  background: var(--pdf-tile-bg);
+  border: 1px solid var(--pdf-tile-border);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.pdf-doc__tile--primary {
+  background: var(--pdf-emphasis-bg);
+  border-color: var(--pdf-emphasis-border);
+}
+.pdf-doc__tile-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pdf-ink-muted);
+  margin-bottom: 0.3rem;
+}
+.pdf-doc__tile-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.18rem;
+  font-weight: 500;
+}
+.pdf-doc__tile--primary .pdf-doc__tile-value {
+  color: #0c7a52;
+}
+
+table.pdf-doc__ledger {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--ledger-font, 0.62rem);
+}
+.pdf-doc__ledger th,
+.pdf-doc__ledger td {
+  padding: var(--ledger-pad, 0.28rem 0.35rem);
+  border-bottom: 1px solid var(--pdf-rule);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.pdf-doc__ledger thead {
+  display: table-header-group;
+}
+.pdf-doc__ledger thead th {
+  text-align: right;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pdf-ink-muted);
+  border-bottom: 1px solid var(--pdf-rule-strong);
+  font-weight: 600;
+}
+.pdf-doc__ledger thead th:first-child {
+  text-align: left;
+}
+.pdf-doc__ledger td.num,
+.pdf-doc__ledger th.num {
+  text-align: right;
+  font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+.pdf-doc__item-name {
+  padding-left: 1rem;
+  color: var(--pdf-ink);
+  white-space: normal;
+  line-height: 1.2;
+  word-break: break-word;
+}
+.pdf-doc__total-cell {
+  font-weight: 500;
+}
+
+.pdf-doc__ledger tbody tr {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+tr.pdf-doc__cat-row {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+tr.pdf-doc__cat-row td {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 1.2em;
+  color: var(--pdf-ink);
+  padding-top: 0.55rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--pdf-rule-strong);
+}
+.pdf-doc__cat-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cat-color);
+  margin-right: 0.5rem;
+}
+.pdf-doc__cat-meta {
+  float: right;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 400;
+  font-size: 0.85em;
+  color: var(--pdf-ink-muted);
+}
+tr.pdf-doc__subtotal-row td {
+  font-style: italic;
+  font-size: 0.95em;
+  border-bottom: 2px solid var(--pdf-rule-strong);
+}
+tr.pdf-doc__subtotal-row td:first-child {
+  padding-left: 1rem;
+}
+
+tr.pdf-doc__grand-row {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+tr.pdf-doc__grand-row td {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 1em;
+  color: var(--pdf-ink);
+  background: var(--pdf-emphasis-bg);
+  border-top: 2px solid #0c7a52;
+  border-bottom: none;
+}
+
+.pdf-doc__signoff {
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--pdf-rule);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  font-size: 0.72rem;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.pdf-doc__signoff-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: var(--pdf-ink);
+}
+.pdf-doc__signoff-line strong {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pdf-ink-muted);
+  font-weight: 600;
+}
+
+.pdf-doc__footer {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--pdf-rule);
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.62rem;
+  color: var(--pdf-ink-muted);
+  page-break-inside: avoid;
+  break-inside: avoid;
+}

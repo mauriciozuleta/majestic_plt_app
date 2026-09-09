@@ -317,7 +317,7 @@ function PayrollView({ companyId: companyIdProp }) {
             onChange={(event) => setSelectedYear(Number(event.target.value))}
             aria-label="Select payroll projection year"
           >
-            {Array.from({ length: projectionYears + 1 }, (_, index) => index).map((yearNumber) => (
+            {Array.from({ length: projectionYears }, (_, index) => index + 1).map((yearNumber) => (
               <option key={yearNumber} value={yearNumber}>
                 Year {yearNumber}
               </option>

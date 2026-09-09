@@ -1,0 +1,16 @@
+.pdf-export-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.pdf-export-trigger:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}

@@ -20,7 +20,7 @@ export function usePayrollData(companyId) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [projectionYears, setProjectionYears] = useState(5)
-  const [selectedYear, setSelectedYear] = useState(0)
+  const [selectedYear, setSelectedYear] = useState(1)
 
   const reload = useCallback(async () => {
     if (!companyId) {
@@ -40,7 +40,7 @@ export function usePayrollData(companyId) {
       ])
       const nextProjectionYears = Math.max(5, Math.min(10, Number(settings.projection_years ?? 5)))
       setProjectionYears(nextProjectionYears)
-      setSelectedYear((previousYear) => Math.max(0, Math.min(Number(previousYear ?? 0), nextProjectionYears)))
+      setSelectedYear((previousYear) => Math.max(1, Math.min(Number(previousYear ?? 1), nextProjectionYears)))
       setRows(nextRows)
       setAreas(nextAreas)
       setError(null)

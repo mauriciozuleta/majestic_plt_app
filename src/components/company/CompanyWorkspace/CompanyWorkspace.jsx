@@ -6,7 +6,7 @@ import { useAppStore } from '../../../store/useAppStore'
 const subTabLabels = {
   'revenue-streams': 'Revenue/COS',
   'commercial-structure': 'Commercial Operations',
-  'overview-management': 'Corporate Structure Management',
+  'overview-management': 'Commercial Structure',
   accounting: 'Accounting',
   'financial-modeling': 'Financial Modeling',
   'startup-investment': 'Start-up Investment',

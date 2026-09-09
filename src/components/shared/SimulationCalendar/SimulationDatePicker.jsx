@@ -7,7 +7,7 @@ import {
 import './SimulationDatePicker.css'
 
 export default function SimulationDatePicker({ value, onChange, maxYear = 20 }) {
-  const current = value ? isoDateToSimDate(value) : { year: 0, month: 1, day: 1 }
+  const current = value ? isoDateToSimDate(value) : { year: 1, month: 1, day: 1 }
 
   const update = (patch) => {
     onChange(simDateToIsoDate({ ...current, ...patch }))
@@ -18,7 +18,7 @@ export default function SimulationDatePicker({ value, onChange, maxYear = 20 }) 
       <label>
         Year
         <select value={current.year} onChange={(event) => update({ year: Number(event.target.value) })}>
-          {Array.from({ length: maxYear + 1 }, (_, year) => year).map((year) => (
+          {Array.from({ length: maxYear }, (_, index) => index + 1).map((year) => (
             <option key={year} value={year}>
               {year}
             </option>

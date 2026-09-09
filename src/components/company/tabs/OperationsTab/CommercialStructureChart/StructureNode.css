@@ -1,0 +1,107 @@
+.structure-node {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top-width: 3px;
+  border-radius: 8px;
+  padding: 10px 14px;
+  width: 230px;
+  box-sizing: border-box;
+  text-align: center;
+  cursor: pointer;
+}
+
+.structure-node__delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  z-index: 1;
+}
+
+.structure-node__delete:hover {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.structure-node.is-company {
+  border-top-color: #f59e0b;
+}
+.structure-node.is-region {
+  border-top-color: #38bdf8;
+}
+.structure-node.is-country {
+  border-top-color: #a78bfa;
+}
+.structure-node.is-branch {
+  border-top-color: #35d399;
+}
+
+.structure-node.is-selected {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 1px var(--accent-amber);
+}
+
+.structure-node__kind {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.structure-node__title,
+.structure-node__sub,
+.structure-node__manager,
+.structure-node__user {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.structure-node__title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.structure-node__sub {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+
+.structure-node__manager {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.structure-node__manager.is-vacant {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.structure-node__user {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.structure-node__handle {
+  background: var(--accent-amber) !important;
+  width: 8px !important;
+  height: 8px !important;
+  border: none !important;
+}

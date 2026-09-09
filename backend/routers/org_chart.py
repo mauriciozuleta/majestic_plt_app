@@ -19,8 +19,8 @@ def _get_projection_years_limit(db: Session):
 
 
 def _clamp_projection_year(year: int, max_projection_years: int):
-    if year < 0:
-        return 0
+    if year < 1:
+        return 1
     if year > max_projection_years:
         return max_projection_years
     return year
@@ -36,13 +36,13 @@ def _visible_node_ids(db: Session, company_id: str, selected_projection_year: in
         models.PayrollRecord.org_chart_node_id.in_(node_ids)
     ).all()
     start_year_by_node = {
-        record.org_chart_node_id: (record.start_projection_year or 0)
+        record.org_chart_node_id: (record.start_projection_year or 1)
         for record in payroll_records
     }
 
     visible_nodes = [
         node for node in nodes
-        if start_year_by_node.get(node.id, 0) <= selected_projection_year
+        if start_year_by_node.get(node.id, 1) <= selected_projection_year
     ]
     visible_node_ids = {node.id for node in visible_nodes}
     return visible_node_ids, visible_nodes
@@ -88,7 +88,7 @@ def _seat_nodes_for_position(node, roster, company_id):
 
 
 @router.get('/companies/{company_id}/org-chart-nodes', response_model=list[schemas.OrgChartNodeOut])
-def list_nodes(company_id: str, year: int = 0, db: Session = Depends(get_db)):
+def list_nodes(company_id: str, year: int = 1, db: Session = Depends(get_db)):
     projection_years_limit = _get_projection_years_limit(db)
     selected_projection_year = _clamp_projection_year(year, projection_years_limit)
     _, visible_nodes = _visible_node_ids(db, company_id, selected_projection_year)
@@ -104,7 +104,7 @@ def list_nodes(company_id: str, year: int = 0, db: Session = Depends(get_db)):
 
 
 @router.post('/companies/{company_id}/org-chart-nodes', response_model=schemas.OrgChartNodeOut)
-def create_node(company_id: str, node: schemas.OrgChartNodeCreate, year: int = 0, db: Session = Depends(get_db)):
+def create_node(company_id: str, node: schemas.OrgChartNodeCreate, year: int = 1, db: Session = Depends(get_db)):
     projection_years_limit = _get_projection_years_limit(db)
     selected_projection_year = _clamp_projection_year(year, projection_years_limit)
 
@@ -159,7 +159,7 @@ def delete_node(node_id: str, db: Session = Depends(get_db)):
 
 
 @router.get('/companies/{company_id}/org-chart-edges', response_model=list[schemas.OrgChartEdgeOut])
-def list_edges(company_id: str, year: int = 0, db: Session = Depends(get_db)):
+def list_edges(company_id: str, year: int = 1, db: Session = Depends(get_db)):
     """A position box only ever stores one "default" parent edge. For a
     split position, that's not enough — each seat gets its own box (see
     list_nodes) and needs its own line to whoever it actually reports to,

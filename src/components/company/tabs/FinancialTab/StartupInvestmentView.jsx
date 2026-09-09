@@ -11,17 +11,10 @@ import {
   updateStartupInvestmentRecord,
 } from '../../../../services/startupInvestment'
 import AddStartupRecordModal from './AddStartupRecordModal'
+import ExportPdfButton from '../../../shared/PdfExport/ExportPdfButton'
+import { CATEGORIES, EXPENSE_CATEGORY_KEYS, WORKING_CAPITAL_KEY, buildStartupInvestmentPdfSpec } from './startupInvestmentPdfSpec'
 import './StartupInvestmentView.css'
 
-const CATEGORIES = [
-  { key: 'assets_acquisition', label: 'Start-up Assets Acquisition', color: '#35D399' },
-  { key: 'other_assets_purchases', label: 'Other assets Purchases', color: '#38bdf8' },
-  { key: 'startup_expenses', label: 'Start-up Expenses', color: '#f59e0b' },
-  { key: 'startup_payroll', label: 'Start-up development payroll', color: '#a78bfa' },
-  { key: 'working_capital', label: 'Start-up Working capital requirement', color: '#f87171' },
-]
-const EXPENSE_CATEGORY_KEYS = ['assets_acquisition', 'other_assets_purchases', 'startup_expenses', 'startup_payroll']
-const WORKING_CAPITAL_KEY = 'working_capital'
 const MONTH_OPTIONS = Array.from({ length: 36 }, (_, index) => index + 1)
 
 function CreatePlanModal({ onCreate, creating, error }) {
@@ -181,9 +174,14 @@ function StartupInvestmentView() {
   const activeCategoryKey = recordModal ? (recordModal.mode === 'edit' ? recordModal.record.category : recordModal.category) : null
   const activeCategoryMeta = CATEGORIES.find((category) => category.key === activeCategoryKey)
 
+  const pdfSpec = buildStartupInvestmentPdfSpec(plan, records)
+
   return (
     <div className="panel-surface startup-investment">
-      <h3>Start-up Investment</h3>
+      <div className="startup-investment__header-row">
+        <h3>Start-up Investment</h3>
+        <ExportPdfButton spec={pdfSpec} label="Export to PDF" />
+      </div>
       <div className="startup-investment__subtitle">
         <p>
           Pre-operational cash requirement over {monthCount} month{monthCount === 1 ? '' : 's'}.

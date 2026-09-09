@@ -83,6 +83,13 @@ def delete_company(company_id: str, db: Session = Depends(get_db)):
     db.query(models.CommercialRegion).filter_by(company_id=company_id).delete(synchronize_session=False)
     db.query(models.ExpenseEntry).filter_by(company_id=company_id).delete(synchronize_session=False)
     db.query(models.CommercialOperationEntry).filter_by(company_id=company_id).delete(synchronize_session=False)
+    db.query(models.SimParameter).filter_by(company_id=company_id).delete(synchronize_session=False)
+    db.query(models.RevenueStream).filter_by(company_id=company_id).delete(synchronize_session=False)
+    journal_entry_ids = [row.id for row in db.query(models.JournalEntry).filter_by(company_id=company_id).all()]
+    if journal_entry_ids:
+        db.query(models.JournalLine).filter(models.JournalLine.journal_entry_id.in_(journal_entry_ids)).delete(synchronize_session=False)
+    db.query(models.JournalEntry).filter_by(company_id=company_id).delete(synchronize_session=False)
+    db.query(models.GeneralLedgerAccount).filter_by(company_id=company_id).delete(synchronize_session=False)
     db.query(models.StartupInvestmentRecord).filter_by(company_id=company_id).delete(synchronize_session=False)
     db.query(models.StartupInvestmentPlan).filter_by(company_id=company_id).delete(synchronize_session=False)
     db.query(models.Company).filter_by(parent_company_id=company_id).update(

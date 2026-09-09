@@ -10,7 +10,7 @@ function OrgChartView({ companyId: companyIdProp }) {
   const companyId = companyIdProp ?? params.companyId
   const [isModalOpen, setModalOpen] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState(null)
-  const [selectedYear, setSelectedYear] = useState(0)
+  const [selectedYear, setSelectedYear] = useState(1)
   const [editorValues, setEditorValues] = useState({ officeName: '', employeeName: '', area: '' })
 
   const {
@@ -31,7 +31,7 @@ function OrgChartView({ companyId: companyIdProp }) {
   } = useOrgChartData(companyId, selectedYear)
 
   useEffect(() => {
-    setSelectedYear((previousYear) => Math.max(0, Math.min(Number(previousYear ?? 0), projectionYears)))
+    setSelectedYear((previousYear) => Math.max(1, Math.min(Number(previousYear ?? 1), projectionYears)))
   }, [projectionYears])
 
   const selectedNode = useMemo(
@@ -62,7 +62,7 @@ function OrgChartView({ companyId: companyIdProp }) {
             onChange={(event) => setSelectedYear(Number(event.target.value))}
             aria-label="Select org chart projection year"
           >
-            {Array.from({ length: projectionYears + 1 }, (_, index) => index).map((yearNumber) => (
+            {Array.from({ length: projectionYears }, (_, index) => index + 1).map((yearNumber) => (
               <option key={yearNumber} value={yearNumber}>
                 Year {yearNumber}
               </option>

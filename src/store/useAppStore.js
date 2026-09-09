@@ -37,6 +37,7 @@ export const useAppStore = create((set, get) => ({
   activeCompanyId: initialActiveCompanyId,
   currentUser: null,
   sidebarOpen: false,
+  assistantMessages: [],
 
   setCurrentUser: (user) => set({ currentUser: user }),
   setCompanies: (companies) =>
@@ -88,4 +89,13 @@ export const useAppStore = create((set, get) => ({
     const { companies, activeCompanyId } = get()
     return companies.find((company) => company.id === activeCompanyId) ?? null
   },
+  // Pushed from background-job polling (see services/backgroundJobs.js), not
+  // just from a mounted component — a long-running build (country profile,
+  // competitiveness analysis) keeps polling after the triggering panel is
+  // navigated away from, and posts its result here when done, since this
+  // store — unlike component state — survives that navigation.
+  addAssistantMessage: (text) =>
+    set((state) => ({
+      assistantMessages: [...state.assistantMessages, { id: Date.now() + Math.random(), sender: 'bot', text }],
+    })),
 }))

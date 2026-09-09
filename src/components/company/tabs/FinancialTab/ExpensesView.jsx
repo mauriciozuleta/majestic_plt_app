@@ -26,7 +26,7 @@ function ExpensesView() {
   const [calendarMode, setCalendarMode] = useState('real')
   const [projectionYears, setProjectionYears] = useState(5)
   const [viewMode, setViewMode] = useState('monthly')
-  const [selectedYear, setSelectedYear] = useState(0)
+  const [selectedYear, setSelectedYear] = useState(1)
   const [entries, setEntries] = useState([])
   const [payrollRows, setPayrollRows] = useState([])
   const [drafts, setDrafts] = useState(() => new Map())
@@ -77,7 +77,7 @@ function ExpensesView() {
     if (viewMode !== 'yearly' || !companyId) return undefined
     let cancelled = false
     setYearSummaryLoading(true)
-    const years = Array.from({ length: projectionYears + 1 }, (_, index) => index)
+    const years = Array.from({ length: projectionYears }, (_, index) => index + 1)
 
     Promise.all([
       Promise.all(years.map((year) => fetchExpenses(companyId, year))),
@@ -187,7 +187,7 @@ function ExpensesView() {
           <label className="expenses-view__year-selector">
             Projection year
             <select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
-              {Array.from({ length: projectionYears + 1 }, (_, index) => index).map((yearNumber) => (
+              {Array.from({ length: projectionYears }, (_, index) => index + 1).map((yearNumber) => (
                 <option key={yearNumber} value={yearNumber}>
                   Year {yearNumber}
                 </option>
@@ -215,7 +215,7 @@ function ExpensesView() {
           <div className="expenses-view__status">Loading year summary...</div>
         ) : (
           <YearSummaryTable
-            years={Array.from({ length: projectionYears + 1 }, (_, index) => index)}
+            years={Array.from({ length: projectionYears }, (_, index) => index + 1)}
             rows={yearSummaryRows}
             nameHeader="Category"
             formatValue={(value) => `$${Math.round(value).toLocaleString()}`}

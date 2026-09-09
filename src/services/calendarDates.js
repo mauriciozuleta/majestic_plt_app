@@ -10,7 +10,7 @@ export const SIMULATION_STORAGE_EPOCH = FICTITIOUS_EPOCH
 
 export function getDefaultCalendarDate(calendarMode) {
   return calendarMode === 'simulation'
-    ? simDateToIsoDate({ year: 0, month: 1, day: 1 })
+    ? simDateToIsoDate({ year: 1, month: 1, day: 1 })
     : new Date().toISOString().slice(0, 10)
 }
 

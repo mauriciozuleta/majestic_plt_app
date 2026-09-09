@@ -27,7 +27,7 @@ def list_expense_categories(db: Session = Depends(get_db)):
 
 
 @router.get('/companies/{company_id}/expenses', response_model=list[schemas.ExpenseEntryOut])
-def list_expenses(company_id: str, year: int = 0, db: Session = Depends(get_db)):
+def list_expenses(company_id: str, year: int = 1, db: Session = Depends(get_db)):
     categories = db.query(models.ExpenseCategory).order_by(models.ExpenseCategory.sort_order).all()
     rows = []
     for category in categories:
@@ -55,7 +55,7 @@ def update_expense_entry(
     company_id: str,
     category_id: str,
     payload: schemas.ExpenseEntryUpdate,
-    year: int = 0,
+    year: int = 1,
     db: Session = Depends(get_db),
 ):
     category = db.query(models.ExpenseCategory).filter_by(id=category_id).first()

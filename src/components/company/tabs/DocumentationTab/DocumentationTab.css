@@ -1,0 +1,227 @@
+.documentation {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.documentation__intro {
+  color: #cfe0f8;
+  margin: -0.6rem 0 0;
+}
+
+.documentation__portfolio-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 10px;
+}
+
+.documentation__portfolio-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.documentation__collapse-btn {
+  border: 1px solid #2a3f5c;
+  background: #0d1826;
+  color: #8ea3c2;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.documentation__portfolio-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 28rem;
+  border: 1px solid #1c2b40;
+  border-radius: 8px;
+}
+
+.documentation__portfolio-table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.documentation__portfolio-table th,
+.documentation__portfolio-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid #1c2b40;
+  text-align: left;
+  color: #cfe0f8;
+}
+
+.documentation__portfolio-table thead th {
+  position: sticky;
+  top: 0;
+  background: #111f31;
+  color: #8ea3c2;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.66rem;
+}
+
+.documentation__portfolio-code {
+  font-family: var(--font-mono, monospace);
+  color: #6ee7b7;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.documentation__portfolio-muted {
+  color: #8ea3c2;
+  font-size: 0.78rem;
+}
+
+.documentation__category {
+  border: 1px solid #2a3f5c;
+  border-radius: 12px;
+  background: #111f31;
+  padding: 16px;
+}
+
+.documentation__category h4 {
+  margin: 0 0 12px;
+  color: #eaf3ff;
+  font-size: 1rem;
+}
+
+.documentation__link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 10px 0;
+  border-bottom: 1px solid #1c2b40;
+}
+
+.documentation__link-row:last-child {
+  border-bottom: none;
+}
+
+.documentation__link-name {
+  color: #cfe0f8;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.documentation__link-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.documentation__link-btn {
+  border: 1px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.documentation__link-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.documentation__hint {
+  color: #8ea3c2;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.documentation__hint--error {
+  color: #fca5a5;
+}
+
+.documentation__viewer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 10, 18, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+
+.documentation__viewer {
+  width: min(760px, 100%);
+  max-height: 88vh;
+  background: #0d1826;
+  border: 1px solid #2a3f5c;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.documentation__viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 18px 22px;
+  border-bottom: 1px solid #2a3f5c;
+}
+
+.documentation__viewer-header h3 {
+  margin: 0;
+  color: #eaf3ff;
+  font-size: 1.05rem;
+}
+
+.documentation__viewer-scroll {
+  overflow-y: auto;
+  padding: 22px 26px;
+}
+
+.documentation__markdown-body h1 {
+  color: #eaf3ff;
+  font-size: 1.3rem;
+  margin: 0 0 0.6rem;
+}
+
+.documentation__markdown-body h2 {
+  color: #6ee7b7;
+  font-size: 1.05rem;
+  margin: 1.3rem 0 0.5rem;
+  border-bottom: 1px solid #2a3f5c;
+  padding-bottom: 0.3rem;
+}
+
+.documentation__markdown-body p {
+  color: #cfe0f8;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin: 0 0 0.7rem;
+}
+
+.documentation__markdown-body li {
+  color: #cfe0f8;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  margin: 0 0 0.4rem;
+  padding-left: 1.1rem;
+  list-style: none;
+  position: relative;
+}
+
+.documentation__markdown-body li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #6ee7b7;
+}
