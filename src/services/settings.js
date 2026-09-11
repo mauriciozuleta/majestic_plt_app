@@ -46,3 +46,53 @@ export async function updateTimeProjection(projectionYears) {
   if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to update time projection'))
   return response.json()
 }
+
+export async function updateEnabledBenefits(benefitKeys) {
+  const response = await fetch(`${API_BASE}/settings/enabled-benefits`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ benefit_keys: benefitKeys }),
+  })
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to update enabled benefits'))
+  return response.json()
+}
+
+export async function updateInflation(inflationPct) {
+  const response = await fetch(`${API_BASE}/settings/inflation`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inflation_pct: inflationPct }),
+  })
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to update inflation'))
+  return response.json()
+}
+
+export async function updateColombiaExchangeRate(copPerUsd) {
+  const response = await fetch(`${API_BASE}/settings/colombia-exchange-rate`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cop_per_usd: copPerUsd }),
+  })
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to update the Colombia exchange rate'))
+  return response.json()
+}
+
+export async function updateColombiaReferenceFigures(smmlvCop, uvtCop) {
+  const response = await fetch(`${API_BASE}/settings/colombia-reference-figures`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ smmlv_cop: smmlvCop, uvt_cop: uvtCop }),
+  })
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to update the Colombia reference figures'))
+  return response.json()
+}
+
+export async function updatePayrollSchedule(payload) {
+  const response = await fetch(`${API_BASE}/settings/payroll-schedule`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to update the payroll schedule'))
+  return response.json()
+}

@@ -54,6 +54,37 @@ def _ensure_schema_migrations():
             settings_columns = {column['name'] for column in inspector.get_columns('portfolio_settings')}
             if 'projection_years' not in settings_columns:
                 connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN projection_years INTEGER DEFAULT 5'))
+            if 'enabled_benefits_json' not in settings_columns:
+                connection.execute(text("ALTER TABLE portfolio_settings ADD COLUMN enabled_benefits_json VARCHAR DEFAULT '[]'"))
+            if 'inflation_pct' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN inflation_pct FLOAT DEFAULT 0.0'))
+            if 'payroll_schedule_type' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN payroll_schedule_type VARCHAR'))
+            if 'payroll_schedule_monthly_day' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN payroll_schedule_monthly_day INTEGER'))
+            if 'payroll_schedule_biweekly_day1' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN payroll_schedule_biweekly_day1 INTEGER'))
+            if 'payroll_schedule_biweekly_day2' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN payroll_schedule_biweekly_day2 INTEGER'))
+            if 'tax_obligations_schedule' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN tax_obligations_schedule VARCHAR'))
+            if 'colombia_projected_cop_per_usd' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN colombia_projected_cop_per_usd FLOAT'))
+            if 'colombia_smmlv_cop' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN colombia_smmlv_cop FLOAT'))
+            if 'colombia_uvt_cop' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN colombia_uvt_cop FLOAT'))
+
+        if 'companies' in inspector.get_table_names():
+            company_columns = {column['name'] for column in inspector.get_columns('companies')}
+            if 'country_name' not in company_columns:
+                connection.execute(text('ALTER TABLE companies ADD COLUMN country_name VARCHAR'))
+            if 'country_code' not in company_columns:
+                connection.execute(text('ALTER TABLE companies ADD COLUMN country_code VARCHAR'))
+            if 'currency_name' not in company_columns:
+                connection.execute(text('ALTER TABLE companies ADD COLUMN currency_name VARCHAR'))
+            if 'currency_code' not in company_columns:
+                connection.execute(text('ALTER TABLE companies ADD COLUMN currency_code VARCHAR'))
 
         if 'org_chart_nodes' in inspector.get_table_names():
             node_columns = {column['name'] for column in inspector.get_columns('org_chart_nodes')}
@@ -61,6 +92,10 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE org_chart_nodes ADD COLUMN sort_index FLOAT DEFAULT 0.0'))
             if 'area' not in node_columns:
                 connection.execute(text('ALTER TABLE org_chart_nodes ADD COLUMN area VARCHAR'))
+            if 'location' not in node_columns:
+                connection.execute(text('ALTER TABLE org_chart_nodes ADD COLUMN location VARCHAR'))
+            if 'description' not in node_columns:
+                connection.execute(text('ALTER TABLE org_chart_nodes ADD COLUMN description VARCHAR'))
 
         if 'roadmap_tasks' in inspector.get_table_names():
             task_columns = {column['name'] for column in inspector.get_columns('roadmap_tasks')}

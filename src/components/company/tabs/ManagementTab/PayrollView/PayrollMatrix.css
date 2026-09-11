@@ -73,6 +73,16 @@
   padding-right: 0.55rem;
 }
 
+.payroll-matrix__table td.payroll-matrix__col--stacked {
+  white-space: normal;
+}
+
+.payroll-matrix__local-currency {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
 .payroll-matrix__table td.sticky-col,
 .payroll-matrix__table th.sticky-col {
   position: sticky;

@@ -24,6 +24,10 @@ class CompanyCreate(BaseModel):
     parent_company_id: str | None = None
     accent_from: str = '#35D399'
     accent_to: str = '#0EA5E9'
+    country_name: str | None = None
+    country_code: str | None = None
+    currency_name: str | None = None
+    currency_code: str | None = None
 
 
 class CompanyOut(CompanyCreate):
@@ -32,6 +36,20 @@ class CompanyOut(CompanyCreate):
 
     class Config:
         from_attributes = True
+
+
+class CompanyUpdate(BaseModel):
+    name: str
+    logo: str = ''
+    company_type: str
+    company_dependency: str
+    parent_company_id: str | None = None
+    accent_from: str = '#35D399'
+    accent_to: str = '#0EA5E9'
+    country_name: str | None = None
+    country_code: str | None = None
+    currency_name: str | None = None
+    currency_code: str | None = None
 
 
 @router.get('/companies', response_model=list[CompanyOut])
@@ -51,11 +69,37 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
         parent_company_id=payload.parent_company_id,
         accent_from=payload.accent_from or '#35D399',
         accent_to=payload.accent_to or '#0EA5E9',
+        country_name=payload.country_name,
+        country_code=payload.country_code,
+        currency_name=payload.currency_name,
+        currency_code=payload.currency_code,
     )
     db.add(db_company)
     db.commit()
     db.refresh(db_company)
     return db_company
+
+
+@router.put('/companies/{company_id}', response_model=CompanyOut)
+def update_company(company_id: str, payload: CompanyUpdate, db: Session = Depends(get_db)):
+    company = db.query(models.Company).filter_by(id=company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail='Company not found')
+
+    company.name = payload.name
+    company.logo = payload.logo or ''
+    company.company_type = payload.company_type
+    company.company_dependency = payload.company_dependency
+    company.parent_company_id = payload.parent_company_id
+    company.accent_from = payload.accent_from or '#35D399'
+    company.accent_to = payload.accent_to or '#0EA5E9'
+    company.country_name = payload.country_name
+    company.country_code = payload.country_code
+    company.currency_name = payload.currency_name
+    company.currency_code = payload.currency_code
+    db.commit()
+    db.refresh(company)
+    return company
 
 
 @router.delete('/companies/{company_id}')

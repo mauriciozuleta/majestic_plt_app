@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, UniqueConstraint
 from .database import Base
 
 
@@ -13,6 +13,10 @@ class Company(Base):
     parent_company_id = Column(String, nullable=True)
     accent_from = Column(String, nullable=False)
     accent_to = Column(String, nullable=False)
+    country_name = Column(String, nullable=True)
+    country_code = Column(String, nullable=True)
+    currency_name = Column(String, nullable=True)
+    currency_code = Column(String, nullable=True)
 
 
 class PortfolioSettings(Base):
@@ -21,6 +25,16 @@ class PortfolioSettings(Base):
     id = Column(String, primary_key=True, default='singleton')
     calendar_mode = Column(String, default='real')
     projection_years = Column(Integer, default=5)
+    enabled_benefits_json = Column(String, default='[]')
+    inflation_pct = Column(Float, default=0.0)
+    payroll_schedule_type = Column(String, nullable=True)
+    payroll_schedule_monthly_day = Column(Integer, nullable=True)
+    payroll_schedule_biweekly_day1 = Column(Integer, nullable=True)
+    payroll_schedule_biweekly_day2 = Column(Integer, nullable=True)
+    tax_obligations_schedule = Column(String, nullable=True)
+    colombia_projected_cop_per_usd = Column(Float, nullable=True)
+    colombia_smmlv_cop = Column(Float, nullable=True)
+    colombia_uvt_cop = Column(Float, nullable=True)
 
 
 class RoadmapTask(Base):
@@ -47,6 +61,8 @@ class OrgChartNode(Base):
     office_name = Column(String, nullable=False)
     employee_name = Column(String, nullable=True)
     area = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    description = Column(String, nullable=True)
     position_x = Column(Integer, default=0)
     position_y = Column(Integer, default=0)
     sort_index = Column(Float, default=0.0)
@@ -210,6 +226,18 @@ class ExpenseEntry(Base):
     projection_year = Column(Integer, nullable=False)
     months_json = Column(String, nullable=False, default='[0,0,0,0,0,0,0,0,0,0,0,0]')
     hardcoded_json = Column(String, nullable=False, default='[false,false,false,false,false,false,false,false,false,false,false,false]')
+
+
+class ExpenseCategoryCountryExclusion(Base):
+    """An explicit opt-out: this expense category does NOT apply to this
+    country. Absence of a row means "applies" — so a newly added category or
+    country is applicable everywhere by default with no backfill needed."""
+    __tablename__ = 'expense_category_country_exclusions'
+    __table_args__ = (UniqueConstraint('category_id', 'country_id', name='uq_expense_category_country'),)
+
+    id = Column(String, primary_key=True, index=True)
+    category_id = Column(String, ForeignKey('expense_categories.id'), nullable=False, index=True)
+    country_id = Column(String, ForeignKey('commercial_countries.id'), nullable=False, index=True)
 
 
 class StartupInvestmentPlan(Base):

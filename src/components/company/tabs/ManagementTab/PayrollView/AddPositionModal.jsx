@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import SimulationDatePicker from '../../../../shared/SimulationCalendar/SimulationDatePicker'
 import AreaAutocomplete from './AreaAutocomplete'
+import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 
 function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialStartDate, calendarMode, selectedYear = 0 }) {
   const [officeName, setOfficeName] = useState('')
@@ -25,11 +26,8 @@ function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialSta
 
   const monthlySalary = useMemo(() => {
     const value = Number(yearSalary)
-    if (!Number.isFinite(value) || value <= 0) return '0.00'
-    return (value / 12).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
+    if (!Number.isFinite(value) || value <= 0) return formatCurrencyValue(0, 'USD')
+    return formatCurrencyValue(value / 12, 'USD')
   }, [yearSalary])
 
   const handleSubmit = async (event) => {
@@ -112,7 +110,7 @@ function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialSta
           </label>
           <label>
             Monthly salary
-            <input type="text" value={`$${monthlySalary}`} readOnly />
+            <input type="text" value={monthlySalary} readOnly />
           </label>
           <label>
             Start date

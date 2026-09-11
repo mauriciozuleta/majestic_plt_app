@@ -1,11 +1,13 @@
 import './AddCompanyModal.css'
 import { IconEdit, IconUpload, IconX } from '@tabler/icons-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { dependencyOptions, legalTypes, useAddCompanyForm } from './useAddCompanyForm'
 import { useAppStore } from '../../../store/useAppStore'
+import { fetchReferenceCountries } from '../../../services/commercialStructure'
 
-function AddCompanyModal({ isOpen, onClose, onSave }) {
+function AddCompanyModal({ isOpen, onClose, onSave, initialCompany = null }) {
   const companies = useAppStore((state) => state.companies)
+  const [referenceCountries, setReferenceCountries] = useState([])
   const {
     name,
     setName,
@@ -15,6 +17,13 @@ function AddCompanyModal({ isOpen, onClose, onSave }) {
     setCompanyDependency,
     selectedParentId,
     setSelectedParentId,
+    countryCode,
+    setCountryCode,
+    setCountryName,
+    currencyCode,
+    currencyName,
+    setCurrencyCode,
+    setCurrencyName,
     previewUrl,
     error,
     inputRef,
@@ -26,9 +35,16 @@ function AddCompanyModal({ isOpen, onClose, onSave }) {
 
   useEffect(() => {
     if (isOpen) {
-      resetForm()
+      resetForm(initialCompany)
     }
-  }, [isOpen, resetForm])
+  }, [isOpen, initialCompany, resetForm])
+
+  useEffect(() => {
+    if (!isOpen || referenceCountries.length) return
+    fetchReferenceCountries()
+      .then(setReferenceCountries)
+      .catch(() => setReferenceCountries([]))
+  }, [isOpen, referenceCountries.length])
 
   if (!isOpen) return null
 
@@ -36,7 +52,7 @@ function AddCompanyModal({ isOpen, onClose, onSave }) {
     <div className="add-company-modal__overlay" onClick={onClose}>
       <div className="add-company-modal" onClick={(event) => event.stopPropagation()}>
         <div className="add-company-modal__header">
-          <h3>Add company</h3>
+          <h3>{initialCompany ? 'Edit company' : 'Add company'}</h3>
           <button type="button" className="add-company-modal__close" onClick={onClose} aria-label="Close modal">
             <IconX size={16} stroke={1.8} />
           </button>
@@ -50,6 +66,41 @@ function AddCompanyModal({ isOpen, onClose, onSave }) {
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Enter company name"
+          />
+        </div>
+
+        <div className="add-company-modal__field">
+          <label htmlFor="company-country">Country</label>
+          <select
+            id="company-country"
+            value={countryCode}
+            onChange={(event) => {
+              const code = event.target.value
+              setCountryCode(code)
+              const match = referenceCountries.find((country) => country.country_code === code)
+              setCountryName(match ? match.name : '')
+              setCurrencyCode(match ? match.currency_code || '' : '')
+              setCurrencyName(match ? match.currency || '' : '')
+            }}
+          >
+            <option value="">Select a country</option>
+            {referenceCountries.map((country) => (
+              <option key={country.id} value={country.country_code}>
+                {country.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="add-company-modal__field">
+          <label htmlFor="company-currency">Currency</label>
+          <input
+            id="company-currency"
+            type="text"
+            value={currencyCode ? `${currencyName} (${currencyCode})` : ''}
+            readOnly
+            disabled
+            placeholder="Select a country first"
           />
         </div>
 

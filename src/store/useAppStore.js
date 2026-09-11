@@ -64,6 +64,10 @@ export const useAppStore = create((set, get) => ({
       activeCompanyId: company.id,
     }))
   },
+  updateCompany: (company) =>
+    set((state) => ({
+      companies: state.companies.map((existing) => (existing.id === company.id ? company : existing)),
+    })),
   removeCompany: (companyId) =>
     set((state) => {
       const companies = state.companies.filter((company) => company.id !== companyId)

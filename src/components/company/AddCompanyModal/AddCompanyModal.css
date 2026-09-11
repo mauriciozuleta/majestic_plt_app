@@ -66,6 +66,12 @@
   outline: none;
 }
 
+.add-company-modal__field input:disabled {
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .add-company-modal__upload-row {
   display: flex;
   align-items: center;

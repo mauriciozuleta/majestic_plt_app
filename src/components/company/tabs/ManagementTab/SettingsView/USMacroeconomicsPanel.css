@@ -1,0 +1,54 @@
+.us-macro {
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.us-macro__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-macro__input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-macro__input-row input {
+  width: 6rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+  font-family: var(--font-mono, monospace);
+}
+
+.us-macro__save-btn {
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--text-primary, #0f172a);
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+
+.us-macro__save-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.us-macro__message {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-macro__message.is-error {
+  color: #b91c1c;
+}

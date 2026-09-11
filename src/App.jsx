@@ -6,6 +6,7 @@ import Sidebar from './components/layout/Sidebar/Sidebar'
 import Footer from './components/layout/Footer/Footer'
 import HomeView from './components/home/HomeView'
 import ControlDashboardView from './components/dashboard/ControlDashboardView'
+import CommercialStructureView from './components/commercialStructure/CommercialStructureView'
 import SimulationsView, { SimulationsIndexRedirect } from './components/simulations/SimulationsView'
 import SimParametersView from './components/simulations/SimParametersView'
 import CompanyWorkspace from './components/company/CompanyWorkspace/CompanyWorkspace'
@@ -33,6 +34,7 @@ function Layout() {
             <Routes>
               <Route path="/" element={<HomeView />} />
               <Route path="/dashboard" element={<ControlDashboardView />} />
+              <Route path="/commercial-structure" element={<CommercialStructureView />} />
               <Route path="/simulations" element={<SimulationsView />}>
                 <Route index element={<SimulationsIndexRedirect />} />
                 <Route path=":companyId" element={<Navigate to="parameters" replace />} />
@@ -45,7 +47,7 @@ function Layout() {
                 <Route path="financial/:sub" element={<FinancialTab />} />
                 <Route path="financial/:sub/:section" element={<FinancialTab />} />
                 <Route path="operations/:sub" element={<OperationsTab />} />
-                <Route path="operations" element={<Navigate to="commercial-structure" replace />} />
+                <Route path="operations" element={<Navigate to="commercial-operations" replace />} />
                 <Route path="simulator" element={<SimulatorTab />} />
                 <Route path="drivers" element={<DriversTab />} />
                 <Route path="documentation" element={<DocumentationTab />} />

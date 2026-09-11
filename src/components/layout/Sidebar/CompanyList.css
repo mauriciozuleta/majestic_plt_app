@@ -9,14 +9,8 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 0.7rem 0.6rem 0.45rem;
   border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-secondary);
   border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -28,6 +22,47 @@
 .company-list__item.is-active {
   background: rgba(255, 255, 255, 0.02);
   border-color: var(--border);
+}
+
+.company-list__row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.4rem 0.6rem 0.45rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.company-list__edit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-right: 0.4rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.company-list__item:hover .company-list__edit,
+.company-list__item:focus-within .company-list__edit {
+  opacity: 1;
+}
+
+.company-list__edit:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
 .company-list__accent {

@@ -20,15 +20,27 @@ export function useAddCompanyForm() {
   const [companyType, setCompanyType] = useState('LLC')
   const [companyDependency, setCompanyDependency] = useState('Stand-alone')
   const [selectedParentId, setSelectedParentId] = useState('')
+  const [countryCode, setCountryCode] = useState('')
+  const [countryName, setCountryName] = useState('')
+  const [currencyCode, setCurrencyCode] = useState('')
+  const [currencyName, setCurrencyName] = useState('')
+  const [accentFrom, setAccentFrom] = useState('#35D399')
+  const [accentTo, setAccentTo] = useState('#0EA5E9')
   const [previewUrl, setPreviewUrl] = useState('')
   const [error, setError] = useState('')
 
-  const resetForm = useCallback(() => {
-    setName('')
-    setCompanyType('LLC')
-    setCompanyDependency('Stand-alone')
-    setSelectedParentId('')
-    setPreviewUrl('')
+  const resetForm = useCallback((initialCompany) => {
+    setName(initialCompany?.name || '')
+    setCompanyType(initialCompany?.companyType || 'LLC')
+    setCompanyDependency(initialCompany?.companyDependency || 'Stand-alone')
+    setSelectedParentId(initialCompany?.parentCompanyId || '')
+    setCountryCode(initialCompany?.countryCode || '')
+    setCountryName(initialCompany?.countryName || '')
+    setCurrencyCode(initialCompany?.currencyCode || '')
+    setCurrencyName(initialCompany?.currencyName || '')
+    setAccentFrom(initialCompany?.accentFrom || '#35D399')
+    setAccentTo(initialCompany?.accentTo || '#0EA5E9')
+    setPreviewUrl(initialCompany?.logo || '')
     setError('')
 
     if (inputRef.current) {
@@ -59,6 +71,12 @@ export function useAddCompanyForm() {
       companyType,
       companyDependency,
       parentCompanyId: companyDependency === 'Children' ? selectedParentId : null,
+      countryCode,
+      countryName,
+      currencyCode,
+      currencyName,
+      accentFrom,
+      accentTo,
       companies,
     })
   }
@@ -72,6 +90,14 @@ export function useAddCompanyForm() {
     setCompanyDependency,
     selectedParentId,
     setSelectedParentId,
+    countryCode,
+    setCountryCode,
+    countryName,
+    setCountryName,
+    currencyCode,
+    setCurrencyCode,
+    currencyName,
+    setCurrencyName,
     previewUrl,
     setPreviewUrl,
     error,

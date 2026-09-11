@@ -2,7 +2,17 @@ import './YearSummaryTable.css'
 
 const defaultFormat = (value) => Math.round(value).toLocaleString()
 
-function YearSummaryTable({ years, rows, formatValue = defaultFormat, nameHeader = 'Name' }) {
+function asParts(value) {
+  if (!value) return []
+  return Array.isArray(value) ? value.filter(Boolean) : [value]
+}
+
+// formatSubValue/formatTotalSubValue are optional — when provided, they add
+// a small subtitle line under a cell's main value (e.g. a local-currency
+// equivalent for a non-USD position/category). Returning null/undefined
+// skips the subtitle for that cell; returning an array renders one line
+// per entry (e.g. multiple currencies contributing to one total).
+function YearSummaryTable({ years, rows, formatValue = defaultFormat, formatSubValue, formatTotalSubValue, nameHeader = 'Name' }) {
   const grandTotals = years.map((_, yearIndex) => rows.reduce((sum, row) => sum + (row.totalsByYear[yearIndex] || 0), 0))
 
   return (
@@ -29,11 +39,19 @@ function YearSummaryTable({ years, rows, formatValue = defaultFormat, nameHeader
             rows.map((row) => (
               <tr key={row.label}>
                 <td className="sticky-col">{row.label}</td>
-                {row.totalsByYear.map((value, index) => (
-                  <td key={index} className="num">
-                    {formatValue(value)}
-                  </td>
-                ))}
+                {row.totalsByYear.map((value, index) => {
+                  const subParts = asParts(formatSubValue?.(row, value, index))
+                  return (
+                    <td key={index} className={`num ${subParts.length ? 'year-summary-table__col--stacked' : ''}`}>
+                      <span>{formatValue(value)}</span>
+                      {subParts.map((part) => (
+                        <span key={part} className="year-summary-table__local-currency">
+                          {part}
+                        </span>
+                      ))}
+                    </td>
+                  )
+                })}
               </tr>
             ))
           )}
@@ -42,11 +60,19 @@ function YearSummaryTable({ years, rows, formatValue = defaultFormat, nameHeader
           <tfoot>
             <tr className="year-summary-table__total-row">
               <td className="sticky-col">Total</td>
-              {grandTotals.map((value, index) => (
-                <td key={index} className="num">
-                  {formatValue(value)}
-                </td>
-              ))}
+              {grandTotals.map((value, index) => {
+                const subParts = asParts(formatTotalSubValue?.(value, index))
+                return (
+                  <td key={index} className={`num ${subParts.length ? 'year-summary-table__col--stacked' : ''}`}>
+                    <span>{formatValue(value)}</span>
+                    {subParts.map((part) => (
+                      <span key={part} className="year-summary-table__local-currency">
+                        {part}
+                      </span>
+                    ))}
+                  </td>
+                )
+              })}
             </tr>
           </tfoot>
         )}

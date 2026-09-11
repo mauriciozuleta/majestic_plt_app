@@ -1,0 +1,29 @@
+.commercial-structure-view {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.commercial-structure-view__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.commercial-structure-view__company-select {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.commercial-structure-view__company-select select {
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel, #111f31);
+  color: var(--text-primary);
+  min-width: 220px;
+}

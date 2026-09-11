@@ -1,9 +1,16 @@
 import { useMemo, useState } from 'react'
 import AreaAutocomplete from './AreaAutocomplete'
 import { employeeMonthlyActive, positionMonthlyHeadcount } from './monthMath'
+import { usePayrollCurrencyRates } from '../../../../../hooks/usePayrollCurrencyRates'
+import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
+import { formatLocalCurrencyForLocation, formatLocalCurrencyForRows } from '../../../../../utils/payrollLocalCurrency'
 import './PayrollMatrix.css'
 
 const MONTH_LABELS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12']
+
+function formatUsdWhole(value) {
+  return formatCurrencyValue(value, 'USD', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
 
 function seatLabel(officeName, index) {
   return `${officeName} #${index + 1}`
@@ -25,7 +32,7 @@ function ParentSelect({ value, isDirty, onChange, allPositions, excludeNodeId })
 }
 
 function formatLevelOption(option) {
-  return `${option.level} > $${Math.round(option.yearly).toLocaleString()}`
+  return `${option.level} > ${formatUsdWhole(option.yearly)}`
 }
 
 function LevelSelect({ value, isDirty, options, onChange }) {
@@ -84,6 +91,7 @@ function PayrollMatrix({
 }) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set())
   const levelOptions = payrollLevels || []
+  const rates = usePayrollCurrencyRates()
 
   const toggleCollapsed = (nodeId) => {
     setCollapsedIds((prev) => {
@@ -351,15 +359,20 @@ function PayrollMatrix({
                 {built.length === 0 ? (
                   <tr><td colSpan={14} className="payroll-matrix__empty">Nothing to cost out for Year {selectedYear}.</td></tr>
                 ) : (
-                  built.map(({ row, monthlyCost, yearTotal }) => (
-                    <tr key={row.node_id}>
-                      <td className="sticky-col sticky-1">{row.office_name}</td>
-                      {monthlyCost.map((value, index) => (
-                        <td key={index} className="num">${(value / 1000).toFixed(1)}k</td>
-                      ))}
-                      <td className="num">${yearTotal.toLocaleString()}</td>
-                    </tr>
-                  ))
+                  built.map(({ row, monthlyCost, yearTotal }) => {
+                    const localCurrency = formatLocalCurrencyForLocation(row.location, yearTotal, rates)
+                    return (
+                      <tr key={row.node_id}>
+                        <td className="sticky-col sticky-1">{row.office_name}</td>
+                        {monthlyCost.map((value, index) => (
+                          <td key={index} className="num">${(value / 1000).toFixed(1)}k</td>
+                        ))}
+                        <td className="num" title={localCurrency || undefined}>
+                          {formatUsdWhole(yearTotal)}
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
               {built.length > 0 && (
@@ -369,7 +382,18 @@ function PayrollMatrix({
                     {grandCost.map((value, index) => (
                       <td key={index} className="num">${(value / 1000).toFixed(1)}k</td>
                     ))}
-                    <td className="num">${grandCost.reduce((a, b) => a + b, 0).toLocaleString()}</td>
+                    <td className="num payroll-matrix__col--stacked">
+                      <span>{formatUsdWhole(grandCost.reduce((a, b) => a + b, 0))}</span>
+                      {formatLocalCurrencyForRows(
+                        built.map(({ row, yearTotal }) => ({ location: row.location, value: yearTotal })),
+                        (item) => item.value,
+                        rates,
+                      ).map((part) => (
+                        <span key={part} className="payroll-matrix__local-currency">
+                          {part}
+                        </span>
+                      ))}
+                    </td>
                   </tr>
                 </tfoot>
               )}

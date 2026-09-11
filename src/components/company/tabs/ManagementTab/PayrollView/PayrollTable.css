@@ -3,16 +3,31 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
+  max-width: 760px;
+}
+
+/* A dedicated, self-contained scroll region — not a slice of some ancestor's
+   own scroll budget. That's what silently broke before: a container several
+   levels up estimated its available height with a stale calc(), and once
+   the real content grew past it, most rows became unreachable with no
+   scrollbar ever appearing anywhere. This table now always scrolls on its
+   own regardless of how tall anything around it gets. */
+.payroll-table__scroll {
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .payroll-table__header,
 .payroll-table__row {
   display: grid;
-  grid-template-columns: 28px minmax(180px, 2.2fr) 1.4fr 1fr 1fr 1fr;
+  grid-template-columns: 28px minmax(180px, 1fr) 190px 190px;
   align-items: center;
 }
 
 .payroll-table__header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   font-size: 10.5px;
@@ -48,6 +63,14 @@
   font-weight: 500;
 }
 
+.payroll-table__seat-count {
+  margin-left: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
 .payroll-table__col--num {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -56,6 +79,19 @@
 
 .payroll-table__col--muted {
   color: var(--text-muted);
+}
+
+.payroll-table__col--stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  white-space: normal;
+}
+
+.payroll-table__local-currency {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
 }
 
 .payroll-table__col--check {

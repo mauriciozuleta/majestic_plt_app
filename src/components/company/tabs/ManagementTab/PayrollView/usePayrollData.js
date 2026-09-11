@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { deleteOrgChartNode } from '../../../../../services/orgChart'
 import {
   addEmployee,
-  applyGrowthRateAll,
-  clearGrowthRateAll,
   createPosition,
   deleteEmployee,
   fetchPayroll,
@@ -141,24 +139,6 @@ export function usePayrollData(companyId) {
     [companyId, reload],
   )
 
-  const growAllPositionsSalary = useCallback(
-    async (ratePct) => {
-      await applyGrowthRateAll(companyId, ratePct, selectedYear)
-      broadcastCompanyDataChange(companyId, 'payroll:apply-growth-rate-all')
-      await reload()
-    },
-    [companyId, reload, selectedYear],
-  )
-
-  const clearAllPositionsSalaryRaise = useCallback(
-    async () => {
-      await clearGrowthRateAll(companyId, selectedYear)
-      broadcastCompanyDataChange(companyId, 'payroll:clear-growth-rate')
-      await reload()
-    },
-    [companyId, reload, selectedYear],
-  )
-
   return {
     rows,
     areas,
@@ -174,8 +154,6 @@ export function usePayrollData(companyId) {
     addRosterEmployee,
     saveRosterEmployee,
     removeRosterEmployee,
-    growAllPositionsSalary,
-    clearAllPositionsSalaryRaise,
     reload,
   }
 }

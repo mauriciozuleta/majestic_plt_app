@@ -5,8 +5,7 @@ import { useAppStore } from '../../../store/useAppStore'
 
 const subTabLabels = {
   'revenue-streams': 'Revenue/COS',
-  'commercial-structure': 'Commercial Operations',
-  'overview-management': 'Commercial Structure',
+  'commercial-operations': 'Commercial Operations',
   accounting: 'Accounting',
   'financial-modeling': 'Financial Modeling',
   'startup-investment': 'Start-up Investment',
@@ -22,7 +21,7 @@ function slugify(value) {
 const tabConfig = {
   operations: {
     label: 'Operations',
-    subTabs: ['commercial-structure', 'overview-management', 'market-analysis'],
+    subTabs: ['commercial-operations', 'market-analysis'],
   },
   management: {
     label: 'Management',
@@ -106,7 +105,7 @@ function CompanyWorkspace() {
               key={key}
               to={
                 key === 'operations'
-                  ? `/company/${companyId}/operations/branches`
+                  ? `/company/${companyId}/operations/commercial-operations`
                   : key === 'management'
                     ? `/company/${companyId}/management/roadmap`
                     : key === 'financial'

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useEdgesState, useNodesState } from '@xyflow/react'
-import OrgChartCanvas from '../../ManagementTab/OrgChartView/OrgChartCanvas'
-import { getLayoutedNodes } from '../../ManagementTab/OrgChartView/orgChartLayout'
+import OrgChartCanvas from '../../company/tabs/ManagementTab/OrgChartView/OrgChartCanvas'
+import { getLayoutedNodes } from '../../company/tabs/ManagementTab/OrgChartView/orgChartLayout'
 import StructureNode from './StructureNode'
 import './CommercialStructureChart.css'
 

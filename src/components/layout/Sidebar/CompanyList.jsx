@@ -1,8 +1,9 @@
 import './CompanyList.css'
+import { IconEdit } from '@tabler/icons-react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../../../store/useAppStore'
 
-function CompanyList() {
+function CompanyList({ onEditCompany }) {
   const companies = useAppStore((state) => state.companies)
   const activeCompanyId = useAppStore((state) => state.activeCompanyId)
   const setActiveCompanyId = useAppStore((state) => state.setActiveCompanyId)
@@ -20,41 +21,54 @@ function CompanyList() {
           .toUpperCase()
 
         return (
-          <button
-            type="button"
-            key={company.id}
-            className={`company-list__item ${isActive ? 'is-active' : ''}`}
-            onClick={() => {
-              setActiveCompanyId(company.id)
-              navigate(`/company/${company.id}/management/roadmap`)
-            }}
-          >
+          <div key={company.id} className={`company-list__item ${isActive ? 'is-active' : ''}`}>
             <span
               className="company-list__accent"
               style={{
                 background: `linear-gradient(180deg, ${company.accentFrom}, ${company.accentTo})`,
               }}
             />
-            <span
-              className="company-list__logo"
-              style={
-                company.logo
-                  ? {
-                      backgroundImage: `url(${company.logo})`,
-                      backgroundSize: 'contain',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundColor: 'var(--bg-card)',
-                    }
-                  : {
-                      background: `linear-gradient(135deg, ${company.accentFrom}, ${company.accentTo})`,
-                    }
-              }
+            <button
+              type="button"
+              className="company-list__row"
+              onClick={() => {
+                setActiveCompanyId(company.id)
+                navigate(`/company/${company.id}/management/roadmap`)
+              }}
             >
-              {!company.logo && initials}
-            </span>
-            <span className="company-list__name">{company.name}</span>
-          </button>
+              <span
+                className="company-list__logo"
+                style={
+                  company.logo
+                    ? {
+                        backgroundImage: `url(${company.logo})`,
+                        backgroundSize: 'contain',
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundColor: 'var(--bg-card)',
+                      }
+                    : {
+                        background: `linear-gradient(135deg, ${company.accentFrom}, ${company.accentTo})`,
+                      }
+                }
+              >
+                {!company.logo && initials}
+              </span>
+              <span className="company-list__name">{company.name}</span>
+            </button>
+            <button
+              type="button"
+              className="company-list__edit"
+              onClick={(event) => {
+                event.stopPropagation()
+                onEditCompany?.(company)
+              }}
+              aria-label={`Edit ${company.name}`}
+              title="Edit company"
+            >
+              <IconEdit size={14} stroke={1.8} />
+            </button>
+          </div>
         )
       })}
     </div>

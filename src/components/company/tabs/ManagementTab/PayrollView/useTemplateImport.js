@@ -22,25 +22,44 @@ export function useTemplateImport({ companyId, rows, payrollLevels, defaultStart
     setTemplateMessage('Importing the uploaded file…')
 
     try {
+      // A position's identity is (name, "Subordinated To"), not the name
+      // alone — "Secretary / Assistant" answering to five different
+      // managers is five distinct positions that happen to share a label,
+      // not one position repeated (see importUtils.js). `nodeIdByName`
+      // (plain name -> id) is used only to resolve a PARENT reference,
+      // where names are expected to be unique in practice; a duplicate-
+      // named position's own identity always goes through the composite
+      // key so each one gets wired to its own correct parent, not
+      // whichever same-named node happened to be created/matched last.
+      const nodeNameById = new Map(rows.map((row) => [row.node_id, row.office_name]))
       const nodeIdByName = new Map(rows.map((row) => [row.office_name, row.node_id]))
-      const existingByName = new Map(rows.map((row) => [row.office_name, row]))
+      const existingByComposite = new Map(
+        rows.map((row) => [`${row.office_name}::${row.parent_node_id ? nodeNameById.get(row.parent_node_id) || '' : ''}`, row]),
+      )
+      const nodeIdByComposite = new Map()
       const levelByCode = new Map((payrollLevels || []).map((level) => [level.level, level]))
 
       for (const position of positions) {
-        const existing = existingByName.get(position.name)
+        const composite = `${position.name}::${position.parentName}`
+        const existing = existingByComposite.get(composite)
         const matchedLevel = position.level ? levelByCode.get(position.level) : null
+        // "Compensation (custom)" always wins over the level's standard
+        // figure when the user filled it in — that's the one column meant
+        // to override compensation for a single position.
+        const resolvedSalary = position.customSalary ?? (matchedLevel ? matchedLevel.yearly : null)
 
         if (existing) {
           const updates = {}
           if (position.area) updates.area = position.area
-          if (matchedLevel) {
-            updates.payroll_level = matchedLevel.level
-            updates.year_salary = matchedLevel.yearly
-          }
+          if (position.location) updates.location = position.location
+          if (matchedLevel) updates.payroll_level = matchedLevel.level
+          if (resolvedSalary !== null) updates.year_salary = resolvedSalary
           if (Object.keys(updates).length > 0) {
             // eslint-disable-next-line no-await-in-loop
             await updatePosition(existing.node_id, updates, 0)
           }
+          nodeIdByComposite.set(composite, existing.node_id)
+          nodeIdByName.set(position.name, existing.node_id)
         } else {
           // eslint-disable-next-line no-await-in-loop
           const created = await createPosition(
@@ -49,23 +68,28 @@ export function useTemplateImport({ companyId, rows, payrollLevels, defaultStart
               office_name: position.name,
               employee_name: null,
               area: position.area || null,
+              location: position.location || null,
               parent_node_id: null,
-              year_salary: matchedLevel ? matchedLevel.yearly : 0,
+              year_salary: resolvedSalary ?? 0,
               payroll_level: matchedLevel ? matchedLevel.level : null,
               start_date: defaultStartDate,
             },
             0,
           )
+          nodeIdByComposite.set(composite, created.node_id)
           nodeIdByName.set(position.name, created.node_id)
         }
       }
 
       // Second pass: every position (new or pre-existing) now has an id, so "Subordinated To"
-      // can be wired up regardless of which order positions appeared in the sheet.
+      // can be wired up regardless of which order positions appeared in the sheet. Each
+      // position's OWN id comes from the composite map, so two same-named positions each
+      // get wired to their own parent rather than both collapsing onto one.
       for (const position of positions) {
         if (!position.parentName) continue
+        const composite = `${position.name}::${position.parentName}`
+        const childId = nodeIdByComposite.get(composite)
         const parentId = nodeIdByName.get(position.parentName)
-        const childId = nodeIdByName.get(position.name)
         if (!parentId || !childId || parentId === childId) continue
         // eslint-disable-next-line no-await-in-loop
         await updatePosition(childId, { parent_node_id: parentId }, 0)

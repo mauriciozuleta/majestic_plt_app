@@ -204,6 +204,8 @@ def _row_for_node(db: Session, node_id: str, projection_year: int | None = None)
         office_name=node.office_name,
         employee_name=node.employee_name,
         area=node.area,
+        location=node.location,
+        description=node.description,
         parent_node_id=parents.get(node.id),
         level=levels.get(node.id, 0),
         sort_index=node.sort_index,
@@ -262,6 +264,8 @@ def list_payroll(company_id: str, year: int = 1, db: Session = Depends(get_db)):
                     office_name=node.office_name,
                     employee_name=node.employee_name,
                     area=node.area,
+                    location=node.location,
+                    description=node.description,
                     parent_node_id=parents.get(node.id),
                     level=level,
                     sort_index=node.sort_index,
@@ -309,6 +313,8 @@ def create_position(company_id: str, payload: schemas.PayrollPositionCreate, db:
         office_name=payload.office_name,
         employee_name=payload.employee_name,
         area=payload.area,
+        location=payload.location,
+        description=payload.description,
         position_x=0,
         position_y=0,
         sort_index=_next_sort_index(existing_nodes, existing_edges, company_id, payload.parent_node_id),
@@ -370,6 +376,10 @@ def update_position(node_id: str, payload: schemas.PayrollPositionUpdate, db: Se
         node.office_name = updates['office_name']
     if 'area' in updates:
         node.area = updates['area']
+    if 'location' in updates:
+        node.location = updates['location']
+    if 'description' in updates:
+        node.description = updates['description']
     if 'parent_node_id' in updates:
         db.query(models.OrgChartEdge).filter_by(target_node_id=node_id).delete()
         parent_node_id = updates['parent_node_id']

@@ -34,26 +34,6 @@ export async function fetchPayrollAreas(companyId) {
   return response.json()
 }
 
-export async function applyGrowthRateAll(companyId, ratePct, year = 0) {
-  const params = new URLSearchParams({ year: String(Number(year)) })
-  const response = await fetch(`${API_BASE}/companies/${companyId}/apply-growth-rate-all?${params.toString()}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rate_pct: ratePct }),
-  })
-  if (!response.ok) throw new Error('Failed to apply growth rate to all positions')
-  return response.json()
-}
-
-export async function clearGrowthRateAll(companyId, year = 0) {
-  const params = new URLSearchParams({ year: String(Number(year)) })
-  const response = await fetch(`${API_BASE}/companies/${companyId}/clear-growth-rate?${params.toString()}`, {
-    method: 'POST',
-  })
-  if (!response.ok) throw new Error('Failed to clear the applied raise')
-  return response.json()
-}
-
 export async function addEmployee(nodeId, employee, year = 0) {
   const params = new URLSearchParams({ year: String(Number(year)) })
   const response = await fetch(`${API_BASE}/payroll-positions/${nodeId}/employees?${params.toString()}`, {

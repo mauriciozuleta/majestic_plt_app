@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RoadmapTaskBase(BaseModel):
@@ -85,6 +85,8 @@ class PayrollPositionCreate(BaseModel):
     office_name: str
     employee_name: Optional[str] = None
     area: Optional[str] = None
+    location: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=1000)
     parent_node_id: Optional[str] = None
     year_salary: float
     payroll_level: Optional[str] = None
@@ -95,6 +97,8 @@ class PayrollPositionCreate(BaseModel):
 class PayrollPositionUpdate(BaseModel):
     office_name: Optional[str] = None
     area: Optional[str] = None
+    location: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=1000)
     parent_node_id: Optional[str] = None
     year_salary: Optional[float] = None
     payroll_level: Optional[str] = None
@@ -145,6 +149,8 @@ class PayrollRowOut(BaseModel):
     office_name: str
     employee_name: Optional[str]
     area: Optional[str]
+    location: Optional[str] = None
+    description: Optional[str] = None
     parent_node_id: Optional[str]
     level: int
     sort_index: float
@@ -218,6 +224,28 @@ class ExpenseEntryOut(BaseModel):
 class ExpenseEntryUpdate(BaseModel):
     months: list[float]
     hardcoded: list[bool]
+
+
+class ExpenseCategoryCreate(BaseModel):
+    name: str
+
+
+class ExpenseCategoryUpdate(BaseModel):
+    name: str
+
+
+class ExpenseCategoryApplicabilityOut(BaseModel):
+    category_id: str
+    country_id: str
+
+    class Config:
+        from_attributes = True
+
+
+class ExpenseCategoryApplicabilityUpdate(BaseModel):
+    category_id: str
+    country_id: str
+    applicable: bool
 
 
 class CommercialOperationEntryCreate(BaseModel):

@@ -1,0 +1,302 @@
+.us-payroll-tax {
+  display: grid;
+  gap: 1rem;
+  padding: 0.9rem;
+}
+
+.us-payroll-tax__columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.us-payroll-tax__schedule {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  padding-bottom: 0.9rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.us-payroll-tax__schedule h5 {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-primary, #0f172a);
+}
+
+.us-payroll-tax__schedule-type {
+  display: flex;
+  gap: 1.2rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #334155);
+}
+
+.us-payroll-tax__schedule-type label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.us-payroll-tax__schedule-day {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-payroll-tax__schedule-day select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+}
+
+.us-payroll-tax__schedule-day-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+}
+
+.us-payroll-tax__schedule-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.2rem;
+}
+
+.us-payroll-tax__save-btn {
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--text-primary, #0f172a);
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+
+.us-payroll-tax__save-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.us-payroll-tax__schedule-message {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-payroll-tax__schedule-message.is-error {
+  color: #b91c1c;
+}
+
+.us-payroll-tax__section h5 {
+  margin: 0 0 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text-primary, #0f172a);
+}
+
+.us-payroll-tax__hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-payroll-tax__rate-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.us-payroll-tax__rate-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #334155);
+  padding: 0.25rem 0;
+  border-bottom: 1px dashed rgba(15, 23, 42, 0.08);
+}
+
+.us-payroll-tax__rate-total {
+  font-weight: 700;
+  color: var(--text-primary, #0f172a) !important;
+  border-bottom: none !important;
+}
+
+.us-payroll-tax__state-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 0.4rem;
+}
+
+.us-payroll-tax__state-select select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+}
+
+.us-payroll-tax__state-rate {
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.us-payroll-tax__brackets {
+  margin-top: 0.6rem;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-payroll-tax__brackets summary {
+  cursor: pointer;
+  color: var(--text-secondary, #334155);
+}
+
+.us-payroll-tax__bracket-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.us-payroll-tax__bracket-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-family: var(--font-mono, monospace);
+}
+
+.us-payroll-tax__calculator {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding-top: 0.9rem;
+}
+
+.us-payroll-tax__calculator h5 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-primary, #0f172a);
+}
+
+.us-payroll-tax__fx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+}
+
+.us-payroll-tax__fx-live {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  padding-bottom: 0.55rem;
+}
+
+.us-payroll-tax__fx-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+  cursor: pointer;
+}
+
+.us-payroll-tax__fx-copy:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.us-payroll-tax__fx-copy:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.us-payroll-tax__fx-projected {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-payroll-tax__fx-projected input {
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+  min-width: 8rem;
+}
+
+.us-payroll-tax__derived-value {
+  padding: 0.4rem 0.5rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary, #0f172a);
+}
+
+.us-payroll-tax__calculator-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.us-payroll-tax__calculator-inputs label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.us-payroll-tax__calculator-inputs input,
+.us-payroll-tax__calculator-inputs select {
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+  min-width: 8rem;
+}
+
+.us-payroll-tax__results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.7rem;
+}
+
+.us-payroll-tax__result-card {
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: var(--bg-panel, #f8fafc);
+  padding: 0.7rem 0.8rem;
+}
+
+.us-payroll-tax__result-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted, #64748b);
+  margin-bottom: 0.25rem;
+}
+
+.us-payroll-tax__result-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  font-family: var(--font-mono, monospace);
+}
+
+.us-payroll-tax__result-sub {
+  font-size: 0.68rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 0.2rem;
+}

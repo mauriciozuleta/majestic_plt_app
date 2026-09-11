@@ -111,6 +111,243 @@
   color: white;
 }
 
+.settings-view__tax-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.settings-view__tax-country {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  background: var(--bg-panel, #f8fafc);
+  overflow: hidden;
+}
+
+.settings-view__tax-country-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: none;
+  background: none;
+  color: var(--text-primary, #0f172a);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-view__tax-chevron {
+  display: inline-block;
+  color: var(--text-muted, #64748b);
+  transition: transform 0.15s ease;
+}
+
+.settings-view__tax-chevron.is-expanded {
+  transform: rotate(90deg);
+}
+
+.settings-view__tax-pill-chevron {
+  display: inline-block;
+  margin-right: 0.3rem;
+  color: inherit;
+  transition: transform 0.15s ease;
+}
+
+.settings-view__tax-pill-chevron.is-expanded {
+  transform: rotate(90deg);
+}
+
+.settings-view__tax-country-name {
+  font-weight: 600;
+}
+
+.settings-view__tax-company-tag {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.settings-view__tax-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0 0.9rem 0.9rem;
+}
+
+.settings-view__tax-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-secondary, #334155);
+  font-size: 0.78rem;
+}
+
+.settings-view__tax-pill-wrap {
+  width: 100%;
+}
+
+.settings-view__tax-pill--wired {
+  cursor: pointer;
+  border-color: rgba(37, 99, 235, 0.35);
+  color: var(--text-primary, #0f172a);
+}
+
+.settings-view__tax-pill--wired.is-expanded {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.5);
+}
+
+.settings-view__tax-pill-panel {
+  margin-top: 0.5rem;
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  background: var(--bg-card, #fff);
+}
+
+.settings-view__card-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.settings-view__card-toggle .settings-view__tax-chevron {
+  margin-top: 0.3rem;
+}
+
+.settings-view__expense-toolbar {
+  display: flex;
+  align-items: center;
+}
+
+.settings-view__expense-add-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.settings-view__expense-add-form input[type='text'] {
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-panel, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  font: inherit;
+  min-width: 220px;
+}
+
+.settings-view__expense-save-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settings-view__status-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+}
+
+.settings-view__expense-table-wrap {
+  overflow-x: auto;
+}
+
+.settings-view__expense-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+.settings-view__expense-table th,
+.settings-view__expense-table td {
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.settings-view__expense-table th {
+  color: var(--text-muted, #64748b);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.settings-view__expense-name-col {
+  position: sticky;
+  left: 0;
+  background: var(--bg-card, #fff);
+  min-width: 200px;
+  white-space: normal;
+}
+
+.settings-view__expense-name-col input[type='text'] {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-panel, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  font: inherit;
+}
+
+.settings-view__expense-name-locked {
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+}
+
+.settings-view__expense-check-col {
+  text-align: center;
+}
+
+.settings-view__expense-check-col input[type='checkbox'] {
+  width: 1.05rem;
+  height: 1.05rem;
+  cursor: pointer;
+}
+
+.settings-view__expense-action-col {
+  position: sticky;
+  right: 0;
+  background: var(--bg-card, #fff);
+  text-align: center;
+  width: 2rem;
+}
+
+.settings-view__expense-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+}
+
+.settings-view__expense-delete:hover {
+  background: rgba(185, 28, 28, 0.1);
+  color: #b91c1c;
+}
+
 .settings-view__status,
 .settings-view__message {
   padding: 1rem;

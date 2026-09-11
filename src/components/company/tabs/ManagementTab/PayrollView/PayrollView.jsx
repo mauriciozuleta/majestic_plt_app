@@ -18,7 +18,14 @@ import { clusterResemblingAreas, pickCanonicalArea } from './areaUtils'
 import { SORT_OPTIONS, sortPositions } from './positionSort'
 import { updatePosition } from '../../../../../services/payroll'
 import { fetchPayrollLevels } from '../../../../../services/payrollLevels'
+import { usePayrollCurrencyRates } from '../../../../../hooks/usePayrollCurrencyRates'
+import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
+import { formatLocalCurrencyForRows } from '../../../../../utils/payrollLocalCurrency'
 import './PayrollView.css'
+
+function formatUsdWhole(value) {
+  return formatCurrencyValue(value, 'USD', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
 
 function PayrollView({ companyId: companyIdProp }) {
   const params = useParams()
@@ -29,10 +36,8 @@ function PayrollView({ companyId: companyIdProp }) {
   const [sortBy, setSortBy] = useState('level')
   const [isModalOpen, setModalOpen] = useState(false)
   const [selectedRowId, setSelectedRowId] = useState(null)
-  const [editorValues, setEditorValues] = useState({ officeName: '', area: '' })
+  const [editorValues, setEditorValues] = useState({ officeName: '', area: '', description: '' })
   const [calendarMode, setCalendarMode] = useState('real')
-  const [defaultRaisePct, setDefaultRaisePct] = useState('')
-  const [defaultRaiseStatus, setDefaultRaiseStatus] = useState('idle')
   const [payrollLevels, setPayrollLevels] = useState([])
   const {
     rows,
@@ -47,8 +52,6 @@ function PayrollView({ companyId: companyIdProp }) {
     cloneSelected,
     deleteSelected,
     removeRosterEmployee,
-    growAllPositionsSalary,
-    clearAllPositionsSalaryRaise,
     reload,
   } = usePayrollData(companyId)
   const {
@@ -76,19 +79,12 @@ function PayrollView({ companyId: companyIdProp }) {
     return counts
   }, [rows])
 
-  // null = no raise applied to any position this year, a number = every position
-  // shares that rate (the normal case, since "Apply to all" is the only way to
-  // set it), undefined = positions disagree (e.g. one was added after the raise).
-  const appliedDefaultRaise = useMemo(() => {
-    if (rows.length === 0) return null
-    const rates = new Set(rows.map((row) => row.growth_rate_pct ?? null))
-    return rates.size === 1 ? [...rates][0] : undefined
-  }, [rows])
-
   const filteredRows = useMemo(() => {
     const areaFiltered = activeArea === null ? rows : rows.filter((row) => (row.area || 'Unassigned') === activeArea)
     return sortPositions(areaFiltered, sortBy)
   }, [rows, activeArea, sortBy])
+
+  const currencyRates = usePayrollCurrencyRates()
 
   const stats = useMemo(() => {
     const totals = filteredRows.reduce(
@@ -160,13 +156,14 @@ function PayrollView({ companyId: companyIdProp }) {
 
   useEffect(() => {
     if (!selectedRow) {
-      setEditorValues({ officeName: '', area: '' })
+      setEditorValues({ officeName: '', area: '', description: '' })
       return undefined
     }
 
     setEditorValues({
       officeName: selectedRow.office_name || '',
       area: selectedRow.area || '',
+      description: selectedRow.description || '',
     })
   }, [selectedRow])
 
@@ -210,6 +207,7 @@ function PayrollView({ companyId: companyIdProp }) {
     await savePosition(selectedRowId, {
       office_name: editorValues.officeName,
       area: editorValues.area || null,
+      description: editorValues.description || null,
     })
   }
 
@@ -228,41 +226,6 @@ function PayrollView({ companyId: companyIdProp }) {
   const handleDiscardMatrixDrafts = () => {
     handleDiscardHeadcountDrafts()
     discardFieldDrafts()
-  }
-
-  useEffect(() => {
-    if (appliedDefaultRaise === undefined) return
-    setDefaultRaisePct(appliedDefaultRaise != null ? String(appliedDefaultRaise) : '')
-    setDefaultRaiseStatus('idle')
-  }, [appliedDefaultRaise, selectedYear])
-
-  const isDefaultRaiseApplied =
-    defaultRaiseStatus !== 'applying' &&
-    appliedDefaultRaise != null &&
-    defaultRaisePct !== '' &&
-    String(appliedDefaultRaise) === String(Number(defaultRaisePct))
-
-  const handleClearDefaultRaise = async () => {
-    setDefaultRaiseStatus('applying')
-    try {
-      await clearAllPositionsSalaryRaise()
-      setDefaultRaisePct('')
-      setDefaultRaiseStatus('idle')
-    } catch {
-      setDefaultRaiseStatus('error')
-    }
-  }
-
-  const handleApplyDefaultRaise = async () => {
-    const parsed = Number(defaultRaisePct)
-    if (!Number.isFinite(parsed) || parsed === 0) return
-    setDefaultRaiseStatus('applying')
-    try {
-      await growAllPositionsSalary(parsed)
-      setDefaultRaiseStatus('idle')
-    } catch {
-      setDefaultRaiseStatus('error')
-    }
   }
 
   const handleRowReorder = async (fromNodeId, toNodeId) => {
@@ -292,19 +255,33 @@ function PayrollView({ companyId: companyIdProp }) {
       <div className="payroll-view__stats">
         <div className="payroll-view__stat-tile">
           <div className="payroll-view__stat-label">Headcount (Year {selectedYear})</div>
-          <div className="payroll-view__stat-value">{stats.headcount.toLocaleString()}</div>
+          <div className="payroll-view__stat-value">{stats.headcount.toLocaleString('en-US')}</div>
           <div className="payroll-view__stat-sub">
             {stats.positionCount} position{stats.positionCount === 1 ? '' : 's'} shown
           </div>
         </div>
         <div className="payroll-view__stat-tile">
           <div className="payroll-view__stat-label">Monthly run-rate</div>
-          <div className="payroll-view__stat-value">${Math.round(stats.monthly).toLocaleString()}</div>
+          <div className="payroll-view__stat-value">{formatUsdWhole(stats.monthly)}</div>
+          {formatLocalCurrencyForRows(filteredRows, (row) => Number(row.monthly_salary || 0), currencyRates).map((part) => (
+            <div key={part} className="payroll-view__stat-local-currency">
+              {part}
+            </div>
+          ))}
           <div className="payroll-view__stat-sub">at current headcount</div>
         </div>
         <div className="payroll-view__stat-tile">
           <div className="payroll-view__stat-label">Year {selectedYear} total cost</div>
-          <div className="payroll-view__stat-value">${Math.round(stats.year).toLocaleString()}</div>
+          <div className="payroll-view__stat-value">{formatUsdWhole(stats.year)}</div>
+          {formatLocalCurrencyForRows(
+            filteredRows,
+            (row) => Number(row.year_salary || 0) * (row.headcount ?? 1),
+            currencyRates,
+          ).map((part) => (
+            <div key={part} className="payroll-view__stat-local-currency">
+              {part}
+            </div>
+          ))}
           <div className="payroll-view__stat-sub">comp × headcount, summed</div>
         </div>
       </div>
@@ -324,41 +301,6 @@ function PayrollView({ companyId: companyIdProp }) {
             ))}
           </select>
         </label>
-        <label className="payroll-view__year-selector">
-          Default raise (Year {selectedYear})
-          <div className="payroll-view__default-raise">
-            <input
-              type="number"
-              step="0.5"
-              className="payroll-view__default-raise-input"
-              placeholder="%/yr"
-              value={defaultRaisePct}
-              onChange={(event) => {
-                setDefaultRaisePct(event.target.value)
-                setDefaultRaiseStatus('idle')
-              }}
-            />
-            <button
-              type="button"
-              className={`payroll-view__btn ${isDefaultRaiseApplied ? 'payroll-view__btn--primary' : ''}`}
-              disabled={!defaultRaisePct || defaultRaiseStatus === 'applying'}
-              onClick={handleApplyDefaultRaise}
-            >
-              {defaultRaiseStatus === 'applying' ? 'Applying…' : isDefaultRaiseApplied ? 'Applied' : 'Apply to all'}
-            </button>
-            {appliedDefaultRaise != null && selectedYear > 0 && (
-              <button
-                type="button"
-                className="payroll-view__btn"
-                disabled={defaultRaiseStatus === 'applying'}
-                onClick={handleClearDefaultRaise}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </label>
-        {defaultRaiseStatus === 'error' && <span className="payroll-view__default-raise-status is-error">Failed</span>}
         <label className="payroll-view__year-selector">
           Sort by
           <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort positions by">
@@ -503,7 +445,6 @@ function PayrollView({ companyId: companyIdProp }) {
       {view === 'structured' ? (
         <PayrollTable
           rows={filteredRows}
-          calendarMode={calendarMode}
           selectionMode={cloneMode || deleteMode}
           selectedIds={selectedIds}
           onToggleSelected={toggleSelected}
@@ -511,7 +452,6 @@ function PayrollView({ companyId: companyIdProp }) {
           onRowClick={(row) => {
             if (cloneMode || deleteMode) return
             setSelectedRowId(row.node_id)
-            setView('matrix')
           }}
           onDropRow={handleRowReorder}
         />
@@ -565,7 +505,8 @@ function PayrollView({ companyId: companyIdProp }) {
         <section className="payroll-view__editor">
           <h4>Position details</h4>
           <p className="payroll-view__roster-hint" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
-            Headcount, "Reports to," and comp are all set directly in the Matrix grid above — this is just the name and area.
+            Headcount, "Reports to," and comp are all set directly in the Matrix grid above — this is the name, area, and
+            description.
           </p>
           <div className="payroll-view__editor-grid">
             <label>
@@ -586,6 +527,17 @@ function PayrollView({ companyId: companyIdProp }) {
               />
             </label>
           </div>
+          <label className="payroll-view__editor-description">
+            Description / functions
+            <textarea
+              value={editorValues.description}
+              maxLength={1000}
+              rows={4}
+              placeholder="What this position is responsible for…"
+              onChange={(event) => setEditorValues((prev) => ({ ...prev, description: event.target.value }))}
+            />
+            <span className="payroll-view__editor-char-count">{editorValues.description.length}/1000</span>
+          </label>
           <div className="payroll-view__editor-actions">
             <button type="button" className="payroll-view__btn payroll-view__btn--primary" onClick={handleSave}>
               Save

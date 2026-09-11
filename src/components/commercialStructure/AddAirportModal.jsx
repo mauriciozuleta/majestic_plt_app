@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { lookupAirportByIata } from '../../../../services/airports'
+import { lookupAirportByIata } from '../../services/airports'
 import './AddAirportModal.css'
 
 const emptyFields = {

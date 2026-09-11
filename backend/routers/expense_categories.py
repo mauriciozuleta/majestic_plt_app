@@ -19,11 +19,102 @@ from .. import schemas
 router = APIRouter()
 
 PAYROLL_CATEGORY_NAME = 'Payroll'
+# These three names are matched by exact string on the frontend to overlay
+# live computed payroll numbers instead of stored $ values — renaming them
+# here would silently break that overlay, so renames are rejected.
+PROTECTED_CATEGORY_NAMES = {'Payroll', 'Payroll Tax Expense', 'Employee Benefits'}
 
 
 @router.get('/expense-categories', response_model=list[schemas.ExpenseCategoryOut])
 def list_expense_categories(db: Session = Depends(get_db)):
     return db.query(models.ExpenseCategory).order_by(models.ExpenseCategory.sort_order).all()
+
+
+@router.post('/expense-categories', response_model=schemas.ExpenseCategoryOut)
+def create_expense_category(payload: schemas.ExpenseCategoryCreate, db: Session = Depends(get_db)):
+    new_name = payload.name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail='Name cannot be empty.')
+    if new_name in PROTECTED_CATEGORY_NAMES:
+        raise HTTPException(status_code=400, detail=f'"{new_name}" is a reserved name.')
+
+    max_sort_order = db.query(models.ExpenseCategory).count()
+    category = models.ExpenseCategory(id=str(uuid.uuid4()), sort_order=max_sort_order, name=new_name)
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+@router.delete('/expense-categories/{category_id}')
+def delete_expense_category(category_id: str, db: Session = Depends(get_db)):
+    category = db.query(models.ExpenseCategory).filter_by(id=category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail='Expense category not found')
+    if category.name in PROTECTED_CATEGORY_NAMES:
+        raise HTTPException(status_code=400, detail=f'"{category.name}" is computed automatically and cannot be deleted.')
+
+    db.query(models.ExpenseEntry).filter_by(category_id=category_id).delete(synchronize_session=False)
+    db.query(models.ExpenseCategoryCountryExclusion).filter_by(category_id=category_id).delete(synchronize_session=False)
+    db.delete(category)
+    db.commit()
+    return {'ok': True}
+
+
+@router.patch('/expense-categories/{category_id}', response_model=schemas.ExpenseCategoryOut)
+def rename_expense_category(category_id: str, payload: schemas.ExpenseCategoryUpdate, db: Session = Depends(get_db)):
+    category = db.query(models.ExpenseCategory).filter_by(id=category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail='Expense category not found')
+
+    new_name = payload.name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail='Name cannot be empty.')
+    if category.name in PROTECTED_CATEGORY_NAMES:
+        raise HTTPException(status_code=400, detail=f'"{category.name}" is computed automatically and cannot be renamed.')
+    if new_name in PROTECTED_CATEGORY_NAMES:
+        raise HTTPException(status_code=400, detail=f'"{new_name}" is a reserved name.')
+
+    category.name = new_name
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+@router.get('/expense-category-country-exclusions', response_model=list[schemas.ExpenseCategoryApplicabilityOut])
+def list_expense_category_country_exclusions(db: Session = Depends(get_db)):
+    return db.query(models.ExpenseCategoryCountryExclusion).all()
+
+
+@router.put('/expense-category-country-exclusions', response_model=schemas.ExpenseCategoryApplicabilityOut | None)
+def set_expense_category_country_applicability(
+    payload: schemas.ExpenseCategoryApplicabilityUpdate, db: Session = Depends(get_db),
+):
+    category = db.query(models.ExpenseCategory).filter_by(id=payload.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail='Expense category not found')
+    country = db.query(models.CommercialCountry).filter_by(id=payload.country_id).first()
+    if not country:
+        raise HTTPException(status_code=404, detail='Country not found')
+
+    exclusion = db.query(models.ExpenseCategoryCountryExclusion).filter_by(
+        category_id=payload.category_id, country_id=payload.country_id,
+    ).first()
+
+    if payload.applicable:
+        if exclusion:
+            db.delete(exclusion)
+            db.commit()
+        return None
+
+    if not exclusion:
+        exclusion = models.ExpenseCategoryCountryExclusion(
+            id=str(uuid.uuid4()), category_id=payload.category_id, country_id=payload.country_id,
+        )
+        db.add(exclusion)
+        db.commit()
+        db.refresh(exclusion)
+    return exclusion
 
 
 @router.get('/companies/{company_id}/expenses', response_model=list[schemas.ExpenseEntryOut])
