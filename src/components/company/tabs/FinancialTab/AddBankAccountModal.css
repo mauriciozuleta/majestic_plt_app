@@ -1,0 +1,167 @@
+.bank-account-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.bank-account-modal {
+  width: min(32rem, calc(100vw - 2rem));
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1.1rem;
+}
+
+.bank-account-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.bank-account-modal__header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-primary);
+}
+
+.bank-account-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.bank-account-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.bank-account-modal__field label {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.bank-account-modal__field input,
+.bank-account-modal__field select {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  padding: 0.7rem 0.75rem;
+  outline: none;
+}
+
+.bank-account-modal__upload-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.bank-account-modal__upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border-strong);
+  background: rgba(232, 163, 61, 0.12);
+  color: var(--accent-amber-text);
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.bank-account-modal__preview {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 0.7rem;
+}
+
+.bank-account-modal__preview-card {
+  width: 2.8rem;
+  height: 2.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  position: relative;
+  overflow: hidden;
+  padding: 0.2rem;
+  cursor: pointer;
+}
+
+.bank-account-modal__preview-edit {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 24, 39, 0.62);
+  color: #f9fafb;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.bank-account-modal__preview-card:hover .bank-account-modal__preview-edit,
+.bank-account-modal__preview-card:focus-visible .bank-account-modal__preview-edit {
+  opacity: 1;
+}
+
+.bank-account-modal__file-input {
+  display: none;
+}
+
+.bank-account-modal__error {
+  color: #fca5a5;
+  font-size: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.bank-account-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.bank-account-modal__cancel,
+.bank-account-modal__save {
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.bank-account-modal__cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.bank-account-modal__save {
+  background: var(--accent-amber);
+  color: #111827;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.bank-account-modal__save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

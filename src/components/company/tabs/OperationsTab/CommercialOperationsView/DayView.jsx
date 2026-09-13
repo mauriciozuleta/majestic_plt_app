@@ -1,6 +1,7 @@
+import { IconEdit } from '@tabler/icons-react'
 import { CATEGORIES } from './categories'
 
-function DayView({ dayEntries, onDeleteEntry }) {
+function DayView({ dayEntries, onDeleteEntry, onEditEntry }) {
   return (
     <div className="commercial-ops-day">
       {CATEGORIES.map((category) => {
@@ -28,6 +29,14 @@ function DayView({ dayEntries, onDeleteEntry }) {
                         : entry.description || '—'}
                     </span>
                     <span className="commercial-ops-day__entry-amount">${entry.amount.toLocaleString()}</span>
+                    <button
+                      type="button"
+                      className="commercial-ops-day__edit"
+                      title="Edit this entry"
+                      onClick={() => onEditEntry(entry)}
+                    >
+                      <IconEdit size={14} stroke={1.8} />
+                    </button>
                     <button
                       type="button"
                       className="commercial-ops-day__remove"

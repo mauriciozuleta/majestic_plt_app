@@ -35,11 +35,30 @@ def _get_or_create_year_salary(db: Session, record: models.PayrollRecord, projec
     if yearly_salary:
         return yearly_salary
 
+    # A brand-new year starts with no level of its own — carry forward
+    # whatever the most recent earlier year had assigned, the same way
+    # year_salary itself seeds from the record's base pay. This is
+    # deliberately about SEEDING a new row only: an explicit edit to one
+    # year's level (see update_position) never bleeds into other years,
+    # since that edit only ever touches that one year's already-existing row.
+    previous_level = (
+        db.query(models.PayrollYearlySalary.payroll_level)
+        .filter(
+            models.PayrollYearlySalary.payroll_record_id == record.id,
+            models.PayrollYearlySalary.projection_year < projection_year,
+            models.PayrollYearlySalary.payroll_level.isnot(None),
+        )
+        .order_by(models.PayrollYearlySalary.projection_year.desc())
+        .limit(1)
+        .scalar()
+    )
+
     yearly_salary = models.PayrollYearlySalary(
         id=str(uuid.uuid4()),
         payroll_record_id=record.id,
         projection_year=projection_year,
         year_salary=record.year_salary,
+        payroll_level=previous_level,
     )
     db.add(yearly_salary)
     db.flush()

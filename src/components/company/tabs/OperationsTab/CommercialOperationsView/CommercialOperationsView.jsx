@@ -3,10 +3,11 @@ import {
   createCommercialOperationEntry,
   deleteCommercialOperationEntry,
   fetchCommercialOperationEntries,
+  updateCommercialOperationEntry,
 } from '../../../../../services/commercialOperations'
 import { fetchSettings } from '../../../../../services/settings'
 import { getDefaultCalendarDate } from '../../../../../services/calendarDates'
-import { createSimParameter } from '../../../../../services/simParameters'
+import { createSimParameter, deleteSimParameter, fetchSimParameters } from '../../../../../services/simParameters'
 import JumpToDatePicker from './JumpToDatePicker'
 import MonthView from './MonthView'
 import DayView from './DayView'
@@ -35,16 +36,23 @@ function CommercialOperationsView({ companyId }) {
   const [viewMode, setViewMode] = useState('month')
   const [referenceDate, setReferenceDate] = useState(null)
   const [modalCategory, setModalCategory] = useState(null)
+  const [editingEntry, setEditingEntry] = useState(null)
+  const [simParameterEntryIds, setSimParameterEntryIds] = useState(() => new Set())
 
   const reload = async () => {
     if (!companyId) return
     setLoading(true)
     setError('')
     try {
-      const [settings, nextEntries] = await Promise.all([fetchSettings(), fetchCommercialOperationEntries(companyId)])
+      const [settings, nextEntries, simParameters] = await Promise.all([
+        fetchSettings(),
+        fetchCommercialOperationEntries(companyId),
+        fetchSimParameters(companyId),
+      ])
       const mode = settings.calendar_mode ?? 'real'
       setCalendarMode(mode)
       setEntries(nextEntries)
+      setSimParameterEntryIds(new Set(simParameters.map((item) => item.entry_id)))
       setReferenceDate((prev) => prev ?? getDefaultCalendarDate(mode))
     } catch (err) {
       setError(err.message)
@@ -99,6 +107,34 @@ function CommercialOperationsView({ companyId }) {
 
   const handleDeleteEntry = async (entryId) => {
     await deleteCommercialOperationEntry(companyId, entryId)
+    await reload()
+  }
+
+  const handleEditEntry = (entry) => setEditingEntry(entry)
+
+  const handleUpdateEntry = async (payloads) => {
+    // Editing normally touches just the one entry, but the form's "Repeat
+    // this entry" can still be used while editing — the first date updates
+    // the entry being edited, and any further dates are created as brand
+    // new entries (there's no series link between rows, so a repeat can
+    // only ever add occurrences going forward, never edit past ones too).
+    const [firstPayload, ...restPayloads] = Array.isArray(payloads) ? payloads : [payloads]
+    const { is_sim_parameter: firstIsSimParameter, ...firstEntry } = firstPayload
+    await updateCommercialOperationEntry(companyId, editingEntry.id, firstEntry)
+    if (firstIsSimParameter) {
+      await createSimParameter(companyId, editingEntry.id)
+    } else {
+      await deleteSimParameter(companyId, editingEntry.id).catch(() => undefined)
+    }
+    for (const { is_sim_parameter, ...entry } of restPayloads) {
+      // eslint-disable-next-line no-await-in-loop
+      const created = await createCommercialOperationEntry(companyId, entry)
+      if (is_sim_parameter) {
+        // eslint-disable-next-line no-await-in-loop
+        await createSimParameter(companyId, created.id)
+      }
+    }
+    setEditingEntry(null)
     await reload()
   }
 
@@ -219,18 +255,34 @@ function CommercialOperationsView({ companyId }) {
       {viewMode === 'month' && (
         <MonthView calendarMode={calendarMode} referenceDate={referenceDate} entriesByDate={entriesByDate} onSelectDay={handleSelectDay} />
       )}
-      {viewMode === 'day' && <DayView dayEntries={dayEntries} onDeleteEntry={handleDeleteEntry} />}
+      {viewMode === 'day' && (
+        <DayView dayEntries={dayEntries} onDeleteEntry={handleDeleteEntry} onEditEntry={handleEditEntry} />
+      )}
       {viewMode === 'year' && (
         <YearView calendarMode={calendarMode} referenceDate={referenceDate} entries={entries} onSelectMonth={handleSelectMonth} />
       )}
 
       {modalCategory && (
         <AddEntryModal
+          companyId={companyId}
           category={modalCategory}
           initialDate={referenceDate}
           calendarMode={calendarMode}
           onSave={handleSaveEntry}
           onCancel={() => setModalCategory(null)}
+        />
+      )}
+
+      {editingEntry && (
+        <AddEntryModal
+          companyId={companyId}
+          category={editingEntry.category}
+          initialDate={referenceDate}
+          calendarMode={calendarMode}
+          initialEntry={editingEntry}
+          initialIsSimParameter={simParameterEntryIds.has(editingEntry.id)}
+          onSave={handleUpdateEntry}
+          onCancel={() => setEditingEntry(null)}
         />
       )}
     </div>

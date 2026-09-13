@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import AreaAutocomplete from './AreaAutocomplete'
 import { employeeMonthlyActive, positionMonthlyHeadcount } from './monthMath'
+import { normalizeJobTitle } from './jobTitleUtils'
 import { usePayrollCurrencyRates } from '../../../../../hooks/usePayrollCurrencyRates'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 import { formatLocalCurrencyForLocation, formatLocalCurrencyForRows } from '../../../../../utils/payrollLocalCurrency'
@@ -14,6 +15,24 @@ function formatUsdWhole(value) {
 
 function seatLabel(officeName, index) {
   return `${officeName} #${index + 1}`
+}
+
+// Groups DIFFERENT positions that share a job title (e.g. five separate
+// "Secretary / Assistant" positions in five different areas) so they can be
+// shown under one collapsible header with each position's own row indented
+// below it — distinct from the existing single-position seat-splitting
+// (isSplit) below, which handles multiple EMPLOYEES on the SAME position.
+// Matched case/whitespace-insensitively (free-typed titles drift — "Secretary"
+// vs "secretary "), but each position's own original spelling is preserved
+// on its own row; only the shared group header uses a normalized label.
+function groupByJobTitle(built) {
+  const groups = new Map()
+  built.forEach((item) => {
+    const key = normalizeJobTitle(item.row.office_name)
+    if (!groups.has(key)) groups.set(key, { key, label: item.row.office_name, items: [] })
+    groups.get(key).items.push(item)
+  })
+  return Array.from(groups.values())
 }
 
 function ParentSelect({ value, isDirty, onChange, allPositions, excludeNodeId }) {
@@ -90,6 +109,7 @@ function PayrollMatrix({
   onToggleSelected,
 }) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set())
+  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState(() => new Set())
   const levelOptions = payrollLevels || []
   const rates = usePayrollCurrencyRates()
 
@@ -98,6 +118,15 @@ function PayrollMatrix({
       const next = new Set(prev)
       if (next.has(nodeId)) next.delete(nodeId)
       else next.add(nodeId)
+      return next
+    })
+  }
+
+  const toggleGroupCollapsed = (groupKey) => {
+    setCollapsedGroupKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(groupKey)) next.delete(groupKey)
+      else next.add(groupKey)
       return next
     })
   }
@@ -155,6 +184,157 @@ function PayrollMatrix({
     [rows, selectedYear, calendarMode, headcountDrafts, positionDrafts, employeeDrafts],
   )
 
+  const groups = useMemo(() => groupByJobTitle(built), [built])
+
+  // Renders one position's row(s) exactly as before (a flat row, or a
+  // collapsible category row + its seat rows) — `indent` adds a spacer so
+  // positions nested under a shared-job-title group header read as a
+  // level deeper than a standalone position.
+  const renderPositionRows = ({ row, totalMonths, isSplit, seats, effectiveParent, effectiveArea, effectiveLevel, hasPositionDraft }, indent) => {
+    const draftMonths = headcountDrafts.get(row.node_id) || null
+    const positionDraft = positionDrafts.get(row.node_id) || {}
+
+    if (!isSplit) {
+      return [
+        <tr key={row.node_id} className={selectionMode && selectedIds.includes(row.node_id) ? 'is-selected' : ''}>
+          <td className="sticky-col sticky-1">
+            {indent && <span className="payroll-matrix__group-indent" />}
+            {selectionMode && (
+              <input
+                type="checkbox"
+                className="payroll-matrix__select"
+                checked={selectedIds.includes(row.node_id)}
+                onChange={() => onToggleSelected(row.node_id)}
+              />
+            )}
+            <button
+              type="button"
+              className="payroll-matrix__position-link"
+              onClick={() => (selectionMode ? onToggleSelected(row.node_id) : onPositionClick(row))}
+            >
+              {row.office_name}
+            </button>
+          </td>
+          <td className="sticky-col sticky-2">
+            <LevelSelect
+              value={effectiveLevel}
+              isDirty={'payroll_level' in positionDraft}
+              options={levelOptions}
+              onChange={(nextLevel) => handleLevelChange(row.node_id, nextLevel)}
+            />
+          </td>
+          <td className="sticky-col sticky-3">
+            <ParentSelect
+              value={effectiveParent}
+              isDirty={'parent_node_id' in positionDraft}
+              excludeNodeId={row.node_id}
+              allPositions={allPositions}
+              onChange={(nextParentId) => onDraftPositionField(row.node_id, 'parent_node_id', nextParentId)}
+            />
+          </td>
+          <td className="sticky-col sticky-4">
+            <AreaAutocomplete
+              value={effectiveArea}
+              isDirty={'area' in positionDraft}
+              options={areaOptions}
+              onChange={(nextArea) => onDraftPositionField(row.node_id, 'area', nextArea)}
+              className="payroll-matrix__area-input"
+            />
+          </td>
+          <MonthCells nodeId={row.node_id} months={totalMonths} draftMonths={draftMonths} onDraftMonthChange={onDraftMonthChange} />
+        </tr>,
+      ]
+    }
+
+    const isCollapsed = collapsedIds.has(row.node_id)
+
+    const categoryRow = (
+      <tr
+        className={`payroll-matrix__category-row ${hasPositionDraft ? 'is-dirty' : ''} ${
+          selectionMode && selectedIds.includes(row.node_id) ? 'is-selected' : ''
+        }`}
+        key={`${row.node_id}-category`}
+      >
+        <td className="sticky-col sticky-1">
+          {indent && <span className="payroll-matrix__group-indent" />}
+          {selectionMode && (
+            <input
+              type="checkbox"
+              className="payroll-matrix__select"
+              checked={selectedIds.includes(row.node_id)}
+              onChange={() => onToggleSelected(row.node_id)}
+            />
+          )}
+          <button
+            type="button"
+            className="payroll-matrix__collapse-toggle"
+            title={isCollapsed ? 'Expand seats' : 'Collapse seats'}
+            onClick={() => toggleCollapsed(row.node_id)}
+          >
+            {isCollapsed ? '▸' : '▾'}
+          </button>
+          <button
+            type="button"
+            className="payroll-matrix__position-link"
+            onClick={() => (selectionMode ? onToggleSelected(row.node_id) : onPositionClick(row))}
+          >
+            {row.office_name}
+          </button>
+          <span className="payroll-matrix__category-tag">{seats.length} seats</span>
+        </td>
+        <td className="sticky-col sticky-2">
+          <LevelSelect
+            value={effectiveLevel}
+            isDirty={'payroll_level' in positionDraft}
+            options={levelOptions}
+            onChange={(nextLevel) => handleLevelChange(row.node_id, nextLevel)}
+          />
+        </td>
+        <td className="sticky-col sticky-3" />
+        <td className="payroll-matrix__category-spacer" colSpan={13} />
+      </tr>
+    )
+
+    const seatRows = seats.map(({ employee, label, months, effectiveReportsTo, effectiveArea: seatArea }) => {
+      const employeeDraft = employeeDrafts.get(employee.id) || {}
+      return (
+        <tr className="payroll-matrix__seat-row" key={employee.id}>
+          <td className="sticky-col sticky-1">
+            <div className="payroll-matrix__seat-name">
+              {indent && <span className="payroll-matrix__group-indent" />}
+              {label}
+              <button type="button" className="payroll-matrix__remove" title="Remove this seat" onClick={() => onRemoveEmployee(employee.id)}>×</button>
+            </div>
+          </td>
+          <td className="sticky-col sticky-2" />
+          <td className="sticky-col sticky-3">
+            <ParentSelect
+              value={effectiveReportsTo || effectiveParent}
+              isDirty={'reports_to_node_id' in employeeDraft}
+              excludeNodeId={row.node_id}
+              allPositions={allPositions}
+              onChange={(nextParentId) => onDraftEmployeeField(employee.id, 'reports_to_node_id', nextParentId)}
+            />
+          </td>
+          <td className="sticky-col sticky-4">
+            <AreaAutocomplete
+              value={seatArea || effectiveArea}
+              isDirty={'area' in employeeDraft}
+              options={areaOptions}
+              onChange={(nextArea) => onDraftEmployeeField(employee.id, 'area', nextArea)}
+              className="payroll-matrix__area-input"
+            />
+          </td>
+          {months.map((active, index) => (
+            <td key={index} className="num">{active ? 1 : '—'}</td>
+          ))}
+        </tr>
+      )
+    })
+
+    return isCollapsed ? [categoryRow] : [categoryRow, ...seatRows]
+  }
+
   const grandHeadcount = new Array(12).fill(0)
   const grandCost = new Array(12).fill(0)
   built.forEach(({ row, totalMonths, monthlyCost }) => {
@@ -185,146 +365,29 @@ function PayrollMatrix({
                 {built.length === 0 ? (
                   <tr><td colSpan={16} className="payroll-matrix__empty">No positions active in Year {selectedYear}.</td></tr>
                 ) : (
-                  built.flatMap(({ row, totalMonths, isSplit, seats, effectiveParent, effectiveArea, effectiveLevel, hasPositionDraft }) => {
-                    const draftMonths = headcountDrafts.get(row.node_id) || null
-                    const positionDraft = positionDrafts.get(row.node_id) || {}
+                  groups.flatMap((group) => {
+                    if (group.items.length === 1) return renderPositionRows(group.items[0], false)
 
-                    if (!isSplit) {
-                      return [
-                        <tr key={row.node_id} className={selectionMode && selectedIds.includes(row.node_id) ? 'is-selected' : ''}>
-                          <td className="sticky-col sticky-1">
-                            {selectionMode && (
-                              <input
-                                type="checkbox"
-                                className="payroll-matrix__select"
-                                checked={selectedIds.includes(row.node_id)}
-                                onChange={() => onToggleSelected(row.node_id)}
-                              />
-                            )}
-                            <button
-                              type="button"
-                              className="payroll-matrix__position-link"
-                              onClick={() => (selectionMode ? onToggleSelected(row.node_id) : onPositionClick(row))}
-                            >
-                              {row.office_name}
-                            </button>
-                          </td>
-                          <td className="sticky-col sticky-2">
-                            <LevelSelect
-                              value={effectiveLevel}
-                              isDirty={'payroll_level' in positionDraft}
-                              options={levelOptions}
-                              onChange={(nextLevel) => handleLevelChange(row.node_id, nextLevel)}
-                            />
-                          </td>
-                          <td className="sticky-col sticky-3">
-                            <ParentSelect
-                              value={effectiveParent}
-                              isDirty={'parent_node_id' in positionDraft}
-                              excludeNodeId={row.node_id}
-                              allPositions={allPositions}
-                              onChange={(nextParentId) => onDraftPositionField(row.node_id, 'parent_node_id', nextParentId)}
-                            />
-                          </td>
-                          <td className="sticky-col sticky-4">
-                            <AreaAutocomplete
-                              value={effectiveArea}
-                              isDirty={'area' in positionDraft}
-                              options={areaOptions}
-                              onChange={(nextArea) => onDraftPositionField(row.node_id, 'area', nextArea)}
-                              className="payroll-matrix__area-input"
-                            />
-                          </td>
-                          <MonthCells nodeId={row.node_id} months={totalMonths} draftMonths={draftMonths} onDraftMonthChange={onDraftMonthChange} />
-                        </tr>,
-                      ]
-                    }
-
-                    const isCollapsed = collapsedIds.has(row.node_id)
-
-                    const categoryRow = (
-                      <tr
-                        className={`payroll-matrix__category-row ${hasPositionDraft ? 'is-dirty' : ''} ${
-                          selectionMode && selectedIds.includes(row.node_id) ? 'is-selected' : ''
-                        }`}
-                        key={`${row.node_id}-category`}
-                      >
+                    const isGroupCollapsed = collapsedGroupKeys.has(group.key)
+                    const groupHeaderRow = (
+                      <tr className="payroll-matrix__group-row" key={`group-${group.key}`}>
                         <td className="sticky-col sticky-1">
-                          {selectionMode && (
-                            <input
-                              type="checkbox"
-                              className="payroll-matrix__select"
-                              checked={selectedIds.includes(row.node_id)}
-                              onChange={() => onToggleSelected(row.node_id)}
-                            />
-                          )}
                           <button
                             type="button"
                             className="payroll-matrix__collapse-toggle"
-                            title={isCollapsed ? 'Expand seats' : 'Collapse seats'}
-                            onClick={() => toggleCollapsed(row.node_id)}
+                            title={isGroupCollapsed ? 'Expand positions' : 'Collapse positions'}
+                            onClick={() => toggleGroupCollapsed(group.key)}
                           >
-                            {isCollapsed ? '▸' : '▾'}
+                            {isGroupCollapsed ? '▸' : '▾'}
                           </button>
-                          <button
-                            type="button"
-                            className="payroll-matrix__position-link"
-                            onClick={() => (selectionMode ? onToggleSelected(row.node_id) : onPositionClick(row))}
-                          >
-                            {row.office_name}
-                          </button>
-                          <span className="payroll-matrix__category-tag">{seats.length} seats</span>
+                          <span className="payroll-matrix__group-label">{group.label}</span>
+                          <span className="payroll-matrix__category-tag">{group.items.length} positions</span>
                         </td>
-                        <td className="sticky-col sticky-2">
-                          <LevelSelect
-                            value={effectiveLevel}
-                            isDirty={'payroll_level' in positionDraft}
-                            options={levelOptions}
-                            onChange={(nextLevel) => handleLevelChange(row.node_id, nextLevel)}
-                          />
-                        </td>
-                        <td className="sticky-col sticky-3" />
-                        <td className="payroll-matrix__category-spacer" colSpan={13} />
+                        <td className="payroll-matrix__category-spacer" colSpan={15} />
                       </tr>
                     )
-
-                    const seatRows = seats.map(({ employee, label, months, effectiveReportsTo, effectiveArea: seatArea }) => {
-                      const employeeDraft = employeeDrafts.get(employee.id) || {}
-                      return (
-                        <tr className="payroll-matrix__seat-row" key={employee.id}>
-                          <td className="sticky-col sticky-1">
-                            <div className="payroll-matrix__seat-name">
-                              {label}
-                              <button type="button" className="payroll-matrix__remove" title="Remove this seat" onClick={() => onRemoveEmployee(employee.id)}>×</button>
-                            </div>
-                          </td>
-                          <td className="sticky-col sticky-2" />
-                          <td className="sticky-col sticky-3">
-                            <ParentSelect
-                              value={effectiveReportsTo || effectiveParent}
-                              isDirty={'reports_to_node_id' in employeeDraft}
-                              excludeNodeId={row.node_id}
-                              allPositions={allPositions}
-                              onChange={(nextParentId) => onDraftEmployeeField(employee.id, 'reports_to_node_id', nextParentId)}
-                            />
-                          </td>
-                          <td className="sticky-col sticky-4">
-                            <AreaAutocomplete
-                              value={seatArea || effectiveArea}
-                              isDirty={'area' in employeeDraft}
-                              options={areaOptions}
-                              onChange={(nextArea) => onDraftEmployeeField(employee.id, 'area', nextArea)}
-                              className="payroll-matrix__area-input"
-                            />
-                          </td>
-                          {months.map((active, index) => (
-                            <td key={index} className="num">{active ? 1 : '—'}</td>
-                          ))}
-                        </tr>
-                      )
-                    })
-
-                    return isCollapsed ? [categoryRow] : [categoryRow, ...seatRows]
+                    if (isGroupCollapsed) return [groupHeaderRow]
+                    return [groupHeaderRow, ...group.items.flatMap((item) => renderPositionRows(item, true))]
                   })
                 )}
               </tbody>
@@ -359,19 +422,47 @@ function PayrollMatrix({
                 {built.length === 0 ? (
                   <tr><td colSpan={14} className="payroll-matrix__empty">Nothing to cost out for Year {selectedYear}.</td></tr>
                 ) : (
-                  built.map(({ row, monthlyCost, yearTotal }) => {
-                    const localCurrency = formatLocalCurrencyForLocation(row.location, yearTotal, rates)
-                    return (
-                      <tr key={row.node_id}>
-                        <td className="sticky-col sticky-1">{row.office_name}</td>
-                        {monthlyCost.map((value, index) => (
-                          <td key={index} className="num">${(value / 1000).toFixed(1)}k</td>
-                        ))}
-                        <td className="num" title={localCurrency || undefined}>
-                          {formatUsdWhole(yearTotal)}
+                  groups.flatMap((group) => {
+                    const renderCostRow = ({ row, monthlyCost, yearTotal }, indent) => {
+                      const localCurrency = formatLocalCurrencyForLocation(row.location, yearTotal, rates)
+                      return (
+                        <tr key={row.node_id}>
+                          <td className="sticky-col sticky-1">
+                            {indent && <span className="payroll-matrix__group-indent" />}
+                            {row.office_name}
+                          </td>
+                          {monthlyCost.map((value, index) => (
+                            <td key={index} className="num">${(value / 1000).toFixed(1)}k</td>
+                          ))}
+                          <td className="num" title={localCurrency || undefined}>
+                            {formatUsdWhole(yearTotal)}
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    if (group.items.length === 1) return [renderCostRow(group.items[0], false)]
+
+                    const isGroupCollapsed = collapsedGroupKeys.has(group.key)
+                    const groupHeaderRow = (
+                      <tr className="payroll-matrix__group-row" key={`group-${group.key}-cost`}>
+                        <td className="sticky-col sticky-1">
+                          <button
+                            type="button"
+                            className="payroll-matrix__collapse-toggle"
+                            title={isGroupCollapsed ? 'Expand positions' : 'Collapse positions'}
+                            onClick={() => toggleGroupCollapsed(group.key)}
+                          >
+                            {isGroupCollapsed ? '▸' : '▾'}
+                          </button>
+                          <span className="payroll-matrix__group-label">{group.label}</span>
+                          <span className="payroll-matrix__category-tag">{group.items.length} positions</span>
                         </td>
+                        <td className="payroll-matrix__category-spacer" colSpan={13} />
                       </tr>
                     )
+                    if (isGroupCollapsed) return [groupHeaderRow]
+                    return [groupHeaderRow, ...group.items.map((item) => renderCostRow(item, true))]
                   })
                 )}
               </tbody>

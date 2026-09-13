@@ -15,6 +15,12 @@ const TYPE_LABELS = {
   expense: 'Expenses',
 }
 const TYPE_ORDER = ['asset', 'liability', 'equity', 'revenue', 'contra_revenue', 'expense']
+// These three categories tend to accumulate the most postings (every cash
+// movement touches an asset account, for instance), so their per-account
+// tables are capped to the most recent entries and made scrollable —
+// liability/contra-revenue/expense are left as full, unlimited lists.
+const LIMITED_TYPES = new Set(['asset', 'equity', 'revenue'])
+const ROW_LIMIT = 10
 
 function money(value) {
   const amount = Number(value) || 0
@@ -98,42 +104,53 @@ function GeneralLedgerView() {
           <h4 className="general-ledger__group-title">{TYPE_LABELS[group.type] ?? group.type}</h4>
           {group.accounts.map((account) => {
             const postings = ledgerByAccount.get(account.id) || []
-            let balance = 0
+            const rowsWithBalance = []
+            for (const posting of postings) {
+              const previousBalance = rowsWithBalance.length ? rowsWithBalance[rowsWithBalance.length - 1].balance : 0
+              const delta =
+                account.normal_balance === 'debit' ? posting.debit - posting.credit : posting.credit - posting.debit
+              rowsWithBalance.push({ ...posting, balance: previousBalance + delta })
+            }
+            const shouldLimit = LIMITED_TYPES.has(account.account_type)
+            const visibleRows = shouldLimit ? rowsWithBalance.slice(-ROW_LIMIT) : rowsWithBalance
+            const hiddenCount = shouldLimit ? Math.max(0, rowsWithBalance.length - ROW_LIMIT) : 0
+
             return (
               <div key={account.id} className="general-ledger__account">
                 <div className="general-ledger__account-title">
                   <span className="general-ledger__account-code">{account.code}</span>
                   {account.name}
                 </div>
-                <table className="accounting-view__table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Memo</th>
-                      <th className="num">Debit</th>
-                      <th className="num">Credit</th>
-                      <th className="num">Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {postings.map((posting, index) => {
-                      const delta =
-                        account.normal_balance === 'debit'
-                          ? posting.debit - posting.credit
-                          : posting.credit - posting.debit
-                      balance += delta
-                      return (
+                <div className={shouldLimit ? 'general-ledger__table-scroll' : undefined}>
+                  <table className="accounting-view__table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Memo</th>
+                        <th className="num">Debit</th>
+                        <th className="num">Credit</th>
+                        <th className="num">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleRows.map((posting, index) => (
                         <tr key={index}>
                           <td>{posting.date}</td>
                           <td>{posting.memo}</td>
                           <td className="num">{posting.debit ? money(posting.debit) : ''}</td>
                           <td className="num">{posting.credit ? money(posting.credit) : ''}</td>
-                          <td className="num">{money(balance)}</td>
+                          <td className="num">{money(posting.balance)}</td>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {hiddenCount > 0 && (
+                  <p className="general-ledger__hint">
+                    Showing the {ROW_LIMIT} most recent postings — {hiddenCount} earlier{' '}
+                    {hiddenCount === 1 ? 'entry is' : 'entries are'} not shown.
+                  </p>
+                )}
               </div>
             )
           })}

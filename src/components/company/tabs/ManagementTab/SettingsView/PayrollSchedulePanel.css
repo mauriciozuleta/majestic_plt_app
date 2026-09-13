@@ -1,0 +1,78 @@
+.payroll-schedule-panel {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem;
+}
+
+.payroll-schedule-panel__hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+}
+
+.payroll-schedule-panel__schedule-type {
+  display: flex;
+  gap: 1.2rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #334155);
+}
+
+.payroll-schedule-panel__schedule-type label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.payroll-schedule-panel__schedule-day {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+}
+
+.payroll-schedule-panel__schedule-day select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+}
+
+.payroll-schedule-panel__schedule-day-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+}
+
+.payroll-schedule-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.2rem;
+}
+
+.payroll-schedule-panel__save-btn {
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--text-primary, #0f172a);
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+
+.payroll-schedule-panel__save-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.payroll-schedule-panel__message {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+}
+
+.payroll-schedule-panel__message.is-error {
+  color: #b91c1c;
+}

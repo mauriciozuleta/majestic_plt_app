@@ -143,7 +143,7 @@
 }
 
 .commercial-ops-month__day {
-  aspect-ratio: 1;
+  min-height: 4.4rem;
   border: 1px solid var(--border);
   background: var(--bg-card);
   border-radius: 8px;
@@ -169,17 +169,21 @@
   font-size: 0.78rem;
 }
 
-.commercial-ops-month__day-markers {
+.commercial-ops-month__day-totals {
   display: flex;
-  gap: 0.25rem;
-  margin-top: auto;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
 }
 
-.commercial-ops-month__marker {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
+.commercial-ops-month__day-total {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* Jump-to-date popup picker */
@@ -379,6 +383,25 @@
   font-size: 0.78rem;
 }
 
+.commercial-ops-day__edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 5px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.commercial-ops-day__edit:hover {
+  background: var(--bg-sidebar-item-hover);
+  color: var(--text-primary);
+}
+
 .commercial-ops-day__remove {
   border: 1px solid var(--border-strong);
   background: var(--bg-panel);
@@ -434,6 +457,17 @@
   gap: 0.25rem;
   color: var(--text-muted);
   font-size: 0.75rem;
+}
+
+.commercial-ops-modal__account-balance {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent-teal-text);
+}
+
+.commercial-ops-modal__account-balance--low {
+  color: #f87171;
 }
 
 .commercial-ops-modal__form input,

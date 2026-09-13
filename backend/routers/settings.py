@@ -93,7 +93,6 @@ def get_settings(db: Session = Depends(get_db)):
         'calendar_mode': settings.calendar_mode,
         'projection_years': max(5, min(10, settings.projection_years or 5)),
         'enabled_benefits': enabled_benefits,
-        'inflation_pct': settings.inflation_pct or 0.0,
         'payroll_schedule_type': settings.payroll_schedule_type,
         'payroll_schedule_monthly_day': settings.payroll_schedule_monthly_day,
         'payroll_schedule_biweekly_day1': settings.payroll_schedule_biweekly_day1,
@@ -154,29 +153,46 @@ def set_enabled_benefits(payload: dict, db: Session = Depends(get_db)):
     return {'enabled_benefits': benefit_keys}
 
 
-@router.patch('/settings/inflation')
-def set_inflation(payload: dict, db: Session = Depends(get_db)):
-    """Sets the (US) inflation rate and re-derives Year 2..N salary from it,
-    compounding year over year, for every position actually located in the
-    USA — the same mechanism the old per-visit "Apply to all" raise button
-    used (see payroll.py's _apply_growth_rate_to_record), just driven by
-    this one persisted setting instead of a manual action, and now scoped
-    to the positions this rate actually describes."""
-    settings = _get_or_create_settings(db)
+@router.get('/countries/{country_code}/inflation')
+def get_country_inflation(country_code: str, db: Session = Depends(get_db)):
+    row = db.query(models.CountryInflation).filter_by(country_code=country_code).first()
+    return {'inflation_pct': row.inflation_pct if row else 0.0}
+
+
+@router.patch('/countries/{country_code}/inflation')
+def set_country_inflation(country_code: str, payload: dict, db: Session = Depends(get_db)):
+    """Sets this country's inflation rate and re-derives Year 2..N salary
+    from it, compounding year over year, for every position belonging to
+    ANY company whose own home country (Company.country_code) matches —
+    not just the one company whose commercial-structure row happens to
+    render this pill. A subsidiary with no commercial-structure data of its
+    own yet (e.g. a newly split-off country company) still gets the right
+    rate this way, since matching is by the company's own country, not by
+    who owns the country row in the Tax Structure list."""
     inflation_pct = payload.get('inflation_pct')
     if not isinstance(inflation_pct, (int, float)):
         raise HTTPException(status_code=400, detail='inflation_pct must be a number')
 
-    if settings.inflation_pct == inflation_pct:
+    row = db.query(models.CountryInflation).filter_by(country_code=country_code).first()
+    if not row:
+        row = models.CountryInflation(country_code=country_code, inflation_pct=0.0)
+        db.add(row)
+
+    if row.inflation_pct == inflation_pct:
         return {'inflation_pct': inflation_pct, 'positions_updated': 0}
 
-    settings.inflation_pct = inflation_pct
+    row.inflation_pct = inflation_pct
     projection_years_limit = _get_projection_years_limit(db)
 
-    usa_node_ids = [node.id for node in db.query(models.OrgChartNode).all() if _is_usa_location(node.location)]
+    company_ids = [company.id for company in db.query(models.Company).filter_by(country_code=country_code).all()]
+    node_ids = (
+        [node.id for node in db.query(models.OrgChartNode).filter(models.OrgChartNode.company_id.in_(company_ids)).all()]
+        if company_ids
+        else []
+    )
     records = (
-        db.query(models.PayrollRecord).filter(models.PayrollRecord.org_chart_node_id.in_(usa_node_ids)).all()
-        if usa_node_ids
+        db.query(models.PayrollRecord).filter(models.PayrollRecord.org_chart_node_id.in_(node_ids)).all()
+        if node_ids
         else []
     )
 

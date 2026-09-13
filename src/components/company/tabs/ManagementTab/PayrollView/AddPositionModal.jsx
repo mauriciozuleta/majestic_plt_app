@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import SimulationDatePicker from '../../../../shared/SimulationCalendar/SimulationDatePicker'
 import AreaAutocomplete from './AreaAutocomplete'
+import { resolveCanonicalJobTitle } from './jobTitleUtils'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 
 function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialStartDate, calendarMode, selectedYear = 0 }) {
@@ -30,6 +31,11 @@ function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialSta
     return formatCurrencyValue(value / 12, 'USD')
   }, [yearSalary])
 
+  const officeNameOptions = useMemo(
+    () => [...new Set(positions.map((position) => position.office_name))],
+    [positions],
+  )
+
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -50,7 +56,11 @@ function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialSta
     }
 
     await onSave({
-      office_name: trimmedOfficeName,
+      // Snaps to an existing title's exact spelling if this one only
+      // differs by casing/spacing — "secretary / assistant" saves as
+      // "Secretary / Assistant" if that's what's already on file, instead
+      // of quietly creating a second, functionally-identical title.
+      office_name: resolveCanonicalJobTitle(trimmedOfficeName, officeNameOptions),
       employee_name: employeeName.trim() || null,
       area: area.trim() || null,
       parent_node_id: parentNodeId || null,
@@ -62,14 +72,14 @@ function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialSta
   return (
     <div className="payroll-modal__overlay" onClick={onCancel}>
       <div className="payroll-modal" onClick={(event) => event.stopPropagation()}>
-        <h3>Add new position</h3>
+        <h3>Add new job title</h3>
         <form className="payroll-modal__form" onSubmit={handleSubmit}>
           <label>
-            Position name
-            <input
-              type="text"
+            Job title
+            <AreaAutocomplete
               value={officeName}
-              onChange={(event) => setOfficeName(event.target.value)}
+              options={officeNameOptions}
+              onChange={setOfficeName}
               placeholder="Head of Finance"
             />
           </label>
@@ -133,7 +143,7 @@ function AddPositionModal({ positions, areaOptions, onSave, onCancel, initialSta
               Cancel
             </button>
             <button type="submit" className="payroll-modal__save">
-              Save position
+              Save job title
             </button>
           </div>
         </form>

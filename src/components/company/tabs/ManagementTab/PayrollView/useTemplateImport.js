@@ -4,6 +4,7 @@ import { broadcastCompanyDataChange } from '../../../../../services/companyDataS
 import { downloadPayrollTemplate } from '../../../../../services/payrollTemplate'
 import { readWorkbookRows } from '../../../../../services/excelImport'
 import { parseFlatTemplate } from './importUtils'
+import { normalizeJobTitle, resolveCanonicalJobTitle } from './jobTitleUtils'
 
 /**
  * Owns the "Download format" / "Upload filled format" workflow: generate a
@@ -39,7 +40,20 @@ export function useTemplateImport({ companyId, rows, payrollLevels, defaultStart
       const nodeIdByComposite = new Map()
       const levelByCode = new Map((payrollLevels || []).map((level) => [level.level, level]))
 
-      for (const position of positions) {
+      // Manually-typed spreadsheet rows drift in casing/spacing just as
+      // easily as any other free-typed title ("Secretary / Assistant" vs
+      // "secretary / assistant") — snap each imported name to whatever's
+      // already on file, or to the first spelling seen earlier in this
+      // same upload, so a typo never creates a duplicate-looking position.
+      const knownOfficeNames = rows.map((row) => row.office_name)
+      const normalizedPositions = positions.map((position) => {
+        const canonicalName = resolveCanonicalJobTitle(position.name, knownOfficeNames)
+        const alreadyKnown = knownOfficeNames.some((name) => normalizeJobTitle(name) === normalizeJobTitle(canonicalName))
+        if (!alreadyKnown) knownOfficeNames.push(canonicalName)
+        return { ...position, name: canonicalName }
+      })
+
+      for (const position of normalizedPositions) {
         const composite = `${position.name}::${position.parentName}`
         const existing = existingByComposite.get(composite)
         const matchedLevel = position.level ? levelByCode.get(position.level) : null
@@ -85,7 +99,7 @@ export function useTemplateImport({ companyId, rows, payrollLevels, defaultStart
       // can be wired up regardless of which order positions appeared in the sheet. Each
       // position's OWN id comes from the composite map, so two same-named positions each
       // get wired to their own parent rather than both collapsing onto one.
-      for (const position of positions) {
+      for (const position of normalizedPositions) {
         if (!position.parentName) continue
         const composite = `${position.name}::${position.parentName}`
         const childId = nodeIdByComposite.get(composite)

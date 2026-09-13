@@ -6,7 +6,6 @@ import {
   US_STATES,
 } from '../../../../../services/usPayrollTax'
 import { computeFullEmployeeWithholding, computeFullEmployerCost } from '../../../../../services/usBenefits'
-import { fetchSettings, updatePayrollSchedule } from '../../../../../services/settings'
 import { fetchPayrollLevels } from '../../../../../services/payrollLevels'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 import './USPayrollTaxPanel.css'
@@ -19,23 +18,10 @@ function formatMoney(value) {
   return formatCurrencyValue(value, 'USD')
 }
 
-const DAYS_1_TO_30 = Array.from({ length: 30 }, (_, index) => index + 1)
-
 // Matches the format used in the Payroll Matrix's level picker.
 function formatLevelOption(option) {
   return `${option.level} > ${formatCurrencyValue(option.yearly, 'USD', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
-
-const TAX_OBLIGATIONS_OPTIONS = [
-  { value: 'next_business_day', label: 'Next Business Day' },
-  { value: '2', label: '2 days after' },
-  { value: '3', label: '3 days after' },
-  { value: '4', label: '4 days after' },
-  { value: '5', label: '5 days after' },
-  { value: '6', label: '6 days after' },
-  { value: '7', label: '7 days after' },
-  { value: 'end_of_month', label: 'End of the month' },
-]
 
 // The US payroll tax structure, wired up: Employer cost (also what drives
 // the "Payroll Tax Expense" row in Financial > Expenses) and Employee
@@ -44,45 +30,13 @@ const TAX_OBLIGATIONS_OPTIONS = [
 // here too — see services/usBenefits.js for exactly how. This is a
 // deliberately simplified model overall — see services/usPayrollTax.js
 // for what's simplified and why.
-function USPayrollTaxPanel({ enabledBenefitKeys = [], calendarMode = 'real' }) {
+function USPayrollTaxPanel({ enabledBenefitKeys = [] }) {
   const [selectedState, setSelectedState] = useState('')
   const [selectedLevel, setSelectedLevel] = useState('')
   const [testSalary, setTestSalary] = useState('')
   const [paychecksPerYear, setPaychecksPerYear] = useState(24)
   const [payrollLevels, setPayrollLevels] = useState([])
   const [payrollLevelsStatus, setPayrollLevelsStatus] = useState('loading')
-
-  const [scheduleType, setScheduleType] = useState('')
-  const [monthlyDay, setMonthlyDay] = useState(1)
-  const [biweeklyDay1, setBiweeklyDay1] = useState(1)
-  const [biweeklyDay2, setBiweeklyDay2] = useState(15)
-  const [taxObligationsSchedule, setTaxObligationsSchedule] = useState('')
-  const [scheduleStatus, setScheduleStatus] = useState('loading')
-  const [scheduleMessage, setScheduleMessage] = useState('')
-  const [scheduleDirty, setScheduleDirty] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    fetchSettings()
-      .then((settings) => {
-        if (cancelled) return
-        setScheduleType(settings.payroll_schedule_type || '')
-        setMonthlyDay(settings.payroll_schedule_monthly_day || 1)
-        setBiweeklyDay1(settings.payroll_schedule_biweekly_day1 || 1)
-        setBiweeklyDay2(settings.payroll_schedule_biweekly_day2 || 15)
-        setTaxObligationsSchedule(settings.tax_obligations_schedule || '')
-        setScheduleStatus('idle')
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setScheduleStatus('error')
-          setScheduleMessage(error.message)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -100,31 +54,6 @@ function USPayrollTaxPanel({ enabledBenefitKeys = [], calendarMode = 'real' }) {
     }
   }, [])
 
-  const markDirty = (setter) => (value) => {
-    setter(value)
-    setScheduleDirty(true)
-  }
-
-  const handleSaveSchedule = async () => {
-    setScheduleStatus('saving')
-    setScheduleMessage('')
-    try {
-      await updatePayrollSchedule({
-        payroll_schedule_type: scheduleType || null,
-        payroll_schedule_monthly_day: scheduleType === 'monthly' ? monthlyDay : null,
-        payroll_schedule_biweekly_day1: scheduleType === 'biweekly' ? biweeklyDay1 : null,
-        payroll_schedule_biweekly_day2: scheduleType === 'biweekly' ? biweeklyDay2 : null,
-        tax_obligations_schedule: taxObligationsSchedule || null,
-      })
-      setScheduleDirty(false)
-      setScheduleStatus('idle')
-      setScheduleMessage('Saved.')
-    } catch (error) {
-      setScheduleStatus('error')
-      setScheduleMessage(error.message || 'Failed to save the schedule.')
-    }
-  }
-
   const parsedSalary = Number(testSalary)
   const hasValidSalary = Number.isFinite(parsedSalary) && parsedSalary > 0
 
@@ -140,97 +69,6 @@ function USPayrollTaxPanel({ enabledBenefitKeys = [], calendarMode = 'real' }) {
 
   return (
     <div className="us-payroll-tax">
-      <section className="us-payroll-tax__schedule">
-        <h5>Payroll Schedule</h5>
-        <p className="us-payroll-tax__hint">Not wired up yet — these selections are saved but don't drive any calculation or date yet.</p>
-
-        <div className="us-payroll-tax__schedule-type">
-          <label>
-            <input
-              type="radio"
-              name="us-payroll-schedule-type"
-              value="monthly"
-              checked={scheduleType === 'monthly'}
-              onChange={() => markDirty(setScheduleType)('monthly')}
-            />
-            Monthly
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="us-payroll-schedule-type"
-              value="biweekly"
-              checked={scheduleType === 'biweekly'}
-              onChange={() => markDirty(setScheduleType)('biweekly')}
-            />
-            Biweekly
-          </label>
-        </div>
-
-        {scheduleType === 'monthly' &&
-          (calendarMode === 'simulation' ? (
-            <label className="us-payroll-tax__schedule-day">
-              Day of month for pay
-              <select value={monthlyDay} onChange={(event) => markDirty(setMonthlyDay)(Number(event.target.value))}>
-                {DAYS_1_TO_30.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <p className="us-payroll-tax__hint">Day-of-month selection is available in Simulation calendar mode.</p>
-          ))}
-
-        {scheduleType === 'biweekly' &&
-          (calendarMode === 'simulation' ? (
-            <div className="us-payroll-tax__schedule-day-pair">
-              <label className="us-payroll-tax__schedule-day">
-                First payment day
-                <select value={biweeklyDay1} onChange={(event) => markDirty(setBiweeklyDay1)(Number(event.target.value))}>
-                  {DAYS_1_TO_30.map((day) => (
-                    <option key={day} value={day}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="us-payroll-tax__schedule-day">
-                Second payment day
-                <select value={biweeklyDay2} onChange={(event) => markDirty(setBiweeklyDay2)(Number(event.target.value))}>
-                  {DAYS_1_TO_30.map((day) => (
-                    <option key={day} value={day}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ) : (
-            <p className="us-payroll-tax__hint">Day-of-month selection is available in Simulation calendar mode.</p>
-          ))}
-
-        <label className="us-payroll-tax__schedule-day">
-          Taxes / other obligations payment
-          <select value={taxObligationsSchedule} onChange={(event) => markDirty(setTaxObligationsSchedule)(event.target.value)}>
-            <option value="">— Select —</option>
-            {TAX_OBLIGATIONS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="us-payroll-tax__schedule-actions">
-          <button type="button" className="us-payroll-tax__save-btn" onClick={handleSaveSchedule} disabled={!scheduleDirty || scheduleStatus === 'saving'}>
-            {scheduleStatus === 'saving' ? 'Saving…' : 'Save'}
-          </button>
-          {scheduleMessage && <span className={`us-payroll-tax__schedule-message ${scheduleStatus === 'error' ? 'is-error' : ''}`}>{scheduleMessage}</span>}
-        </div>
-      </section>
-
       <div className="us-payroll-tax__columns">
         <section className="us-payroll-tax__section">
           <h5>Employer</h5>

@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react'
-import { fetchSettings, updateInflation } from '../../../../../services/settings'
+import { fetchCountryInflation, updateCountryInflation } from '../../../../../services/settings'
 import './USMacroeconomicsPanel.css'
 
-// Applies only to positions actually located in the USA (matched via
-// usPayrollTax.js's isUsaLocation on the backend side — see
-// backend/routers/settings.py's set_inflation) — a position elsewhere
-// keeps whatever salary it already has for Year 2+.
-function USMacroeconomicsPanel() {
+// Applies to every company whose OWN home country matches this pill's
+// country (Company.country_code) — not just the one company whose
+// commercial-structure row this pill happens to render under. A position
+// elsewhere, or in a company located in a different country, keeps
+// whatever salary it already has for Year 2+.
+function USMacroeconomicsPanel({ countryCode }) {
   const [savedRate, setSavedRate] = useState(0)
   const [draftRate, setDraftRate] = useState('0')
   const [status, setStatus] = useState('loading')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
+    if (!countryCode) return undefined
     let cancelled = false
-    fetchSettings()
+    setStatus('loading')
+    fetchCountryInflation(countryCode)
       .then((settings) => {
         if (cancelled) return
         const rate = Number(settings.inflation_pct ?? 0)
@@ -31,21 +34,21 @@ function USMacroeconomicsPanel() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [countryCode])
 
   const parsedDraft = Number(draftRate)
   const isDirty = Number.isFinite(parsedDraft) && parsedDraft !== savedRate
 
   const handleSave = async () => {
-    if (!Number.isFinite(parsedDraft)) return
+    if (!Number.isFinite(parsedDraft) || !countryCode) return
     setStatus('saving')
     setMessage('')
     try {
-      const result = await updateInflation(parsedDraft)
+      const result = await updateCountryInflation(countryCode, parsedDraft)
       setSavedRate(parsedDraft)
       setMessage(
         result.positions_updated > 0
-          ? `Saved — recalculated Year 2 onward for ${result.positions_updated} USA position${result.positions_updated === 1 ? '' : 's'}.`
+          ? `Saved — recalculated Year 2 onward for ${result.positions_updated} position${result.positions_updated === 1 ? '' : 's'} in companies located here.`
           : 'Saved.',
       )
       setStatus('idle')
@@ -59,7 +62,7 @@ function USMacroeconomicsPanel() {
     <div className="us-macro">
       <p className="us-macro__hint">
         Applied every year starting in Year 2, compounding on the previous year's cost — Year 2 = Year 1 × (1 + rate), Year 3 = Year 2 ×
-        (1 + rate), and so on. This replaces the old "default raise" control that used to live in Payroll.
+        (1 + rate), and so on. Applies to every company actually located in this country, not just one.
       </p>
       <label className="us-macro__input-row">
         Inflation (annual %)

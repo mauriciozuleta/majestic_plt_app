@@ -1,6 +1,6 @@
 import './CompanyList.css'
 import { IconEdit } from '@tabler/icons-react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../../../store/useAppStore'
 
 function CompanyList({ onEditCompany }) {
@@ -8,6 +8,22 @@ function CompanyList({ onEditCompany }) {
   const activeCompanyId = useAppStore((state) => state.activeCompanyId)
   const setActiveCompanyId = useAppStore((state) => state.setActiveCompanyId)
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Switching companies should land on whatever tab the user was already
+  // looking at (e.g. Financial > Expenses stays Financial > Expenses for
+  // the newly selected company) instead of always resetting to
+  // Management > Roadmap — only fall back to that default when the current
+  // page isn't inside a company workspace at all (e.g. Dashboard, Settings).
+  const buildTargetPath = (companyId) => {
+    const segments = location.pathname.split('/').filter(Boolean)
+    const companyIndex = segments.indexOf('company')
+    if (companyIndex === -1 || segments.length <= companyIndex + 1) {
+      return `/company/${companyId}/management/roadmap`
+    }
+    const rest = segments.slice(companyIndex + 2)
+    return `/company/${companyId}${rest.length ? `/${rest.join('/')}` : '/management/roadmap'}`
+  }
 
   return (
     <div className="company-list">
@@ -33,7 +49,7 @@ function CompanyList({ onEditCompany }) {
               className="company-list__row"
               onClick={() => {
                 setActiveCompanyId(company.id)
-                navigate(`/company/${company.id}/management/roadmap`)
+                navigate(buildTargetPath(company.id))
               }}
             >
               <span

@@ -37,6 +37,52 @@ class PortfolioSettings(Base):
     colombia_uvt_cop = Column(Float, nullable=True)
 
 
+class CountryInflation(Base):
+    """Per-country inflation rate for the Macroeconomics pill — keyed by
+    Company.country_code (not company_id or the commercial-structure
+    country row it's rendered under), since the rate is meant to apply to
+    every company actually located in that country, wherever the pill for
+    it happens to be opened from."""
+    __tablename__ = 'country_inflation'
+
+    country_code = Column(String, primary_key=True)
+    inflation_pct = Column(Float, default=0.0)
+
+
+class BankAccount(Base):
+    __tablename__ = 'bank_accounts'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    bank_name = Column(String, nullable=False)
+    account_number = Column(String, nullable=False)
+    account_type = Column(String, nullable=False)  # 'main' | 'secondary'
+    account_name = Column(String, nullable=False)
+    logo = Column(String, nullable=True)
+
+
+class BankTransaction(Base):
+    """A single ledger line for a bank account. Auto-created whenever a
+    Commercial Operations entry is saved with a bank account attached
+    (revenue posts a credit, cos/expenses post a debit) — source_type/
+    source_id point back at that entry so the transaction can be removed if
+    the entry is deleted. created_at is the tiebreaker for running-balance
+    order when two transactions share an entry_date."""
+    __tablename__ = 'bank_transactions'
+
+    id = Column(String, primary_key=True, index=True)
+    bank_account_id = Column(String, index=True, nullable=False)
+    entry_date = Column(String, nullable=False, index=True)
+    description = Column(String, nullable=True)
+    client = Column(String, nullable=True)  # origin/beneficiary — revenue entries' client, or cos/expenses' paid_to
+    reference = Column(String, nullable=True)  # reference_document copied from the source entry
+    credit = Column(Float, nullable=False, default=0.0)
+    debit = Column(Float, nullable=False, default=0.0)
+    source_type = Column(String, nullable=True)
+    source_id = Column(String, nullable=True, index=True)
+    created_at = Column(String, nullable=False)
+
+
 class RoadmapTask(Base):
     __tablename__ = 'roadmap_tasks'
 
@@ -277,6 +323,18 @@ class CommercialOperationEntry(Base):
     is_recurring = Column(Boolean, nullable=True, default=False)  # revenue only: subscriptions/memberships
     is_discount = Column(Boolean, nullable=True, default=False)  # revenue only: negative revenue adjustment
     settlement_date = Column(String, nullable=True)  # when the cash is actually paid/received, if different from entry_date
+    bank_account_id = Column(String, nullable=True)  # which bank account this entry posts a credit/debit to
+    reference_document = Column(String, nullable=True)  # invoice/receipt/PO number, etc.
+    paid_to = Column(String, nullable=True)  # cos/expenses only: who is receiving the payment
+    # The "Repeat this entry" pattern used when this row was generated, if
+    # any — every row created together shares the same values. There's no
+    # link between the rows of a series, so this is purely a per-row memory
+    # of how it was created, letting the edit form show/continue the same
+    # pattern instead of always starting blank.
+    recurrence_frequency = Column(String, nullable=True)  # 'daily' | 'weekly' | 'monthly' | 'custom'
+    recurrence_interval = Column(Integer, nullable=True)
+    recurrence_custom_unit = Column(String, nullable=True)  # 'day' | 'week' | 'month' — only when frequency == 'custom'
+    recurrence_until_date = Column(String, nullable=True)
 
 
 class SimParameter(Base):

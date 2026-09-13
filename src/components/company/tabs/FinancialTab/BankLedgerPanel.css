@@ -1,0 +1,93 @@
+.bank-ledger-panel {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: var(--bg-panel);
+  padding: 0.75rem 0.85rem 0.9rem;
+  margin-top: -0.5rem;
+}
+
+.bank-ledger-panel__scroll {
+  overflow: auto;
+  max-height: 22rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.bank-ledger-panel__scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+  z-index: 1;
+}
+
+.bank-ledger-panel__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.bank-ledger-panel__table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 0.5rem 0.45rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.bank-ledger-panel__table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-ledger-panel__table th:nth-child(n + 5),
+.bank-ledger-panel__table td:nth-child(n + 5) {
+  text-align: right;
+}
+
+/* Base text colors live on their own class, kept separate from the semantic
+   credit/debit/balance classes below so neither rule out-specifies the
+   other — both are single-class selectors on the same <td>. */
+.bank-ledger-panel__cell {
+  color: var(--text-secondary);
+}
+
+.bank-ledger-panel__credit {
+  color: #4ade80;
+}
+
+.bank-ledger-panel__debit {
+  color: #fbbf24;
+}
+
+.bank-ledger-panel__balance--positive {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.bank-ledger-panel__balance--negative {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.bank-ledger-panel__empty {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.bank-ledger-panel__error {
+  color: #fca5a5;
+  font-size: 0.76rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.bank-ledger-panel__hint {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  margin: 0.5rem 0 0;
+}

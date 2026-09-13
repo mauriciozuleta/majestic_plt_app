@@ -12,6 +12,7 @@ load_dotenv()
 
 from .database import Base, engine
 from .routers import (
+    bank_accounts,
     commercial_operations,
     commercial_structure,
     companies,
@@ -381,3 +382,4 @@ app.include_router(country_profile.router)
 app.include_router(competitiveness.router)
 app.include_router(weight_research.router)
 app.include_router(product_overrides.router)
+app.include_router(bank_accounts.router)

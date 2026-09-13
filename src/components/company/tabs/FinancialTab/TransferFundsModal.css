@@ -1,0 +1,92 @@
+.transfer-funds-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.transfer-funds-modal {
+  width: min(28rem, calc(100vw - 2rem));
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1.1rem;
+}
+
+.transfer-funds-modal h3 {
+  margin: 0 0 0.7rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.transfer-funds-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.transfer-funds-modal__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.transfer-funds-modal__form input,
+.transfer-funds-modal__form select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.55rem 0.6rem;
+}
+
+.transfer-funds-modal__balance {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent-teal-text);
+}
+
+.transfer-funds-modal__error {
+  color: #fca5a5;
+  font-size: 0.75rem;
+}
+
+.transfer-funds-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.transfer-funds-modal__cancel,
+.transfer-funds-modal__save {
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.transfer-funds-modal__cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.transfer-funds-modal__save {
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}
+
+.transfer-funds-modal__save:disabled,
+.transfer-funds-modal__cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

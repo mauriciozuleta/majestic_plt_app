@@ -205,6 +205,24 @@
   background: rgba(232, 163, 61, 0.1);
 }
 
+/* Cross-position job-title grouping — a level above the category/seat
+   hierarchy below, for when several DIFFERENT positions (own node_id, own
+   Reports To/Area) happen to share a job title (e.g. five separately
+   created "Secretary / Assistant" positions in five different areas). */
+.payroll-matrix__group-row td {
+  background: var(--bg-panel);
+  font-weight: 600;
+}
+
+.payroll-matrix__group-label {
+  color: var(--text-primary);
+}
+
+.payroll-matrix__group-indent {
+  display: inline-block;
+  width: 1.1rem;
+}
+
 /* category / seat hierarchy — same indent-and-mute language as the Roadmap subtask rows */
 .payroll-matrix__category-row td {
   background: var(--bg-panel);

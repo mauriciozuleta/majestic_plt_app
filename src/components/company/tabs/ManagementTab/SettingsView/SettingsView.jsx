@@ -4,6 +4,7 @@ import { IconX } from '@tabler/icons-react'
 import RoadmapDateInput from '../RoadmapView/RoadmapDateInput'
 import PayrollLevelsModal from './PayrollLevelsModal'
 import USPayrollTaxPanel from './USPayrollTaxPanel'
+import PayrollSchedulePanel from './PayrollSchedulePanel'
 import USBenefitsPanel from './USBenefitsPanel'
 import USMacroeconomicsPanel from './USMacroeconomicsPanel'
 import StMaartenPayrollTaxPanel from './StMaartenPayrollTaxPanel'
@@ -32,13 +33,25 @@ const PROTECTED_EXPENSE_CATEGORY_NAMES = new Set(['Payroll', 'Payroll Tax Expens
 // module, listed under each country in the commercial structure.
 // "Macroeconomics" is where per-country inflation will eventually live,
 // replacing the flat "default raise" control that used to be in Payroll.
-const TAX_CATEGORIES = ['Income Taxes', 'Export Taxes', 'Import Taxes', 'Payroll taxes/charges', 'Macroeconomics', 'Benefits']
+const TAX_CATEGORIES = [
+  'Income Taxes',
+  'Export Taxes',
+  'Import Taxes',
+  'Payroll taxes/charges',
+  'Payroll Schedule',
+  'Macroeconomics',
+  'Benefits',
+]
 // Which pills are actually wired, per country — both panels read/write the
 // same `enabledBenefitKeys` state below, so enabling a benefit here
-// immediately shows up in the Salary Calculator's numbers too.
+// immediately shows up in the Salary Calculator's numbers too. Payroll
+// Schedule is portfolio-wide (not actually US-specific), but it only ever
+// had a home under United States' pills, so it stays there as its own
+// pill rather than introducing a new place to look for it.
 const WIRED_PILLS_BY_COUNTRY = {
   'United States': {
     'Payroll taxes/charges': USPayrollTaxPanel,
+    'Payroll Schedule': PayrollSchedulePanel,
     Benefits: USBenefitsPanel,
     Macroeconomics: USMacroeconomicsPanel,
   },
@@ -85,8 +98,8 @@ function SettingsView() {
   const [expenseSettingsSaving, setExpenseSettingsSaving] = useState(false)
   const [expenseSettingsMessage, setExpenseSettingsMessage] = useState('')
   const [expenseSettingsMessageType, setExpenseSettingsMessageType] = useState('info')
-  const [isExpensesCardExpanded, setIsExpensesCardExpanded] = useState(true)
-  const [isTaxStructureCardExpanded, setIsTaxStructureCardExpanded] = useState(true)
+  const [isExpensesCardExpanded, setIsExpensesCardExpanded] = useState(false)
+  const [isTaxStructureCardExpanded, setIsTaxStructureCardExpanded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -709,6 +722,7 @@ function SettingsView() {
                                   enabledBenefitKeys={enabledBenefitKeys}
                                   onToggleBenefit={handleToggleBenefit}
                                   calendarMode={calendarMode}
+                                  countryCode={country.country_code}
                                 />
                               </div>
                             )}

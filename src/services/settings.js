@@ -57,8 +57,14 @@ export async function updateEnabledBenefits(benefitKeys) {
   return response.json()
 }
 
-export async function updateInflation(inflationPct) {
-  const response = await fetch(`${API_BASE}/settings/inflation`, {
+export async function fetchCountryInflation(countryCode) {
+  const response = await fetch(`${API_BASE}/countries/${countryCode}/inflation`)
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to load inflation'))
+  return response.json()
+}
+
+export async function updateCountryInflation(countryCode, inflationPct) {
+  const response = await fetch(`${API_BASE}/countries/${countryCode}/inflation`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ inflation_pct: inflationPct }),

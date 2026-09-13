@@ -16,6 +16,16 @@ export async function createCommercialOperationEntry(companyId, entry) {
   return response.json()
 }
 
+export async function updateCommercialOperationEntry(companyId, entryId, entry) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/commercial-operations/${entryId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  })
+  if (!response.ok) throw new Error('Failed to update entry')
+  return response.json()
+}
+
 export async function deleteCommercialOperationEntry(companyId, entryId) {
   const response = await fetch(`${API_BASE}/companies/${companyId}/commercial-operations/${entryId}`, {
     method: 'DELETE',

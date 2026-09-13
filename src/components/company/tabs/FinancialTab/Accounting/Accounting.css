@@ -74,6 +74,27 @@
   font-weight: 400;
 }
 
+.general-ledger__table-scroll {
+  overflow: auto;
+  max-height: 22rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.general-ledger__table-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+  z-index: 1;
+}
+
+.general-ledger__hint {
+  margin: 0.4rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-style: italic;
+}
+
 .accounting-view__toolbar {
   display: flex;
   align-items: center;

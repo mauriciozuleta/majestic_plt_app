@@ -29,11 +29,13 @@ function MonthView({ calendarMode, referenceDate, entriesByDate, onSelectDay }) 
             >
               <span className="commercial-ops-month__day-number">{getDayNumber(calendarMode, cell.isoDate)}</span>
               {nonZeroCategories.length > 0 && (
-                <span className="commercial-ops-month__day-markers">
+                <div className="commercial-ops-month__day-totals">
                   {nonZeroCategories.map((category) => (
-                    <span key={category.key} className="commercial-ops-month__marker" style={{ background: category.color }} />
+                    <span key={category.key} className="commercial-ops-month__day-total" style={{ color: category.color }}>
+                      {category.label}: ${category.total.toLocaleString()}
+                    </span>
                   ))}
-                </span>
+                </div>
               )}
             </button>
           )

@@ -259,6 +259,13 @@ class CommercialOperationEntryCreate(BaseModel):
     is_recurring: Optional[bool] = False
     is_discount: Optional[bool] = False
     settlement_date: Optional[str] = None
+    bank_account_id: Optional[str] = None
+    reference_document: Optional[str] = None
+    paid_to: Optional[str] = None
+    recurrence_frequency: Optional[str] = None
+    recurrence_interval: Optional[int] = None
+    recurrence_custom_unit: Optional[str] = None
+    recurrence_until_date: Optional[str] = None
 
 
 class CommercialOperationEntryOut(CommercialOperationEntryCreate):

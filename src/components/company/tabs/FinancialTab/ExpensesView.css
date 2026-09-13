@@ -55,27 +55,6 @@
   min-width: 8rem;
 }
 
-.expenses-view__draft-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.expenses-view__btn {
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border-radius: 8px;
-  padding: 0.45rem 0.7rem;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.expenses-view__btn--primary {
-  border-color: rgba(251, 146, 60, 0.65);
-  color: var(--accent-amber-text);
-  background: rgba(249, 115, 22, 0.18);
-}
-
 .expenses-view__error {
   color: #fca5a5;
   font-size: 0.78rem;
@@ -146,12 +125,9 @@
   background: rgba(59, 130, 246, 0.06);
 }
 
-.expenses-view__imported-tag {
-  display: block;
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  font-style: italic;
-  font-weight: 400;
+.expenses-view__cell--ops {
+  background: rgba(53, 211, 153, 0.08);
+  color: var(--accent-teal-text);
 }
 
 .expenses-view__local-currency {
@@ -159,26 +135,6 @@
   font-size: 0.6rem;
   color: var(--text-dim);
   font-family: var(--font-mono);
-}
-
-.expenses-view__month-input {
-  width: 100%;
-  min-width: 64px;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
-  color: var(--text-secondary);
-  border-radius: 5px;
-  padding: 0.15rem 0.3rem;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  text-align: right;
-}
-
-.expenses-view__month-input.is-dirty {
-  border-color: var(--accent-amber);
-  color: var(--accent-amber-text);
-  background: rgba(232, 163, 61, 0.1);
 }
 
 .expenses-view__total-row td {
@@ -194,23 +150,3 @@
   z-index: 3;
 }
 
-.expenses-view__cell {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  width: 100%;
-}
-
-.expenses-view__month-input.is-hardcoded {
-  border-color: #facc15;
-  box-shadow: 0 0 0 1px #facc15;
-}
-
-.expenses-view__hardcoded-mark {
-  position: absolute;
-  right: -0.7rem;
-  color: #facc15;
-  font-weight: 700;
-  font-size: 0.85rem;
-  pointer-events: none;
-}

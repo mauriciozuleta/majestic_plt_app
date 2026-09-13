@@ -27,11 +27,6 @@ export const REVENUE_TREATMENTS = [
 
 export const REVENUE_FLAGS = [
   {
-    key: 'is_recurring',
-    label: 'Recurring Revenue',
-    description: 'Subscriptions, memberships, monthly passes.',
-  },
-  {
     key: 'is_discount',
     label: 'Discount / Promotion',
     description: 'Negative revenue (e.g., early-payment discount).',

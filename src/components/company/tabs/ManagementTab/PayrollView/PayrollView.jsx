@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import AddPositionModal from './AddPositionModal'
 import AreaAutocomplete from './AreaAutocomplete'
+import DropdownMenu from './DropdownMenu'
 import PayrollTable from './PayrollTable'
 import PayrollMatrix from './PayrollMatrix'
+import PayrollStatement from './PayrollStatement'
 import PayrollYearSummary from './PayrollYearSummary'
 import FileUploadButton from '../../../../shared/FileUploadButton'
 import { useCloneSelection } from './useCloneSelection'
@@ -15,12 +17,16 @@ import { fetchSettings } from '../../../../../services/settings'
 import { broadcastCompanyDataChange, subscribeToCompanyDataChange } from '../../../../../services/companyDataSync'
 import { getDefaultCalendarDate } from '../../../../../services/calendarDates'
 import { clusterResemblingAreas, pickCanonicalArea } from './areaUtils'
+import { resolveCanonicalJobTitle } from './jobTitleUtils'
 import { SORT_OPTIONS, sortPositions } from './positionSort'
 import { updatePosition } from '../../../../../services/payroll'
 import { fetchPayrollLevels } from '../../../../../services/payrollLevels'
 import { usePayrollCurrencyRates } from '../../../../../hooks/usePayrollCurrencyRates'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 import { formatLocalCurrencyForRows } from '../../../../../utils/payrollLocalCurrency'
+import { useAppStore } from '../../../../../store/useAppStore'
+import { computeAnnualBreakdown } from './payrollDisbursement'
+import { SMMLV_COP_DEFAULT, UVT_COP_DEFAULT } from '../../../../../services/colombiaPayrollTax'
 import './PayrollView.css'
 
 function formatUsdWhole(value) {
@@ -29,7 +35,6 @@ function formatUsdWhole(value) {
 
 function PayrollView({ companyId: companyIdProp }) {
   const params = useParams()
-  const navigate = useNavigate()
   const companyId = companyIdProp ?? params.companyId
   const [view, setView] = useState('structured')
   const [activeArea, setActiveArea] = useState(null)
@@ -39,6 +44,9 @@ function PayrollView({ companyId: companyIdProp }) {
   const [editorValues, setEditorValues] = useState({ officeName: '', area: '', description: '' })
   const [calendarMode, setCalendarMode] = useState('real')
   const [payrollLevels, setPayrollLevels] = useState([])
+  const [enabledBenefitKeys, setEnabledBenefitKeys] = useState([])
+  const [colombiaSmmlvCop, setColombiaSmmlvCop] = useState(SMMLV_COP_DEFAULT)
+  const [colombiaUvtCop, setColombiaUvtCop] = useState(UVT_COP_DEFAULT)
   const {
     rows,
     areas,
@@ -85,20 +93,39 @@ function PayrollView({ companyId: companyIdProp }) {
   }, [rows, activeArea, sortBy])
 
   const currencyRates = usePayrollCurrencyRates()
+  const companyCountryCode = useAppStore((state) => state.companies.find((company) => company.id === companyId)?.countryCode)
+
+  const benefitsContext = useMemo(
+    () => ({
+      enabledBenefitKeys,
+      checksPerYear: 12,
+      colombiaRates: { copPerUsd: currencyRates.copPerUsd, smmlvCop: colombiaSmmlvCop, uvtCop: colombiaUvtCop },
+      angPerUsd: currencyRates.angPerUsd,
+      companyCountryCode,
+    }),
+    [enabledBenefitKeys, currencyRates.copPerUsd, currencyRates.angPerUsd, colombiaSmmlvCop, colombiaUvtCop, companyCountryCode],
+  )
 
   const stats = useMemo(() => {
     const totals = filteredRows.reduce(
-      (acc, row) => ({
-        headcount: acc.headcount + (row.headcount ?? 1),
-        monthly: acc.monthly + Number(row.monthly_salary || 0),
-        year: acc.year + Number(row.year_salary || 0) * (row.headcount ?? 1),
-      }),
-      { headcount: 0, monthly: 0, year: 0 },
+      (acc, row) => {
+        const headcount = row.headcount ?? 1
+        const benefitsAnnual =
+          enabledBenefitKeys.length > 0 ? computeAnnualBreakdown(row, benefitsContext).employerBenefitsTotalAnnual * headcount : 0
+        return {
+          headcount: acc.headcount + headcount,
+          monthly: acc.monthly + Number(row.monthly_salary || 0),
+          year: acc.year + Number(row.year_salary || 0) * headcount,
+          benefits: acc.benefits + benefitsAnnual,
+        }
+      },
+      { headcount: 0, monthly: 0, year: 0, benefits: 0 },
     )
     return { ...totals, positionCount: filteredRows.length }
-  }, [filteredRows])
+  }, [filteredRows, enabledBenefitKeys, benefitsContext])
 
   const distinctAreas = areas
+  const distinctOfficeNames = useMemo(() => [...new Set(rows.map((row) => row.office_name))], [rows])
 
   const areaClusters = useMemo(
     () => clusterResemblingAreas(Array.from(areaCounts.keys())),
@@ -123,6 +150,9 @@ function PayrollView({ companyId: companyIdProp }) {
         const settings = await fetchSettings()
         if (!cancelled) {
           setCalendarMode(settings.calendar_mode ?? 'real')
+          setEnabledBenefitKeys(Array.isArray(settings.enabled_benefits) ? settings.enabled_benefits : [])
+          if (settings.colombia_smmlv_cop) setColombiaSmmlvCop(settings.colombia_smmlv_cop)
+          if (settings.colombia_uvt_cop) setColombiaUvtCop(settings.colombia_uvt_cop)
         }
       } catch {
         if (!cancelled) {
@@ -205,7 +235,13 @@ function PayrollView({ companyId: companyIdProp }) {
     if (!selectedRowId) return
 
     await savePosition(selectedRowId, {
-      office_name: editorValues.officeName,
+      // Snaps to an existing title's exact spelling if this one only
+      // differs by casing/spacing, so a typo never creates a second,
+      // functionally-identical title.
+      office_name: resolveCanonicalJobTitle(
+        editorValues.officeName,
+        rows.map((row) => row.office_name),
+      ),
       area: editorValues.area || null,
       description: editorValues.description || null,
     })
@@ -284,6 +320,13 @@ function PayrollView({ companyId: companyIdProp }) {
           ))}
           <div className="payroll-view__stat-sub">comp × headcount, summed</div>
         </div>
+        {enabledBenefitKeys.length > 0 && (
+          <div className="payroll-view__stat-tile">
+            <div className="payroll-view__stat-label">Employer benefits contributions</div>
+            <div className="payroll-view__stat-value">{formatUsdWhole(stats.benefits)}</div>
+            <div className="payroll-view__stat-sub">Year {selectedYear}, at current headcount</div>
+          </div>
+        )}
       </div>
 
       <div className="payroll-view__toolbar">
@@ -311,62 +354,100 @@ function PayrollView({ companyId: companyIdProp }) {
             ))}
           </select>
         </label>
-        <div className="payroll-view__view-toggle">
-          <button type="button" className={view === 'structured' ? 'is-active' : ''} onClick={() => setView('structured')}>
-            Structured
-          </button>
-          <button type="button" className={view === 'matrix' ? 'is-active' : ''} onClick={() => setView('matrix')}>
-            Matrix
-          </button>
-          <button type="button" className={view === 'year-summary' ? 'is-active' : ''} onClick={() => setView('year-summary')}>
-            Year Summary
-          </button>
-        </div>
-        <button
-          type="button"
-          className="payroll-view__btn"
-          onClick={() => navigate(`/company/${companyId}/management/org-chart`)}
-        >
-          Org Chart
-        </button>
+        <label className="payroll-view__year-selector">
+          View
+          <select value={view} onChange={(event) => setView(event.target.value)} aria-label="Select payroll view">
+            <option value="structured">Structured</option>
+            <option value="matrix">Matrix</option>
+            <option value="statement">Payroll Statement</option>
+            <option value="year-summary">Year Summary</option>
+          </select>
+        </label>
 
-        <button
-          type="button"
-          className="payroll-view__btn payroll-view__btn--primary"
-          onClick={() => setModalOpen(true)}
-        >
-          + Add new position
-        </button>
-        <button
-          type="button"
-          className="payroll-view__btn"
-          onClick={handleDownloadFormat}
-          disabled={templateState === 'downloading' || templateState === 'importing'}
-        >
-          {templateState === 'downloading' ? 'Preparing…' : 'Download format'}
-        </button>
-        <FileUploadButton
-          label={templateState === 'importing' ? 'Importing…' : 'Upload filled format'}
-          accept=".xlsx"
-          disabled={templateState === 'downloading' || templateState === 'importing'}
-          className="payroll-view__btn"
-          onFileSelected={handleUploadFormat}
-        />
-        <button type="button" className="payroll-view__btn" onClick={toggleCloneMode}>
-          {cloneMode ? 'Cancel' : 'Clone position'}
-        </button>
-        <button type="button" className="payroll-view__btn payroll-view__btn--delete" onClick={toggleDeleteMode}>
-          {deleteMode ? 'Cancel' : 'Delete position'}
-        </button>
+        <DropdownMenu label="Actions">
+          {(closeMenu) => (
+            <>
+              <button
+                type="button"
+                className="payroll-view__btn payroll-view__btn--primary"
+                onClick={() => {
+                  setModalOpen(true)
+                  closeMenu()
+                }}
+              >
+                + Add new job title
+              </button>
+              <button
+                type="button"
+                className="payroll-view__btn"
+                onClick={() => {
+                  toggleCloneMode()
+                  closeMenu()
+                }}
+              >
+                {cloneMode ? 'Cancel clone' : 'Clone position'}
+              </button>
+              <button
+                type="button"
+                className="payroll-view__btn payroll-view__btn--delete"
+                onClick={() => {
+                  toggleDeleteMode()
+                  closeMenu()
+                }}
+              >
+                {deleteMode ? 'Cancel delete' : 'Delete position'}
+              </button>
+            </>
+          )}
+        </DropdownMenu>
+
+        <DropdownMenu label="Options">
+          {(closeMenu) => (
+            <>
+              <button
+                type="button"
+                className="payroll-view__btn"
+                onClick={() => {
+                  handleDownloadFormat()
+                  closeMenu()
+                }}
+                disabled={templateState === 'downloading' || templateState === 'importing'}
+              >
+                {templateState === 'downloading' ? 'Preparing…' : 'Download format'}
+              </button>
+              <FileUploadButton
+                label={templateState === 'importing' ? 'Importing…' : 'Upload filled format'}
+                accept=".xlsx"
+                disabled={templateState === 'downloading' || templateState === 'importing'}
+                className="payroll-view__btn"
+                onFileSelected={(file) => {
+                  handleUploadFormat(file)
+                  closeMenu()
+                }}
+              />
+            </>
+          )}
+        </DropdownMenu>
+
         {cloneMode && selectedCount > 0 ? (
-          <button type="button" className="payroll-view__btn payroll-view__btn--clone" onClick={handleClone}>
-            Clone ({selectedCount})
-          </button>
+          <>
+            <button type="button" className="payroll-view__btn payroll-view__btn--clone" onClick={handleClone}>
+              Clone ({selectedCount})
+            </button>
+            <button type="button" className="payroll-view__btn" onClick={reset}>
+              Cancel
+            </button>
+          </>
         ) : null}
         {deleteMode && selectedCount > 0 ? (
-          <button type="button" className="payroll-view__btn payroll-view__btn--delete-confirm" onClick={handleDelete}>
-            Delete ({selectedCount})
-          </button>
+          <>
+            <button type="button" className="payroll-view__btn payroll-view__btn--delete-confirm" onClick={handleDelete}>
+              Delete ({selectedCount})
+            </button>
+            <button type="button" className="payroll-view__btn" onClick={reset}>
+              Cancel
+            </button>
+          </>
         ) : null}
       </div>
 
@@ -455,6 +536,8 @@ function PayrollView({ companyId: companyIdProp }) {
           }}
           onDropRow={handleRowReorder}
         />
+      ) : view === 'statement' ? (
+        <PayrollStatement companyId={companyId} rows={rows} selectedYear={selectedYear} calendarMode={calendarMode} />
       ) : view === 'year-summary' ? (
         <PayrollYearSummary companyId={companyId} projectionYears={projectionYears} calendarMode={calendarMode} />
       ) : (
@@ -511,10 +594,10 @@ function PayrollView({ companyId: companyIdProp }) {
           <div className="payroll-view__editor-grid">
             <label>
               Position name
-              <input
-                type="text"
+              <AreaAutocomplete
                 value={editorValues.officeName}
-                onChange={(event) => setEditorValues((prev) => ({ ...prev, officeName: event.target.value }))}
+                options={distinctOfficeNames}
+                onChange={(nextOfficeName) => setEditorValues((prev) => ({ ...prev, officeName: nextOfficeName }))}
               />
             </label>
             <label>

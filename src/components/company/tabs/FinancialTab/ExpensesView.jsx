@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { fetchExpenses, saveExpenseEntry } from '../../../../services/expenses'
+import { useAppStore } from '../../../../store/useAppStore'
+import { fetchExpenseCategoryExclusions, fetchExpenses } from '../../../../services/expenses'
 import { fetchPayroll } from '../../../../services/payroll'
 import { fetchSettings } from '../../../../services/settings'
 import { fetchExchangeRate } from '../../../../services/exchangeRate'
+import { fetchCommercialCountries } from '../../../../services/commercialStructure'
+import { fetchCommercialOperationEntries } from '../../../../services/commercialOperations'
 import { US_BENEFITS, computeFullEmployerCost } from '../../../../services/usBenefits'
 import { isUsaLocation } from '../../../../services/usPayrollTax'
 import { COP_PER_USD_FALLBACK, isColombiaLocation } from '../../../../services/colombiaPayrollTax'
 import { ANG_PER_USD_FALLBACK, isStMaartenLocation } from '../../../../services/stMaartenPayrollTax'
 import { positionMonthlyHeadcount } from '../ManagementTab/PayrollView/monthMath'
+import { isoDateToSimDate } from '../../../shared/SimulationCalendar/simulationCalendarMath'
 import YearSummaryTable from '../../../shared/YearSummaryTable'
 import { formatCurrencyValue } from '../../../../utils/currencyFormat'
 import './ExpensesView.css'
@@ -78,6 +82,7 @@ function computeEmployeeBenefitsMonthlyCost(payrollRows, year, calendarMode, ena
 
 function ExpensesView() {
   const { companyId } = useParams()
+  const companies = useAppStore((state) => state.companies)
   const [calendarMode, setCalendarMode] = useState('real')
   const [projectionYears, setProjectionYears] = useState(5)
   const [enabledBenefitKeys, setEnabledBenefitKeys] = useState([])
@@ -85,14 +90,73 @@ function ExpensesView() {
   const [selectedYear, setSelectedYear] = useState(1)
   const [entries, setEntries] = useState([])
   const [payrollRows, setPayrollRows] = useState([])
-  const [drafts, setDrafts] = useState(() => new Map())
+  const [opsExpenseEntries, setOpsExpenseEntries] = useState([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [yearSummaryRows, setYearSummaryRows] = useState([])
   const [yearSummaryLoading, setYearSummaryLoading] = useState(false)
   const [colombiaCopPerUsd, setColombiaCopPerUsd] = useState(COP_PER_USD_FALLBACK)
   const [stMaartenAngPerUsd, setStMaartenAngPerUsd] = useState(ANG_PER_USD_FALLBACK)
+  const [excludedCategoryIds, setExcludedCategoryIds] = useState(() => new Set())
+
+  // A category is hidden from this company's Expenses if it's been
+  // unchecked (Settings > Expenses settings) for every commercial-structure
+  // country row whose country code matches THIS company's own home country
+  // (Company.country_code) — regardless of which company actually owns
+  // that row in the commercial structure. That's necessary because, after
+  // splitting payroll into per-country companies, a subsidiary (e.g.
+  // FRESH24-Colombia) has no commercial-structure rows of its own; the
+  // "Colombia" row a user unchecks in Settings still lives under the
+  // parent (FRESH24), so matching by row ownership would never apply the
+  // setting to the subsidiary at all. A company whose country has no
+  // matching row anywhere has nothing to compare against, so nothing gets
+  // hidden for it.
+  useEffect(() => {
+    if (!companyId || companies.length === 0) return undefined
+    const currentCompany = companies.find((company) => company.id === companyId)
+    const targetCountryCode = (currentCompany?.countryCode || '').trim().toUpperCase()
+    if (!targetCountryCode) {
+      setExcludedCategoryIds(new Set())
+      return undefined
+    }
+
+    let cancelled = false
+
+    Promise.all([
+      fetchExpenseCategoryExclusions(),
+      Promise.all(companies.map((company) => fetchCommercialCountries(company.id).catch(() => []))),
+    ])
+      .then(([exclusions, perCompanyCountries]) => {
+        if (cancelled) return
+        const matchingCountries = perCompanyCountries
+          .flat()
+          .filter((country) => (country.country_code || '').trim().toUpperCase() === targetCountryCode)
+        if (matchingCountries.length === 0) {
+          setExcludedCategoryIds(new Set())
+          return
+        }
+        const countryIds = new Set(matchingCountries.map((country) => country.id))
+        const excludedByCategoryId = new Map()
+        exclusions.forEach(({ category_id: categoryId, country_id: countryId }) => {
+          if (!countryIds.has(countryId)) return
+          if (!excludedByCategoryId.has(categoryId)) excludedByCategoryId.set(categoryId, new Set())
+          excludedByCategoryId.get(categoryId).add(countryId)
+        })
+        const fullyExcluded = new Set(
+          Array.from(excludedByCategoryId.entries())
+            .filter(([, excludedCountryIds]) => excludedCountryIds.size >= countryIds.size)
+            .map(([categoryId]) => categoryId),
+        )
+        setExcludedCategoryIds(fullyExcluded)
+      })
+      .catch(() => {
+        if (!cancelled) setExcludedCategoryIds(new Set())
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, companies])
 
   useEffect(() => {
     let cancelled = false
@@ -126,6 +190,58 @@ function ExpensesView() {
     }
   }, [])
 
+  // Actual expense transactions logged in Operations > Commercial Operations
+  // ("Add Expense") — matched to a category by the entry's description,
+  // which is set from that same category's name when the entry is created.
+  // Fetched once per company (not year-scoped) since the endpoint returns
+  // every entry regardless of date; bucketing by year/month happens below.
+  useEffect(() => {
+    if (!companyId) return undefined
+    let cancelled = false
+    fetchCommercialOperationEntries(companyId)
+      .then((allEntries) => {
+        if (!cancelled) setOpsExpenseEntries(allEntries.filter((entry) => entry.category === 'expenses'))
+      })
+      .catch(() => {
+        if (!cancelled) setOpsExpenseEntries([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [companyId])
+
+  // Per projection year and category name, which months have an actual
+  // Commercial Operations expense posted, and their summed amount. Only
+  // meaningful in simulation calendar mode — isoDateToSimDate is the only
+  // place in the app that turns a real ISO date into a projection-year
+  // number (real calendar mode has no equivalent convention yet, see
+  // gl_engine.py's _operations_start_date), so this stays empty there and
+  // the tab falls back to whatever was typed in manually, same as before.
+  const opsByYearAndCategory = useMemo(() => {
+    const map = {}
+    if (calendarMode !== 'simulation') return map
+    opsExpenseEntries.forEach((entry) => {
+      let simDate
+      try {
+        simDate = isoDateToSimDate(entry.entry_date)
+      } catch {
+        return
+      }
+      if (!entry.description) return
+      if (!map[simDate.year]) map[simDate.year] = {}
+      const yearMap = map[simDate.year]
+      if (!yearMap[entry.description]) {
+        yearMap[entry.description] = { totals: new Array(12).fill(0), hasEntry: new Array(12).fill(false) }
+      }
+      const bucket = yearMap[entry.description]
+      bucket.totals[simDate.month - 1] += entry.amount
+      bucket.hasEntry[simDate.month - 1] = true
+    })
+    return map
+  }, [opsExpenseEntries, calendarMode])
+
+  const opsMonthlyByCategoryName = opsByYearAndCategory[selectedYear] || {}
+
   const reloadMonthly = useCallback(async () => {
     if (!companyId) return
     setLoading(true)
@@ -137,7 +253,6 @@ function ExpensesView() {
       ])
       setEntries(nextEntries)
       setPayrollRows(nextPayrollRows)
-      setDrafts(new Map())
     } catch (err) {
       setError(err.message)
     } finally {
@@ -162,18 +277,25 @@ function ExpensesView() {
       .then(([allYearsExpenses, allYearsPayroll]) => {
         if (cancelled) return
 
-        const rows = (allYearsExpenses[0] || []).map((entry) => ({
-          label: entry.name,
-          categoryId: entry.category_id,
-          totalsByYear: new Array(years.length).fill(0),
-        }))
+        const rows = (allYearsExpenses[0] || [])
+          .filter((entry) => !excludedCategoryIds.has(entry.category_id))
+          .map((entry) => ({
+            label: entry.name,
+            categoryId: entry.category_id,
+            totalsByYear: new Array(years.length).fill(0),
+          }))
         const rowByCategoryId = new Map(rows.map((row) => [row.categoryId, row]))
 
         allYearsExpenses.forEach((yearEntries, yearIndex) => {
           yearEntries.forEach((entry) => {
             if (COMPUTED_CATEGORY_NAMES.has(entry.name)) return
             const row = rowByCategoryId.get(entry.category_id)
-            if (row) row.totalsByYear[yearIndex] = entry.months.reduce((sum, value) => sum + value, 0)
+            if (!row) return
+            const opsForCategory = opsByYearAndCategory[years[yearIndex]]?.[entry.name]
+            row.totalsByYear[yearIndex] = entry.months.reduce(
+              (sum, value, index) => sum + (opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : value),
+              0,
+            )
           })
         })
 
@@ -210,7 +332,7 @@ function ExpensesView() {
     return () => {
       cancelled = true
     }
-  }, [viewMode, companyId, projectionYears, calendarMode, enabledBenefitKeys])
+  }, [viewMode, companyId, projectionYears, calendarMode, enabledBenefitKeys, excludedCategoryIds, opsByYearAndCategory])
 
   const payrollMonthly = useMemo(
     () => computePayrollMonthlyCost(payrollRows, selectedYear, calendarMode),
@@ -279,53 +401,21 @@ function ExpensesView() {
   const colombiaPayrollTotal = colombiaPayrollMonthly.reduce((sum, value) => sum + value, 0)
   const stMaartenPayrollTotal = stMaartenPayrollMonthly.reduce((sum, value) => sum + value, 0)
 
-  const draftCount = drafts.size
-
-  const handleDraftMonthChange = (categoryId, monthIndex, value, currentMonths, currentHardcoded) => {
-    setDrafts((prev) => {
-      const next = new Map(prev)
-      const base = next.get(categoryId) || { months: [...currentMonths], hardcoded: [...currentHardcoded] }
-      const months = [...base.months]
-      const hardcoded = [...base.hardcoded]
-      months[monthIndex] = value
-      // Any month the user types directly here is hardcoded from that point on —
-      // it stays marked even after saving, until a future integration overwrites it.
-      hardcoded[monthIndex] = true
-      next.set(categoryId, { months, hardcoded })
-      return next
-    })
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    setError('')
-    try {
-      for (const [categoryId, draft] of drafts.entries()) {
-        // eslint-disable-next-line no-await-in-loop
-        await saveExpenseEntry(companyId, categoryId, selectedYear, draft.months, draft.hardcoded)
-      }
-      await reloadMonthly()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDiscard = () => setDrafts(new Map())
+  const visibleEntries = entries.filter((entry) => !excludedCategoryIds.has(entry.category_id))
 
   const grandTotal = new Array(12).fill(0)
-  entries.forEach((entry) => {
-    const months = computedMonthsByCategory[entry.name] || drafts.get(entry.category_id)?.months || entry.months
+  visibleEntries.forEach((entry) => {
+    const months = computedMonthsByCategory[entry.name] || entry.months
+    const opsForCategory = COMPUTED_CATEGORY_NAMES.has(entry.name) ? null : opsMonthlyByCategoryName[entry.name]
     months.forEach((value, index) => {
-      grandTotal[index] += Number(value) || 0
+      const opsValue = opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : null
+      grandTotal[index] += opsValue !== null ? opsValue : Number(value) || 0
     })
   })
 
   return (
     <div className="panel-surface expenses-view">
       <h3>Expenses</h3>
-      <p>Expense categories and budget variance.</p>
 
       <div className="expenses-view__toolbar">
         <div className="expenses-view__view-toggle">
@@ -349,17 +439,6 @@ function ExpensesView() {
             </select>
           </label>
         )}
-
-        {viewMode === 'monthly' && draftCount > 0 && (
-          <span className="expenses-view__draft-actions">
-            <button type="button" className="expenses-view__btn" onClick={handleDiscard} disabled={saving}>
-              Discard
-            </button>
-            <button type="button" className="expenses-view__btn expenses-view__btn--primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : `Save ${draftCount} change${draftCount === 1 ? '' : 's'}`}
-            </button>
-          </span>
-        )}
       </div>
 
       {error && <div className="expenses-view__error">{error}</div>}
@@ -382,7 +461,12 @@ function ExpensesView() {
           <table className="expenses-view__table">
             <thead>
               <tr>
-                <th className="sticky-col">Category</th>
+                <th
+                  className="sticky-col"
+                  title="A read-only summary — every value here is fed by Payroll or by Add Expense entries in Operations > Commercial Operations."
+                >
+                  Category
+                </th>
                 {MONTH_LABELS.map((label) => (
                   <th key={label} className="num">
                     {label}
@@ -392,43 +476,36 @@ function ExpensesView() {
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry) => {
+              {visibleEntries.map((entry) => {
                 const isPayroll = entry.name === PAYROLL_CATEGORY_NAME
                 const isPayrollTaxes = entry.name === PAYROLL_TAXES_CATEGORY_NAME
                 const isEmployeeBenefits = entry.name === EMPLOYEE_BENEFITS_CATEGORY_NAME
                 const isComputed = isPayroll || isPayrollTaxes || isEmployeeBenefits
-                const draft = drafts.get(entry.category_id) || null
-                const displayMonths = computedMonthsByCategory[entry.name] || draft?.months || entry.months
-                const displayHardcoded = draft?.hardcoded || entry.hardcoded
-                const rowTotal = displayMonths.reduce((sum, value) => sum + (Number(value) || 0), 0)
+                const displayMonths = computedMonthsByCategory[entry.name] || entry.months
+                const opsForCategory = isComputed ? null : opsMonthlyByCategoryName[entry.name]
+                const rowTotal = displayMonths.reduce(
+                  (sum, value, index) =>
+                    sum + (opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : Number(value) || 0),
+                  0,
+                )
+                const categoryTitle = isPayroll
+                  ? 'Imported from Payroll.'
+                  : isPayrollTaxes
+                    ? `Computed from Payroll (${effectivePayrollTaxRate.toFixed(2)}%) — Social Security 6.2% + Medicare 1.45% (+0.9% for salaries over $200,000) + FUTA 0.6% + SUTA 1.75%, per position — see Settings > Tax Structure > United States > Payroll taxes/charges`
+                    : isEmployeeBenefits
+                      ? `Computed from Payroll (${totalBenefitsEmployerRate.toFixed(2)}%) — ${
+                          enabledBenefitDetails.length > 0
+                            ? enabledBenefitDetails
+                                .map((benefit) => `${benefit.label} ${(benefit.employerPct * 100).toFixed(2)}%`)
+                                .join(', ') + ' — see Settings > Tax Structure > United States > Benefits'
+                            : 'No benefits enabled — see Settings > Tax Structure > United States > Benefits'
+                        }`
+                      : undefined
 
                 return (
                   <tr key={entry.category_id} className={isComputed ? 'expenses-view__row--imported' : ''}>
-                    <td className="sticky-col">
+                    <td className="sticky-col" title={categoryTitle}>
                       {entry.name}
-                      {isPayroll && <span className="expenses-view__imported-tag">imported from Payroll</span>}
-                      {isPayrollTaxes && (
-                        <span
-                          className="expenses-view__imported-tag"
-                          title="Social Security 6.2% + Medicare 1.45% (+0.9% for salaries over $200,000) + FUTA 0.6% + SUTA 1.75%, per position — see Settings > Tax Structure > United States > Payroll taxes/charges"
-                        >
-                          computed from Payroll ({effectivePayrollTaxRate.toFixed(2)}%)
-                        </span>
-                      )}
-                      {isEmployeeBenefits && (
-                        <span
-                          className="expenses-view__imported-tag"
-                          title={
-                            enabledBenefitDetails.length > 0
-                              ? enabledBenefitDetails
-                                  .map((benefit) => `${benefit.label} ${(benefit.employerPct * 100).toFixed(2)}%`)
-                                  .join(', ') + ' — see Settings > Tax Structure > United States > Benefits'
-                              : 'No benefits enabled — see Settings > Tax Structure > United States > Benefits'
-                          }
-                        >
-                          computed from Payroll ({totalBenefitsEmployerRate.toFixed(2)}%)
-                        </span>
-                      )}
                     </td>
                     {displayMonths.map((value, index) =>
                       isComputed ? (
@@ -443,32 +520,13 @@ function ExpensesView() {
                               ),
                             )}
                         </td>
+                      ) : opsForCategory?.hasEntry[index] ? (
+                        <td key={index} className="num expenses-view__cell--ops" title="From Commercial Operations">
+                          {formatUsdWhole(opsForCategory.totals[index])}
+                        </td>
                       ) : (
                         <td key={index} className="num">
-                          <span className="expenses-view__cell">
-                            <input
-                              type="number"
-                              className={`expenses-view__month-input ${draft ? 'is-dirty' : ''} ${
-                                displayHardcoded[index] ? 'is-hardcoded' : ''
-                              }`}
-                              value={value}
-                              onChange={(event) => {
-                                const next = Number(event.target.value)
-                                handleDraftMonthChange(
-                                  entry.category_id,
-                                  index,
-                                  Number.isFinite(next) ? next : 0,
-                                  entry.months,
-                                  entry.hardcoded,
-                                )
-                              }}
-                            />
-                            {displayHardcoded[index] && (
-                              <span className="expenses-view__hardcoded-mark" title="Hardcoded value — not imported from another module">
-                                *
-                              </span>
-                            )}
-                          </span>
+                          {formatUsdWhole(value)}
                         </td>
                       ),
                     )}
