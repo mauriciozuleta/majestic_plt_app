@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
 from .. import schemas
-from ..gl_engine import post_commercial_operation_entry, unpost_commercial_operation_entry
+from ..gl_engine import expected_cash_date, post_commercial_operation_entry, unpost_commercial_operation_entry
 
 router = APIRouter()
 
@@ -27,14 +27,18 @@ def _post_bank_transaction(db: Session, entry: models.CommercialOperationEntry):
     shows who the money came from (revenue's client) or who it went to
     (cos/expenses' paid_to).
 
-    The cash actually moves on settlement_date when the entry has a genuine
-    one (set and different from entry_date — e.g. an Accrued expense's
-    "Expected payment date") — same has_settlement condition gl_engine.py
-    uses to decide whether to post a separate "pay" leg at all. Falling back
-    to entry_date covers Cash-treatment entries and any entry with no
-    settlement date, where recognition and payment are the same moment."""
-    has_settlement = bool(entry.settlement_date) and entry.settlement_date != entry.entry_date
-    transaction_date = entry.settlement_date if has_settlement else entry.entry_date
+    Not every entry moves cash, and not always on entry_date — gl_engine's
+    own expected_cash_date() says which leg of its postings actually touches
+    the Cash account, and on which date, per (category, accounting_treatment).
+    An "Inventory Consumption" entry moves Inventory to COGS with no cash
+    involved at all (the cash left when the inventory was purchased, not
+    now), so it gets no bank transaction; a "Deferred Revenue" entry's cash
+    arrives at entry_date (the customer pays now) even though it also carries
+    a settlement_date for when the service is later delivered, so it's dated
+    on entry_date, not settlement_date."""
+    transaction_date = expected_cash_date(entry)
+    if transaction_date is None:
+        return
 
     credit = entry.amount if entry.category == 'revenue' else 0.0
     debit = entry.amount if entry.category in ('cos', 'expenses') else 0.0

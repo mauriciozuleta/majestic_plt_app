@@ -96,6 +96,50 @@ def _make_journal_entry(db, company_id, entry_date, memo, source_id, lines, acco
         )
 
 
+# Which leg of post_commercial_operation_entry's own postings below actually
+# touches account '1000' (Cash), per (category, accounting_treatment):
+#   'entry'      - the entry_date leg touches Cash directly (a same-day
+#                  payment, e.g. 'earned', or 'deferred' where the customer
+#                  pays now and only the *recognition* moves later).
+#   'settlement' - only the settlement leg touches Cash, and only once one
+#                  posts (has_settlement) — an accrued obligation not yet
+#                  paid hasn't moved any cash yet, that's not an error.
+#   'none'       - neither leg ever touches Cash (e.g. 'consumption' moves
+#                  Inventory to COGS; the cash left the bank back when the
+#                  inventory was purchased, not now).
+# commercial_operations.py's _post_bank_transaction reads this so the bank
+# ledger only ever gets a row where — and dated when — cash actually moved.
+CASH_TIMING_BY_TREATMENT = {
+    ('revenue', 'earned'): 'entry',
+    ('revenue', 'accrued'): 'settlement',
+    ('revenue', 'deferred'): 'entry',
+    ('cos', 'purchase_accrued'): 'settlement',
+    ('cos', 'purchase_prepaid'): 'entry',
+    ('cos', 'consumption'): 'none',
+    ('cos', 'direct_production'): 'entry',
+    ('expenses', 'cash'): 'entry',
+    ('expenses', 'accrued'): 'settlement',
+    ('expenses', 'prepaid'): 'entry',
+    ('expenses', 'capex'): 'entry',
+    ('expenses', 'payroll'): 'settlement',
+    ('expenses', 'tax'): 'settlement',
+    ('expenses', 'benefits'): 'settlement',
+}
+
+
+def expected_cash_date(entry):
+    """Returns the ISO date entry's bank transaction should be posted on, or
+    None if this (category, accounting_treatment) never touches Cash, or
+    hasn't reached its settlement leg yet."""
+    timing = CASH_TIMING_BY_TREATMENT.get((entry.category, entry.accounting_treatment))
+    if timing is None or timing == 'none':
+        return None
+    if timing == 'entry':
+        return entry.entry_date
+    has_settlement = bool(entry.settlement_date) and entry.settlement_date != entry.entry_date
+    return entry.settlement_date if has_settlement else None
+
+
 def post_commercial_operation_entry(db, entry):
     """entry: a saved models.CommercialOperationEntry. Posts the initial
     recognition journal entry and, if a settlement_date is set and differs
