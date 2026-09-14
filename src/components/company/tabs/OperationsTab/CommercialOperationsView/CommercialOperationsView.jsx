@@ -92,8 +92,8 @@ function CommercialOperationsView({ companyId }) {
   const handleAddNew = (categoryKey) => setModalCategory(categoryKey)
 
   const handleSaveEntry = async (payloads) => {
-    const entries = Array.isArray(payloads) ? payloads : [payloads]
-    for (const { is_sim_parameter, ...entry } of entries) {
+    const newEntries = Array.isArray(payloads) ? payloads : [payloads]
+    for (const { is_sim_parameter, cascade_to_series: _cascadeToSeries, ...entry } of newEntries) {
       // eslint-disable-next-line no-await-in-loop
       const created = await createCommercialOperationEntry(companyId, entry)
       if (is_sim_parameter) {
@@ -112,21 +112,37 @@ function CommercialOperationsView({ companyId }) {
 
   const handleEditEntry = (entry) => setEditingEntry(entry)
 
+  const seriesEntryCount = editingEntry?.series_id
+    ? entries.filter((entry) => entry.series_id === editingEntry.series_id).length
+    : 0
+
   const handleUpdateEntry = async (payloads) => {
     // Editing normally touches just the one entry, but the form's "Repeat
     // this entry" can still be used while editing — the first date updates
     // the entry being edited, and any further dates are created as brand
-    // new entries (there's no series link between rows, so a repeat can
-    // only ever add occurrences going forward, never edit past ones too).
+    // new entries going forward. Separately, "Apply to all entries in this
+    // series" cascades every field except each sibling's own date(s) to
+    // every other entry sharing the same series_id.
     const [firstPayload, ...restPayloads] = Array.isArray(payloads) ? payloads : [payloads]
-    const { is_sim_parameter: firstIsSimParameter, ...firstEntry } = firstPayload
+    const { is_sim_parameter: firstIsSimParameter, cascade_to_series: cascadeToSeries, ...firstEntry } = firstPayload
     await updateCommercialOperationEntry(companyId, editingEntry.id, firstEntry)
     if (firstIsSimParameter) {
       await createSimParameter(companyId, editingEntry.id)
     } else {
       await deleteSimParameter(companyId, editingEntry.id).catch(() => undefined)
     }
-    for (const { is_sim_parameter, ...entry } of restPayloads) {
+    if (cascadeToSeries && firstEntry.series_id) {
+      const siblings = entries.filter((entry) => entry.series_id === firstEntry.series_id && entry.id !== editingEntry.id)
+      for (const sibling of siblings) {
+        // eslint-disable-next-line no-await-in-loop
+        await updateCommercialOperationEntry(companyId, sibling.id, {
+          ...firstEntry,
+          entry_date: sibling.entry_date,
+          settlement_date: sibling.settlement_date,
+        })
+      }
+    }
+    for (const { is_sim_parameter, cascade_to_series: _cascadeToSeries, ...entry } of restPayloads) {
       // eslint-disable-next-line no-await-in-loop
       const created = await createCommercialOperationEntry(companyId, entry)
       if (is_sim_parameter) {
@@ -281,6 +297,7 @@ function CommercialOperationsView({ companyId }) {
           calendarMode={calendarMode}
           initialEntry={editingEntry}
           initialIsSimParameter={simParameterEntryIds.has(editingEntry.id)}
+          seriesEntryCount={seriesEntryCount}
           onSave={handleUpdateEntry}
           onCancel={() => setEditingEntry(null)}
         />

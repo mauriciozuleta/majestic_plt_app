@@ -44,7 +44,6 @@ export const COS_TREATMENTS = [
     key: 'purchase_prepaid',
     label: 'Inventory Purchase (Prepaid)',
     description: 'You pay now, receive goods later — creates Prepaid Inventory (asset).',
-    settlementLabel: 'Expected delivery date',
   },
   {
     key: 'consumption',
@@ -74,7 +73,6 @@ export const EXPENSE_TREATMENTS = [
     key: 'prepaid',
     label: 'Prepaid Expense',
     description: 'Pay now, use later (insurance, annual software).',
-    settlementLabel: 'Usage start date',
   },
   {
     key: 'capex',
@@ -85,13 +83,16 @@ export const EXPENSE_TREATMENTS = [
     key: 'payroll',
     label: 'Payroll Expense',
     description: 'Often accrued — payroll payable.',
-    settlementLabel: 'Payroll payment date',
   },
   {
     key: 'tax',
     label: 'Tax Expense',
     description: 'Often accrued — tax payable.',
-    settlementLabel: 'Tax payment date',
+  },
+  {
+    key: 'benefits',
+    label: 'Benefits Expense',
+    description: 'Employer-paid benefit contributions — often accrued, benefits payable.',
   },
 ]
 

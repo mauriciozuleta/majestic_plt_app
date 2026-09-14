@@ -93,6 +93,16 @@ export async function updateColombiaReferenceFigures(smmlvCop, uvtCop) {
   return response.json()
 }
 
+export async function updateUsPayrollState(state) {
+  const response = await fetch(`${API_BASE}/settings/us-payroll-state`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ state }),
+  })
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to update the payroll state'))
+  return response.json()
+}
+
 export async function updatePayrollSchedule(payload) {
   const response = await fetch(`${API_BASE}/settings/payroll-schedule`, {
     method: 'PATCH',

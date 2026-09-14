@@ -49,7 +49,7 @@ function CashFlowStatementView() {
           <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
         </label>
       </div>
-      <ReportView report={report} periodsCaption={periodsCaption} csvFilename="cash-flow-statement.csv" />
+      <ReportView report={report} periodsCaption={periodsCaption} csvFilename="cash-flow-statement.csv" colorBySign scrollRows />
     </div>
   )
 }

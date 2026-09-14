@@ -10,6 +10,7 @@ import CommercialStructureView from './components/commercialStructure/Commercial
 import SimulationsView, { SimulationsIndexRedirect } from './components/simulations/SimulationsView'
 import SimParametersView from './components/simulations/SimParametersView'
 import CompanyWorkspace from './components/company/CompanyWorkspace/CompanyWorkspace'
+import OverviewTab from './components/company/tabs/OverviewTab/OverviewTab'
 import ManagementTab from './components/company/tabs/ManagementTab/ManagementTab'
 import FinancialTab from './components/company/tabs/FinancialTab/FinancialTab'
 import OperationsTab from './components/company/tabs/OperationsTab/OperationsTab'
@@ -43,6 +44,7 @@ function Layout() {
               <Route path="/settings" element={<SettingsView />} />
 
               <Route path="/company/:companyId" element={<CompanyWorkspace />}>
+                <Route path="overview" element={<OverviewTab />} />
                 <Route path="management/:sub" element={<ManagementTab />} />
                 <Route path="financial/:sub" element={<FinancialTab />} />
                 <Route path="financial/:sub/:section" element={<FinancialTab />} />

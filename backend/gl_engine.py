@@ -27,6 +27,7 @@ DEFAULT_ACCOUNTS = [
     ('2000', 'Accounts Payable', 'liability', 'credit'),
     ('2100', 'Unearned Revenue', 'liability', 'credit'),
     ('2200', 'Payroll Payable', 'liability', 'credit'),
+    ('2250', 'Benefits Payable', 'liability', 'credit'),
     ('2300', 'Tax Payable', 'liability', 'credit'),
     ('3000', "Owner's Capital", 'equity', 'credit'),
     ('4000', 'Revenue', 'revenue', 'credit'),
@@ -36,6 +37,7 @@ DEFAULT_ACCOUNTS = [
     ('6000', 'Operating Expenses', 'expense', 'debit'),
     ('6100', 'Payroll Expense', 'expense', 'debit'),
     ('6200', 'Tax Expense', 'expense', 'debit'),
+    ('6300', 'Employee Benefits Expense', 'expense', 'debit'),
 ]
 
 OPENING_BALANCE_SOURCE_TYPE = 'startup_investment_opening_balance'
@@ -156,6 +158,10 @@ def post_commercial_operation_entry(db, entry):
             _make_journal_entry(db, entry.company_id, entry.entry_date, memo, entry.id, [('6200', amount, 0), ('2300', 0, amount)], accounts)
             if has_settlement:
                 _make_journal_entry(db, entry.company_id, entry.settlement_date, f'Pay tax: {memo}', entry.id, [('2300', amount, 0), ('1000', 0, amount)], accounts)
+        elif treatment == 'benefits':
+            _make_journal_entry(db, entry.company_id, entry.entry_date, memo, entry.id, [('6300', amount, 0), ('2250', 0, amount)], accounts)
+            if has_settlement:
+                _make_journal_entry(db, entry.company_id, entry.settlement_date, f'Pay benefits: {memo}', entry.id, [('2250', amount, 0), ('1000', 0, amount)], accounts)
 
     db.commit()
 
@@ -178,13 +184,15 @@ def _operations_start_date(db):
     pre-operational period (which now lives entirely in Start-up Investment,
     not on this calendar at all). Year 1 is the *first* operational year, so
     in simulation mode this is the fictitious epoch itself, day zero — same
-    convention as isoDateToSimDate/simDateToIsoDate on the frontend. Real
-    mode has no equivalent fictitious "day zero", so it falls back to today."""
+    convention as isoDateToSimDate/simDateToIsoDate on the frontend. Real mode
+    anchors on the persisted real_start_date (see Payroll Schedule's
+    automatic-entry generation, which needs this same anchor for Year 2+),
+    falling back to today if it was never set."""
     settings = db.query(models.PortfolioSettings).filter_by(id='singleton').first()
     calendar_mode = settings.calendar_mode if settings else 'real'
     if calendar_mode == 'simulation':
         return FICTITIOUS_EPOCH.isoformat()
-    return date.today().isoformat()
+    return (settings.real_start_date if settings and settings.real_start_date else None) or date.today().isoformat()
 
 
 def sync_opening_balance(db, company_id):

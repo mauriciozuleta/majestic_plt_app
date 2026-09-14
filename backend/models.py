@@ -35,6 +35,17 @@ class PortfolioSettings(Base):
     colombia_projected_cop_per_usd = Column(Float, nullable=True)
     colombia_smmlv_cop = Column(Float, nullable=True)
     colombia_uvt_cop = Column(Float, nullable=True)
+    # Real-mode "Year 1, month 1, day 1" anchor — persisted the first time it's
+    # provided (via the calendar-mode endpoints below), so Payroll Schedule's
+    # automatic entry generation can compute a real calendar date for any
+    # projection year the same way simulation mode already does from its own
+    # fictitious epoch, instead of having no anchor at all in real mode.
+    real_start_date = Column(String, nullable=True)
+    # Which US state's income-tax rate the Salary Calculator (and every real
+    # US position's state-tax withholding) uses — portfolio-wide since
+    # there's one US company in practice, same scope as the other fields on
+    # this row.
+    us_payroll_state = Column(String, nullable=True)
 
 
 class CountryInflation(Base):
@@ -294,6 +305,20 @@ class StartupInvestmentPlan(Base):
     pre_operational_months = Column(Integer, nullable=False)
 
 
+class PayrollScheduleSettings(Base):
+    """One row per company: which bank account each payroll disbursement
+    category debits, and whether the schedule auto-generates its Commercial
+    Operations entries. Per-company (unlike PortfolioSettings) because bank
+    accounts themselves are per-company."""
+    __tablename__ = 'payroll_schedule_settings'
+
+    company_id = Column(String, primary_key=True)
+    payroll_bank_account_id = Column(String, nullable=True)
+    taxes_bank_account_id = Column(String, nullable=True)
+    benefits_bank_account_id = Column(String, nullable=True)
+    automatic_schedule = Column(Boolean, nullable=False, default=False)
+
+
 class StartupInvestmentRecord(Base):
     __tablename__ = 'startup_investment_records'
 
@@ -335,6 +360,17 @@ class CommercialOperationEntry(Base):
     recurrence_interval = Column(Integer, nullable=True)
     recurrence_custom_unit = Column(String, nullable=True)  # 'day' | 'week' | 'month' — only when frequency == 'custom'
     recurrence_until_date = Column(String, nullable=True)
+    # Set only on rows the Payroll Schedule auto-generator creates — lets the
+    # sync engine find exactly its own rows to diff/update/delete without
+    # touching anything a user entered by hand, even if it shares the same
+    # category/description (e.g. a manually-added "Payroll" expense).
+    source = Column(String, nullable=True)  # 'payroll_schedule' | None (manual)
+    schedule_key = Column(String, nullable=True, index=True)  # '{projection_year}:{pay_period_index}:{payroll|taxes|benefits}'
+    # Shared by every row created together from one "Repeat this entry"
+    # batch (including the row that started it) — lets an edit to any one of
+    # them cascade to the rest, unlike recurrence_* above which is just each
+    # row's own memory of the pattern used, with no link between rows.
+    series_id = Column(String, nullable=True, index=True)
 
 
 class SimParameter(Base):

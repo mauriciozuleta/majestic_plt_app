@@ -6,7 +6,7 @@ import PayrollLevelsModal from './PayrollLevelsModal'
 import USPayrollTaxPanel from './USPayrollTaxPanel'
 import PayrollSchedulePanel from './PayrollSchedulePanel'
 import USBenefitsPanel from './USBenefitsPanel'
-import USMacroeconomicsPanel from './USMacroeconomicsPanel'
+import MacroeconomicsPanel from './MacroeconomicsPanel'
 import StMaartenPayrollTaxPanel from './StMaartenPayrollTaxPanel'
 import ColombiaPayrollTaxPanel from './ColombiaPayrollTaxPanel'
 import { deleteCompany } from '../../../../../services/companies'
@@ -53,7 +53,7 @@ const WIRED_PILLS_BY_COUNTRY = {
     'Payroll taxes/charges': USPayrollTaxPanel,
     'Payroll Schedule': PayrollSchedulePanel,
     Benefits: USBenefitsPanel,
-    Macroeconomics: USMacroeconomicsPanel,
+    Macroeconomics: MacroeconomicsPanel,
   },
   // The commercial-structure entry here is labeled "Saint Martin (French
   // part)" but its data (currency ANG) is actually Dutch Sint Maarten's —
@@ -62,9 +62,11 @@ const WIRED_PILLS_BY_COUNTRY = {
   // ("St Marteen") to the closest existing country row.
   'Saint Martin (French part)': {
     'Payroll taxes/charges': StMaartenPayrollTaxPanel,
+    Macroeconomics: MacroeconomicsPanel,
   },
   Colombia: {
     'Payroll taxes/charges': ColombiaPayrollTaxPanel,
+    Macroeconomics: MacroeconomicsPanel,
   },
 }
 
@@ -723,6 +725,7 @@ function SettingsView() {
                                   onToggleBenefit={handleToggleBenefit}
                                   calendarMode={calendarMode}
                                   countryCode={country.country_code}
+                                  companyId={country.companyId}
                                 />
                               </div>
                             )}

@@ -7,6 +7,10 @@
   margin-top: -0.5rem;
 }
 
+.bank-ledger-panel .date-filter {
+  margin-bottom: 0.6rem;
+}
+
 .bank-ledger-panel__scroll {
   overflow: auto;
   max-height: 22rem;

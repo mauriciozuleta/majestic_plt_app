@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import './CompanyWorkspace.css'
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAppStore } from '../../../store/useAppStore'
+import { usePayrollScheduleSync } from '../../../hooks/usePayrollScheduleSync'
 
 const subTabLabels = {
   'revenue-streams': 'Revenue/COS',
@@ -20,6 +21,10 @@ function slugify(value) {
 }
 
 const tabConfig = {
+  overview: {
+    label: 'Overview',
+    subTabs: [],
+  },
   operations: {
     label: 'Operations',
     subTabs: ['commercial-operations', 'market-analysis'],
@@ -54,6 +59,7 @@ function CompanyWorkspace() {
     state.companies.find((item) => item.id === companyId || slugify(item.name) === companyId),
   )
   const removeCompany = useAppStore((state) => state.removeCompany)
+  usePayrollScheduleSync(company?.id)
 
   useEffect(() => {
     if (!company || company.id === companyId) return
@@ -105,17 +111,19 @@ function CompanyWorkspace() {
             <NavLink
               key={key}
               to={
-                key === 'operations'
-                  ? `/company/${companyId}/operations/commercial-operations`
-                  : key === 'management'
-                    ? `/company/${companyId}/management/roadmap`
-                    : key === 'financial'
-                      ? `/company/${companyId}/financial/revenue-streams`
-                      : key === 'simulator'
-                        ? `/company/${companyId}/simulator`
-                        : key === 'drivers'
-                          ? `/company/${companyId}/drivers`
-                          : `/company/${companyId}/documentation`
+                key === 'overview'
+                  ? `/company/${companyId}/overview`
+                  : key === 'operations'
+                    ? `/company/${companyId}/operations/commercial-operations`
+                    : key === 'management'
+                      ? `/company/${companyId}/management/roadmap`
+                      : key === 'financial'
+                        ? `/company/${companyId}/financial/revenue-streams`
+                        : key === 'simulator'
+                          ? `/company/${companyId}/simulator`
+                          : key === 'drivers'
+                            ? `/company/${companyId}/drivers`
+                            : `/company/${companyId}/documentation`
               }
               className={({ isActive }) =>
                 `company-workspace__tab ${isActive || activeTab === key ? 'is-active' : ''} ${

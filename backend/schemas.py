@@ -266,6 +266,9 @@ class CommercialOperationEntryCreate(BaseModel):
     recurrence_interval: Optional[int] = None
     recurrence_custom_unit: Optional[str] = None
     recurrence_until_date: Optional[str] = None
+    source: Optional[str] = None
+    schedule_key: Optional[str] = None
+    series_id: Optional[str] = None
 
 
 class CommercialOperationEntryOut(CommercialOperationEntryCreate):

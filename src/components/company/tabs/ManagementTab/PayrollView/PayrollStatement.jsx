@@ -216,6 +216,7 @@ function PayrollStatement({ companyId, rows, selectedYear, calendarMode }) {
   const [enabledBenefitKeys, setEnabledBenefitKeys] = useState([])
   const [colombiaSmmlvCop, setColombiaSmmlvCop] = useState(SMMLV_COP_DEFAULT)
   const [colombiaUvtCop, setColombiaUvtCop] = useState(UVT_COP_DEFAULT)
+  const [usState, setUsState] = useState('')
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
   const [selectedMonthIndex, setSelectedMonthIndex] = useState('all')
   const currencyRates = usePayrollCurrencyRates()
@@ -230,6 +231,7 @@ function PayrollStatement({ companyId, rows, selectedYear, calendarMode }) {
         setEnabledBenefitKeys(Array.isArray(settings.enabled_benefits) ? settings.enabled_benefits : [])
         if (settings.colombia_smmlv_cop) setColombiaSmmlvCop(settings.colombia_smmlv_cop)
         if (settings.colombia_uvt_cop) setColombiaUvtCop(settings.colombia_uvt_cop)
+        setUsState(settings.us_payroll_state || '')
       })
       .catch(() => undefined)
     return () => {
@@ -263,8 +265,18 @@ function PayrollStatement({ companyId, rows, selectedYear, calendarMode }) {
       colombiaRates: { copPerUsd: currencyRates.copPerUsd, smmlvCop: colombiaSmmlvCop, uvtCop: colombiaUvtCop },
       angPerUsd: currencyRates.angPerUsd,
       companyCountryCode,
+      usState,
     }),
-    [enabledBenefitKeys, checksPerYear, currencyRates.copPerUsd, currencyRates.angPerUsd, colombiaSmmlvCop, colombiaUvtCop, companyCountryCode],
+    [
+      enabledBenefitKeys,
+      checksPerYear,
+      currencyRates.copPerUsd,
+      currencyRates.angPerUsd,
+      colombiaSmmlvCop,
+      colombiaUvtCop,
+      companyCountryCode,
+      usState,
+    ],
   )
 
   // One breakdown per POSITION, not per employee — every employee on a

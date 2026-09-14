@@ -107,12 +107,12 @@ function buildResult(
  * apply to every position in this company. */
 export function computeAnnualBreakdown(row, context) {
   const annualSalary = Number(row.year_salary) || 0
-  const { enabledBenefitKeys, checksPerYear, colombiaRates, angPerUsd, companyCountryCode } = context
+  const { enabledBenefitKeys, checksPerYear, colombiaRates, angPerUsd, companyCountryCode, usState } = context
   const countryCode = String(companyCountryCode || '').trim().toUpperCase()
 
   if (countryCode === 'US') {
     const employer = computeFullEmployerCost(annualSalary, enabledBenefitKeys)
-    const employee = computeFullEmployeeWithholding(annualSalary, null, checksPerYear, enabledBenefitKeys)
+    const employee = computeFullEmployeeWithholding(annualSalary, usState || null, checksPerYear, enabledBenefitKeys)
     return buildResult(
       COUNTRY_CODE_LABELS.US,
       annualSalary,

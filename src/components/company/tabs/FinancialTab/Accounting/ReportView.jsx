@@ -9,7 +9,23 @@ function money(value) {
   return `${sign}$${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function ReportView({ report, periodsCaption, csvFilename, balanced }) {
+function signClass(amount, colorBySign) {
+  if (!colorBySign || amount === 0) return ''
+  return amount > 0 ? 'accounting-view__amount--positive' : 'accounting-view__amount--negative'
+}
+
+function amountClass(amount, colorBySign) {
+  return `num ${signClass(amount, colorBySign)}`.trim()
+}
+
+// colorBySign / scrollRows: both cash-flow-specific opt-ins. colorBySign —
+// cash in (positive) shows green, cash out (negative) shows red — since
+// other reports' (Income Statement, Balance Sheet) own sign conventions
+// don't map the same way onto "good/bad." scrollRows caps each section's
+// table to roughly 10 visible rows in a scrollable container instead of
+// growing the page with every line item — cash flow sections can get long
+// once payroll/tax/benefits settlements are all itemized individually.
+function ReportView({ report, periodsCaption, csvFilename, balanced, colorBySign = false, scrollRows = false }) {
   const isEmpty = report.sections.length === 0
 
   const handleExportCsv = () => {
@@ -42,33 +58,43 @@ function ReportView({ report, periodsCaption, csvFilename, balanced }) {
               {report.metrics.map((metric) => (
                 <div key={metric.label} className={`accounting-view__metric ${metric.primary ? 'is-primary' : ''}`}>
                   <div className="accounting-view__metric-label">{metric.label}</div>
-                  <div className="accounting-view__metric-value">{money(metric.amount)}</div>
+                  <div className={`accounting-view__metric-value ${signClass(metric.amount, colorBySign)}`}>
+                    {money(metric.amount)}
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
-          {report.sections.map((section) => (
-            <div key={section.key} className="report-view__section">
-              <h4 className="report-view__section-title" style={{ color: section.color }}>
-                {section.label}
-              </h4>
+          {report.sections.map((section) => {
+            const table = (
               <table className="accounting-view__table">
                 <tbody>
                   {section.rows.map((row) => (
                     <tr key={row.name}>
                       <td>{row.name}</td>
-                      <td className="num">{money(row.amount)}</td>
+                      <td className={amountClass(row.amount, colorBySign)}>{money(row.amount)}</td>
                     </tr>
                   ))}
-                  <tr className="report-view__subtotal-row" style={{ color: section.color }}>
+                  <tr
+                    className={`report-view__subtotal-row ${scrollRows ? 'report-view__subtotal-row--sticky' : ''}`}
+                    style={{ color: section.color }}
+                  >
                     <td>{section.label} — subtotal</td>
-                    <td className="num">{money(section.subtotal)}</td>
+                    <td className={amountClass(section.subtotal, colorBySign)}>{money(section.subtotal)}</td>
                   </tr>
                 </tbody>
               </table>
-            </div>
-          ))}
+            )
+            return (
+              <div key={section.key} className="report-view__section">
+                <h4 className="report-view__section-title" style={{ color: section.color }}>
+                  {section.label}
+                </h4>
+                {scrollRows ? <div className="report-view__table-scroll">{table}</div> : table}
+              </div>
+            )
+          })}
         </>
       )}
     </div>

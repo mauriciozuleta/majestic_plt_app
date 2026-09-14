@@ -523,6 +523,16 @@
   width: auto;
 }
 
+.commercial-ops-modal__settlement-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-card);
+}
+
 .commercial-ops-modal__repeat {
   display: flex;
   flex-direction: column;
@@ -538,6 +548,10 @@
   grid-template-columns: 1fr 4.5rem minmax(5.5rem, auto);
   gap: 0.5rem;
   align-items: end;
+}
+
+.commercial-ops-modal__repeat-row--paydays {
+  grid-template-columns: repeat(2, minmax(5rem, auto)) 1fr;
 }
 
 .commercial-ops-modal__repeat-unit {

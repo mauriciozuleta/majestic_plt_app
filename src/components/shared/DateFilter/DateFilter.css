@@ -1,0 +1,35 @@
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.date-filter__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.date-filter select,
+.date-filter input {
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card, var(--bg-panel));
+  color: var(--text-primary);
+  font-size: 0.74rem;
+}
+
+.date-filter__sim-inputs {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.date-filter__year-input {
+  width: 5rem;
+}

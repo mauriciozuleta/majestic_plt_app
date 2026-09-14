@@ -24,6 +24,7 @@ from .routers import (
     org_chart,
     payroll,
     payroll_levels,
+    payroll_schedule_settings,
     payroll_template,
     price_comparison,
     product_overrides,
@@ -75,6 +76,10 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN colombia_smmlv_cop FLOAT'))
             if 'colombia_uvt_cop' not in settings_columns:
                 connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN colombia_uvt_cop FLOAT'))
+            if 'real_start_date' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN real_start_date VARCHAR'))
+            if 'us_payroll_state' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN us_payroll_state VARCHAR'))
 
         if 'companies' in inspector.get_table_names():
             company_columns = {column['name'] for column in inspector.get_columns('companies')}
@@ -253,6 +258,12 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN is_discount BOOLEAN DEFAULT 0'))
             if 'settlement_date' not in commercial_op_columns:
                 connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN settlement_date VARCHAR'))
+            if 'source' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN source VARCHAR'))
+            if 'schedule_key' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN schedule_key VARCHAR'))
+            if 'series_id' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN series_id VARCHAR'))
 
         if 'payroll_employees' in inspector.get_table_names():
             employee_columns = {column['name'] for column in inspector.get_columns('payroll_employees')}
@@ -383,3 +394,4 @@ app.include_router(competitiveness.router)
 app.include_router(weight_research.router)
 app.include_router(product_overrides.router)
 app.include_router(bank_accounts.router)
+app.include_router(payroll_schedule_settings.router)

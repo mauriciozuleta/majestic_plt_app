@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react'
 import { createBankAccount, createBankTransfer, deleteBankAccount, fetchBankAccounts } from '../../../../services/bankAccounts'
+import { fetchSettings } from '../../../../services/settings'
 import AddBankAccountModal from './AddBankAccountModal'
 import BankLedgerPanel from './BankLedgerPanel'
 import TransferFundsModal from './TransferFundsModal'
@@ -19,13 +20,16 @@ function BankAccountsView() {
   const [transferModalOpen, setTransferModalOpen] = useState(false)
   const [expandedAccountId, setExpandedAccountId] = useState(null)
   const [ledgerRefreshKey, setLedgerRefreshKey] = useState(0)
+  const [calendarMode, setCalendarMode] = useState('real')
 
   const reload = async () => {
     if (!companyId) return
     setLoading(true)
     setError('')
     try {
-      setAccounts(await fetchBankAccounts(companyId))
+      const [nextAccounts, settings] = await Promise.all([fetchBankAccounts(companyId), fetchSettings()])
+      setAccounts(nextAccounts)
+      setCalendarMode(settings.calendar_mode ?? 'real')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -120,7 +124,7 @@ function BankAccountsView() {
                     ×
                   </button>
                 </div>
-                {isExpanded && <BankLedgerPanel key={ledgerRefreshKey} accountId={account.id} />}
+                {isExpanded && <BankLedgerPanel key={ledgerRefreshKey} accountId={account.id} calendarMode={calendarMode} />}
               </li>
             )
           })}

@@ -7,6 +7,7 @@ import {
 } from '../../../../../services/usPayrollTax'
 import { computeFullEmployeeWithholding, computeFullEmployerCost } from '../../../../../services/usBenefits'
 import { fetchPayrollLevels } from '../../../../../services/payrollLevels'
+import { fetchSettings, updateUsPayrollState } from '../../../../../services/settings'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 import './USPayrollTaxPanel.css'
 
@@ -32,6 +33,9 @@ function formatLevelOption(option) {
 // for what's simplified and why.
 function USPayrollTaxPanel({ enabledBenefitKeys = [] }) {
   const [selectedState, setSelectedState] = useState('')
+  const [savedState, setSavedState] = useState('')
+  const [stateStatus, setStateStatus] = useState('loading')
+  const [stateMessage, setStateMessage] = useState('')
   const [selectedLevel, setSelectedLevel] = useState('')
   const [testSalary, setTestSalary] = useState('')
   const [paychecksPerYear, setPaychecksPerYear] = useState(24)
@@ -53,6 +57,47 @@ function USPayrollTaxPanel({ enabledBenefitKeys = [] }) {
       cancelled = true
     }
   }, [])
+
+  // Persisted portfolio-wide so it stops resetting to "-Select a state-" on
+  // every reload — and, once saved, this same value is what every real US
+  // position's state-tax withholding uses too (see payrollDisbursement.js),
+  // not just this panel's own calculator.
+  useEffect(() => {
+    let cancelled = false
+    fetchSettings()
+      .then((settings) => {
+        if (cancelled) return
+        const state = settings.us_payroll_state || ''
+        setSelectedState(state)
+        setSavedState(state)
+        setStateStatus('idle')
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setStateStatus('error')
+          setStateMessage(error.message)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const isStateDirty = selectedState !== savedState
+
+  const handleSaveState = async () => {
+    setStateStatus('saving')
+    setStateMessage('')
+    try {
+      await updateUsPayrollState(selectedState || null)
+      setSavedState(selectedState)
+      setStateStatus('idle')
+      setStateMessage('Saved.')
+    } catch (error) {
+      setStateStatus('error')
+      setStateMessage(error.message || 'Failed to save the state.')
+    }
+  }
 
   const parsedSalary = Number(testSalary)
   const hasValidSalary = Number.isFinite(parsedSalary) && parsedSalary > 0
@@ -124,7 +169,11 @@ function USPayrollTaxPanel({ enabledBenefitKeys = [] }) {
 
           <label className="us-payroll-tax__state-select">
             State
-            <select value={selectedState} onChange={(event) => setSelectedState(event.target.value)}>
+            <select
+              value={selectedState}
+              onChange={(event) => setSelectedState(event.target.value)}
+              disabled={stateStatus === 'loading'}
+            >
               <option value="">— Select a state —</option>
               {US_STATES.map((state) => (
                 <option key={state} value={state}>
@@ -133,7 +182,22 @@ function USPayrollTaxPanel({ enabledBenefitKeys = [] }) {
               ))}
             </select>
             {selectedState && employeeResult && <span className="us-payroll-tax__state-rate">{formatPct(employeeResult.stateRate)}</span>}
+            <button
+              type="button"
+              className="us-payroll-tax__state-save-btn"
+              onClick={handleSaveState}
+              disabled={!isStateDirty || stateStatus === 'saving'}
+            >
+              {stateStatus === 'saving' ? 'Saving…' : 'Save'}
+            </button>
           </label>
+          {stateMessage && (
+            <p className={`us-payroll-tax__hint ${stateStatus === 'error' ? 'us-payroll-tax__hint--error' : ''}`}>{stateMessage}</p>
+          )}
+          <p className="us-payroll-tax__hint">
+            This is the state used for every real US position's state-tax withholding in Payroll Statement, not just the
+            calculator below.
+          </p>
 
           <details className="us-payroll-tax__brackets">
             <summary>Federal bracket chart (2025, single filer)</summary>

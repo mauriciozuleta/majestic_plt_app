@@ -58,6 +58,15 @@
   margin-bottom: 1rem;
 }
 
+.general-ledger__account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.3rem;
+  flex-wrap: wrap;
+}
+
 .general-ledger__account-title {
   display: flex;
   align-items: center;
@@ -65,13 +74,64 @@
   color: var(--text-primary);
   font-weight: 600;
   font-size: 0.82rem;
-  margin-bottom: 0.3rem;
+  padding: 0.3rem 0.1rem;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.general-ledger__account-title:hover {
+  color: var(--accent-teal, var(--text-primary));
+}
+
+.general-ledger__account-chevron {
+  display: inline-block;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+
+.general-ledger__account-chevron.is-expanded {
+  transform: rotate(90deg);
 }
 
 .general-ledger__account-code {
   font-family: var(--font-mono);
   color: var(--text-dim);
   font-weight: 400;
+}
+
+.general-ledger__account-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.general-ledger__sort-select {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.general-ledger__sort-select select {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.general-ledger__account-balance {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .general-ledger__table-scroll {
@@ -92,6 +152,37 @@
   margin: 0.4rem 0 0;
   color: var(--text-dim);
   font-size: 0.72rem;
+  font-style: italic;
+}
+
+.general-ledger__selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.general-ledger__selection-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.general-ledger__delete-btn:not(:disabled) {
+  border-color: #fca5a5;
+  color: #fca5a5;
+}
+
+.general-ledger__row-select {
+  text-align: center;
+}
+
+.general-ledger__row-select input[type='checkbox'] {
+  cursor: pointer;
+}
+
+.general-ledger__locked {
+  color: var(--text-dim);
+  font-size: 0.68rem;
   font-style: italic;
 }
 
@@ -125,6 +216,16 @@
 .accounting-view__csv-btn:hover {
   color: var(--text-primary);
   border-color: var(--border-strong);
+}
+
+.accounting-view__csv-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.accounting-view__csv-btn:disabled:hover {
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
 .accounting-view__badge {
@@ -206,6 +307,19 @@
   font-weight: 500;
 }
 
+/* Compound selectors (not just the bare class) to out-specificity the base
+   ".accounting-view__table td { color: ... }" rule these amount cells also
+   match via their shared "num" class. */
+.accounting-view__table td.accounting-view__amount--positive,
+.accounting-view__metric-value.accounting-view__amount--positive {
+  color: var(--accent-teal-text, #9fe7c6);
+}
+
+.accounting-view__table td.accounting-view__amount--negative,
+.accounting-view__metric-value.accounting-view__amount--negative {
+  color: #f87171;
+}
+
 .report-view__section {
   margin-bottom: 1.2rem;
 }
@@ -221,4 +335,18 @@
   font-style: italic;
   font-weight: 600;
   border-top: 2px solid var(--border-strong);
+}
+
+.report-view__table-scroll {
+  overflow: auto;
+  max-height: 22rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.report-view__subtotal-row--sticky td {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-panel);
+  z-index: 1;
 }

@@ -25,7 +25,17 @@ def _post_bank_transaction(db: Session, entry: models.CommercialOperationEntry):
     """Revenue entries post a credit to the chosen bank account's ledger;
     cos/expenses entries post a debit. The ledger's origin/beneficiary column
     shows who the money came from (revenue's client) or who it went to
-    (cos/expenses' paid_to)."""
+    (cos/expenses' paid_to).
+
+    The cash actually moves on settlement_date when the entry has a genuine
+    one (set and different from entry_date — e.g. an Accrued expense's
+    "Expected payment date") — same has_settlement condition gl_engine.py
+    uses to decide whether to post a separate "pay" leg at all. Falling back
+    to entry_date covers Cash-treatment entries and any entry with no
+    settlement date, where recognition and payment are the same moment."""
+    has_settlement = bool(entry.settlement_date) and entry.settlement_date != entry.entry_date
+    transaction_date = entry.settlement_date if has_settlement else entry.entry_date
+
     credit = entry.amount if entry.category == 'revenue' else 0.0
     debit = entry.amount if entry.category in ('cos', 'expenses') else 0.0
     counterparty = entry.client if entry.category == 'revenue' else entry.paid_to
@@ -33,7 +43,7 @@ def _post_bank_transaction(db: Session, entry: models.CommercialOperationEntry):
         models.BankTransaction(
             id=str(uuid.uuid4()),
             bank_account_id=entry.bank_account_id,
-            entry_date=entry.entry_date,
+            entry_date=transaction_date,
             description=entry.description or entry.entry_type or entry.client or entry.category,
             client=counterparty,
             reference=entry.reference_document,
@@ -87,6 +97,9 @@ def create_commercial_operation_entry(
         recurrence_interval=payload.recurrence_interval,
         recurrence_custom_unit=payload.recurrence_custom_unit,
         recurrence_until_date=payload.recurrence_until_date,
+        source=payload.source,
+        schedule_key=payload.schedule_key,
+        series_id=payload.series_id,
     )
     db.add(entry)
     db.commit()
@@ -137,6 +150,9 @@ def update_commercial_operation_entry(
     entry.recurrence_interval = payload.recurrence_interval
     entry.recurrence_custom_unit = payload.recurrence_custom_unit
     entry.recurrence_until_date = payload.recurrence_until_date
+    entry.source = payload.source
+    entry.schedule_key = payload.schedule_key
+    entry.series_id = payload.series_id
     db.commit()
 
     _post_bank_transaction(db, entry)

@@ -25,10 +25,15 @@ export function getDateRange(tasks, calendarMode = 'real') {
   return { start: addDays(start, -3), end: addDays(end, 10) }
 }
 
+// UTC-based, not local-time — parseIsoToDate builds dates via Date.UTC, and
+// stepping them with local getDate/setDate instead let the viewer's own
+// timezone (especially a pre-1900 historical offset like Local Mean Time,
+// which some engines apply for very old fictitious-epoch dates) silently
+// shift the calendar day, and compound into a wrong Year once formatted.
 export function addDays(date, days) {
   const nextDate = new Date(date)
-  nextDate.setDate(nextDate.getDate() + days)
-  nextDate.setHours(0, 0, 0, 0)
+  nextDate.setUTCDate(nextDate.getUTCDate() + days)
+  nextDate.setUTCHours(0, 0, 0, 0)
   return nextDate
 }
 

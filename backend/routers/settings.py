@@ -101,6 +101,11 @@ def get_settings(db: Session = Depends(get_db)):
         'colombia_projected_cop_per_usd': settings.colombia_projected_cop_per_usd,
         'colombia_smmlv_cop': settings.colombia_smmlv_cop,
         'colombia_uvt_cop': settings.colombia_uvt_cop,
+        # Falls back to today rather than persisting it, so a portfolio that's
+        # never touched calendar mode still gets a usable "Year 1 day 1"
+        # anchor for Payroll Schedule's automatic entry generation.
+        'real_start_date': settings.real_start_date or date.today().isoformat(),
+        'us_payroll_state': settings.us_payroll_state,
     }
 
 
@@ -210,6 +215,21 @@ def set_country_inflation(country_code: str, payload: dict, db: Session = Depend
     return {'inflation_pct': inflation_pct, 'positions_updated': len(records)}
 
 
+@router.patch('/settings/us-payroll-state')
+def set_us_payroll_state(payload: dict, db: Session = Depends(get_db)):
+    """Persists which US state's income-tax rate the Salary Calculator (and
+    every real US position's state-tax withholding) uses — previously reset
+    to '-Select a state-' on every reload since it was never saved."""
+    settings = _get_or_create_settings(db)
+    state = payload.get('state')
+    if state is not None and not isinstance(state, str):
+        raise HTTPException(status_code=400, detail='state must be a string')
+
+    settings.us_payroll_state = state or None
+    db.commit()
+    return {'us_payroll_state': settings.us_payroll_state}
+
+
 @router.patch('/settings/payroll-schedule')
 def set_payroll_schedule(payload: dict, db: Session = Depends(get_db)):
     """Persists the payroll-run and tax-remittance schedule selections —
@@ -287,6 +307,7 @@ def set_calendar_mode(payload: dict, db: Session = Depends(get_db)):
         tasks_count, records_count = _convert_real_to_simulation(db, real_start)
     else:
         tasks_count, records_count = _convert_simulation_to_real(db, real_start)
+        settings.real_start_date = real_start.isoformat()
 
     settings.calendar_mode = mode
     db.commit()
@@ -307,5 +328,6 @@ def assign_start_date(payload: dict, db: Session = Depends(get_db)):
     tasks_count, records_count = _convert_simulation_to_real(db, real_start)
 
     settings.calendar_mode = 'real'
+    settings.real_start_date = real_start.isoformat()
     db.commit()
     return {'tasks_converted': tasks_count, 'payroll_records_converted': records_count}

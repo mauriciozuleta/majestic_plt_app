@@ -13,6 +13,7 @@ import { COP_PER_USD_FALLBACK, isColombiaLocation } from '../../../../services/c
 import { ANG_PER_USD_FALLBACK, isStMaartenLocation } from '../../../../services/stMaartenPayrollTax'
 import { positionMonthlyHeadcount } from '../ManagementTab/PayrollView/monthMath'
 import { isoDateToSimDate } from '../../../shared/SimulationCalendar/simulationCalendarMath'
+import { isoDateToAnchoredYearMonth } from '../../../../utils/anchoredProjectionCalendar'
 import YearSummaryTable from '../../../shared/YearSummaryTable'
 import { formatCurrencyValue } from '../../../../utils/currencyFormat'
 import './ExpensesView.css'
@@ -95,6 +96,7 @@ function ExpensesView() {
   const [error, setError] = useState('')
   const [yearSummaryRows, setYearSummaryRows] = useState([])
   const [yearSummaryLoading, setYearSummaryLoading] = useState(false)
+  const [realStartDate, setRealStartDate] = useState('')
   const [colombiaCopPerUsd, setColombiaCopPerUsd] = useState(COP_PER_USD_FALLBACK)
   const [stMaartenAngPerUsd, setStMaartenAngPerUsd] = useState(ANG_PER_USD_FALLBACK)
   const [excludedCategoryIds, setExcludedCategoryIds] = useState(() => new Set())
@@ -166,6 +168,7 @@ function ExpensesView() {
         setCalendarMode(settings.calendar_mode ?? 'real')
         setProjectionYears(Math.max(5, Math.min(10, Number(settings.projection_years ?? 5))))
         setEnabledBenefitKeys(Array.isArray(settings.enabled_benefits) ? settings.enabled_benefits : [])
+        setRealStartDate(settings.real_start_date || '')
         // Colombia's calculator uses a user-locked "projected" rate (not the
         // live one) so its numbers stay stable — mirror that same rate here
         // so this row's COP figure matches what the Colombia settings panel
@@ -211,34 +214,37 @@ function ExpensesView() {
   }, [companyId])
 
   // Per projection year and category name, which months have an actual
-  // Commercial Operations expense posted, and their summed amount. Only
-  // meaningful in simulation calendar mode — isoDateToSimDate is the only
-  // place in the app that turns a real ISO date into a projection-year
-  // number (real calendar mode has no equivalent convention yet, see
-  // gl_engine.py's _operations_start_date), so this stays empty there and
-  // the tab falls back to whatever was typed in manually, same as before.
+  // Commercial Operations expense posted, and their summed amount.
+  // isoDateToSimDate turns a real ISO date into a projection-year number in
+  // simulation mode; real mode has its own anchor now (Settings' persisted
+  // real_start_date), via the same day-count convention generalized in
+  // anchoredProjectionCalendar.js — so this only stays empty if real mode
+  // has no anchor to compute from yet (a portfolio that's never loaded
+  // settings), in which case the tab falls back to whatever was typed in
+  // manually, same as before.
   const opsByYearAndCategory = useMemo(() => {
     const map = {}
-    if (calendarMode !== 'simulation') return map
+    if (calendarMode === 'real' && !realStartDate) return map
     opsExpenseEntries.forEach((entry) => {
-      let simDate
+      let yearMonth
       try {
-        simDate = isoDateToSimDate(entry.entry_date)
+        yearMonth =
+          calendarMode === 'simulation' ? isoDateToSimDate(entry.entry_date) : isoDateToAnchoredYearMonth(realStartDate, entry.entry_date)
       } catch {
         return
       }
       if (!entry.description) return
-      if (!map[simDate.year]) map[simDate.year] = {}
-      const yearMap = map[simDate.year]
+      if (!map[yearMonth.year]) map[yearMonth.year] = {}
+      const yearMap = map[yearMonth.year]
       if (!yearMap[entry.description]) {
         yearMap[entry.description] = { totals: new Array(12).fill(0), hasEntry: new Array(12).fill(false) }
       }
       const bucket = yearMap[entry.description]
-      bucket.totals[simDate.month - 1] += entry.amount
-      bucket.hasEntry[simDate.month - 1] = true
+      bucket.totals[yearMonth.month - 1] += entry.amount
+      bucket.hasEntry[yearMonth.month - 1] = true
     })
     return map
-  }, [opsExpenseEntries, calendarMode])
+  }, [opsExpenseEntries, calendarMode, realStartDate])
 
   const opsMonthlyByCategoryName = opsByYearAndCategory[selectedYear] || {}
 
@@ -299,27 +305,46 @@ function ExpensesView() {
           })
         })
 
+        // The three computed rows prefer Commercial Operations totals over
+        // the live payroll calc for any month that already has a Payroll
+        // Schedule (or manually-added) ops entry — same ops-over-manual
+        // precedence every other category already uses above — falling
+        // back to the live calc only where no ops entry exists yet, so a
+        // company that hasn't turned Automatic Schedule on keeps seeing the
+        // preview it always has.
         const payrollRow = rows.find((row) => row.label === PAYROLL_CATEGORY_NAME)
         if (payrollRow) {
           allYearsPayroll.forEach((yearRows, yearIndex) => {
-            const monthly = computePayrollMonthlyCost(yearRows, years[yearIndex], calendarMode)
-            payrollRow.totalsByYear[yearIndex] = monthly.reduce((sum, value) => sum + value, 0)
+            const computed = computePayrollMonthlyCost(yearRows, years[yearIndex], calendarMode)
+            const opsForCategory = opsByYearAndCategory[years[yearIndex]]?.[PAYROLL_CATEGORY_NAME]
+            payrollRow.totalsByYear[yearIndex] = computed.reduce(
+              (sum, value, index) => sum + (opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : value),
+              0,
+            )
           })
         }
 
         const payrollTaxesRow = rows.find((row) => row.label === PAYROLL_TAXES_CATEGORY_NAME)
         if (payrollTaxesRow) {
           allYearsPayroll.forEach((yearRows, yearIndex) => {
-            const monthly = computePayrollTaxesMonthlyCost(yearRows, years[yearIndex], calendarMode, enabledBenefitKeys)
-            payrollTaxesRow.totalsByYear[yearIndex] = monthly.reduce((sum, value) => sum + value, 0)
+            const computed = computePayrollTaxesMonthlyCost(yearRows, years[yearIndex], calendarMode, enabledBenefitKeys)
+            const opsForCategory = opsByYearAndCategory[years[yearIndex]]?.[PAYROLL_TAXES_CATEGORY_NAME]
+            payrollTaxesRow.totalsByYear[yearIndex] = computed.reduce(
+              (sum, value, index) => sum + (opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : value),
+              0,
+            )
           })
         }
 
         const employeeBenefitsRow = rows.find((row) => row.label === EMPLOYEE_BENEFITS_CATEGORY_NAME)
         if (employeeBenefitsRow) {
           allYearsPayroll.forEach((yearRows, yearIndex) => {
-            const monthly = computeEmployeeBenefitsMonthlyCost(yearRows, years[yearIndex], calendarMode, enabledBenefitKeys)
-            employeeBenefitsRow.totalsByYear[yearIndex] = monthly.reduce((sum, value) => sum + value, 0)
+            const computed = computeEmployeeBenefitsMonthlyCost(yearRows, years[yearIndex], calendarMode, enabledBenefitKeys)
+            const opsForCategory = opsByYearAndCategory[years[yearIndex]]?.[EMPLOYEE_BENEFITS_CATEGORY_NAME]
+            employeeBenefitsRow.totalsByYear[yearIndex] = computed.reduce(
+              (sum, value, index) => sum + (opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : value),
+              0,
+            )
           })
         }
 
@@ -406,7 +431,7 @@ function ExpensesView() {
   const grandTotal = new Array(12).fill(0)
   visibleEntries.forEach((entry) => {
     const months = computedMonthsByCategory[entry.name] || entry.months
-    const opsForCategory = COMPUTED_CATEGORY_NAMES.has(entry.name) ? null : opsMonthlyByCategoryName[entry.name]
+    const opsForCategory = opsMonthlyByCategoryName[entry.name]
     months.forEach((value, index) => {
       const opsValue = opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : null
       grandTotal[index] += opsValue !== null ? opsValue : Number(value) || 0
@@ -482,7 +507,13 @@ function ExpensesView() {
                 const isEmployeeBenefits = entry.name === EMPLOYEE_BENEFITS_CATEGORY_NAME
                 const isComputed = isPayroll || isPayrollTaxes || isEmployeeBenefits
                 const displayMonths = computedMonthsByCategory[entry.name] || entry.months
-                const opsForCategory = isComputed ? null : opsMonthlyByCategoryName[entry.name]
+                // Ops-sourced totals (Payroll Schedule's auto-generated
+                // entries, or a manually-added one with a matching
+                // description) win over the live payroll calc for these
+                // three rows too, same precedence every other category
+                // already uses — falling back to the live calc only for a
+                // month with no ops entry yet.
+                const opsForCategory = opsMonthlyByCategoryName[entry.name]
                 const rowTotal = displayMonths.reduce(
                   (sum, value, index) =>
                     sum + (opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : Number(value) || 0),
@@ -508,7 +539,19 @@ function ExpensesView() {
                       {entry.name}
                     </td>
                     {displayMonths.map((value, index) =>
-                      isComputed ? (
+                      opsForCategory?.hasEntry[index] ? (
+                        <td key={index} className="num expenses-view__cell--ops" title="From Commercial Operations">
+                          {formatUsdWhole(opsForCategory.totals[index])}
+                          {isPayroll &&
+                            payrollLocalCurrencyParts(colombiaPayrollMonthly[index], stMaartenPayrollMonthly[index]).map(
+                              (part) => (
+                                <span key={part} className="expenses-view__local-currency">
+                                  {part}
+                                </span>
+                              ),
+                            )}
+                        </td>
+                      ) : (
                         <td key={index} className="num">
                           {formatUsdWhole(value)}
                           {isPayroll &&
@@ -519,14 +562,6 @@ function ExpensesView() {
                                 </span>
                               ),
                             )}
-                        </td>
-                      ) : opsForCategory?.hasEntry[index] ? (
-                        <td key={index} className="num expenses-view__cell--ops" title="From Commercial Operations">
-                          {formatUsdWhole(opsForCategory.totals[index])}
-                        </td>
-                      ) : (
-                        <td key={index} className="num">
-                          {formatUsdWhole(value)}
                         </td>
                       ),
                     )}

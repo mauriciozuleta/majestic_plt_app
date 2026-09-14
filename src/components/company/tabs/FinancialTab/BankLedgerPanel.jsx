@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchBankTransactions } from '../../../../services/bankAccounts'
 import { formatCurrencyValue } from '../../../../utils/currencyFormat'
+import DateFilter from '../../../shared/DateFilter/DateFilter'
 import './BankLedgerPanel.css'
 
-const ROW_LIMIT = 10
-
-function BankLedgerPanel({ accountId }) {
+function BankLedgerPanel({ accountId, calendarMode = 'real' }) {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [dateFilterPrefix, setDateFilterPrefix] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -30,17 +30,18 @@ function BankLedgerPanel({ accountId }) {
   }, [accountId])
 
   // Transactions arrive oldest-first, which is what the running balance
-  // needs to be computed correctly. Only after that do we take the most
-  // recent ROW_LIMIT rows and flip them so the newest sits on top.
-  const { visibleRows, hiddenCount } = useMemo(() => {
+  // needs to be computed correctly — that happens over the FULL history
+  // first, so a date filter only changes which rows are visible, never what
+  // balance they show. Newest-first for display happens last.
+  const visibleRows = useMemo(() => {
     const rows = []
     for (const transaction of transactions) {
       const previousBalance = rows.length ? rows[rows.length - 1].balance : 0
       rows.push({ ...transaction, balance: previousBalance + transaction.credit - transaction.debit })
     }
-    const recent = rows.slice(-ROW_LIMIT).reverse()
-    return { visibleRows: recent, hiddenCount: Math.max(0, rows.length - ROW_LIMIT) }
-  }, [transactions])
+    const filtered = dateFilterPrefix ? rows.filter((row) => row.entry_date.startsWith(dateFilterPrefix)) : rows
+    return filtered.slice().reverse()
+  }, [transactions, dateFilterPrefix])
 
   if (loading) return null
 
@@ -48,8 +49,16 @@ function BankLedgerPanel({ accountId }) {
     <div className="bank-ledger-panel">
       {error && <div className="bank-ledger-panel__error">{error}</div>}
 
-      {!error && visibleRows.length === 0 && (
+      {!error && transactions.length > 0 && (
+        <DateFilter calendarMode={calendarMode} onChange={setDateFilterPrefix} />
+      )}
+
+      {!error && transactions.length === 0 && (
         <div className="bank-ledger-panel__empty">No transactions posted to this account yet.</div>
+      )}
+
+      {!error && transactions.length > 0 && visibleRows.length === 0 && (
+        <div className="bank-ledger-panel__empty">No transactions match this date filter.</div>
       )}
 
       {!error && visibleRows.length > 0 && (
@@ -97,12 +106,6 @@ function BankLedgerPanel({ accountId }) {
               </tbody>
             </table>
           </div>
-          {hiddenCount > 0 && (
-            <p className="bank-ledger-panel__hint">
-              Showing the {ROW_LIMIT} most recent transactions — {hiddenCount} earlier{' '}
-              {hiddenCount === 1 ? 'entry is' : 'entries are'} not shown.
-            </p>
-          )}
         </>
       )}
     </div>

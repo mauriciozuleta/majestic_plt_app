@@ -1,16 +1,16 @@
-.us-macro {
+.macro-panel {
   padding: 0.9rem;
   display: grid;
   gap: 0.6rem;
 }
 
-.us-macro__hint {
+.macro-panel__hint {
   margin: 0;
   font-size: 0.75rem;
   color: var(--text-muted, #64748b);
 }
 
-.us-macro__input-row {
+.macro-panel__input-row {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -18,7 +18,7 @@
   color: var(--text-muted, #64748b);
 }
 
-.us-macro__input-row input {
+.macro-panel__input-row input {
   width: 6rem;
   padding: 0.4rem 0.55rem;
   border-radius: 8px;
@@ -28,7 +28,7 @@
   font-family: var(--font-mono, monospace);
 }
 
-.us-macro__save-btn {
+.macro-panel__save-btn {
   padding: 0.4rem 0.8rem;
   border-radius: 8px;
   border: 1px solid rgba(37, 99, 235, 0.4);
@@ -38,17 +38,17 @@
   font-size: 0.76rem;
 }
 
-.us-macro__save-btn:disabled {
+.macro-panel__save-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-.us-macro__message {
+.macro-panel__message {
   margin: 0;
   font-size: 0.74rem;
   color: var(--text-muted, #64748b);
 }
 
-.us-macro__message.is-error {
+.macro-panel__message.is-error {
   color: #b91c1c;
 }

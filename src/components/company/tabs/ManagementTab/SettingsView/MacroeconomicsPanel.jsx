@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { fetchCountryInflation, updateCountryInflation } from '../../../../../services/settings'
-import './USMacroeconomicsPanel.css'
+import './MacroeconomicsPanel.css'
 
 // Applies to every company whose OWN home country matches this pill's
 // country (Company.country_code) — not just the one company whose
 // commercial-structure row this pill happens to render under. A position
 // elsewhere, or in a company located in a different country, keeps
-// whatever salary it already has for Year 2+.
-function USMacroeconomicsPanel({ countryCode }) {
+// whatever salary it already has for Year 2+. Wired to every country (not
+// just United States) since the same inflation-driven Year 2+ recalculation
+// applies everywhere, keyed by country_code (CountryInflation) in the DB.
+function MacroeconomicsPanel({ countryCode }) {
   const [savedRate, setSavedRate] = useState(0)
   const [draftRate, setDraftRate] = useState('0')
   const [status, setStatus] = useState('loading')
@@ -59,12 +61,12 @@ function USMacroeconomicsPanel({ countryCode }) {
   }
 
   return (
-    <div className="us-macro">
-      <p className="us-macro__hint">
+    <div className="macro-panel">
+      <p className="macro-panel__hint">
         Applied every year starting in Year 2, compounding on the previous year's cost — Year 2 = Year 1 × (1 + rate), Year 3 = Year 2 ×
         (1 + rate), and so on. Applies to every company actually located in this country, not just one.
       </p>
-      <label className="us-macro__input-row">
+      <label className="macro-panel__input-row">
         Inflation (annual %)
         <input
           type="number"
@@ -73,13 +75,13 @@ function USMacroeconomicsPanel({ countryCode }) {
           onChange={(event) => setDraftRate(event.target.value)}
           disabled={status === 'loading' || status === 'saving'}
         />
-        <button type="button" className="us-macro__save-btn" onClick={handleSave} disabled={!isDirty || status === 'saving'}>
+        <button type="button" className="macro-panel__save-btn" onClick={handleSave} disabled={!isDirty || status === 'saving'}>
           {status === 'saving' ? 'Saving…' : 'Save'}
         </button>
       </label>
-      {message && <p className={`us-macro__message ${status === 'error' ? 'is-error' : ''}`}>{message}</p>}
+      {message && <p className={`macro-panel__message ${status === 'error' ? 'is-error' : ''}`}>{message}</p>}
     </div>
   )
 }
 
-export default USMacroeconomicsPanel
+export default MacroeconomicsPanel

@@ -61,9 +61,14 @@ export function simDateToIsoDate({ year, month, day }) {
 }
 
 export function dateToIsoDate(date) {
-  return utcDateToIsoDate(
-    new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())),
-  )
+  // Same Date.UTC(year, ...) two-digit-year quirk isoToUtcDate works around
+  // above — a fictitious-calendar year 0-99 (e.g. the Roadmap header
+  // stepping a few days before Year 1's epoch, landing on year 0) would
+  // otherwise silently become 1900-1999, throwing every date computed from
+  // it centuries into the future.
+  const safeDate = new Date(Date.UTC(2000, date.getUTCMonth(), date.getUTCDate()))
+  safeDate.setUTCFullYear(date.getUTCFullYear())
+  return utcDateToIsoDate(safeDate)
 }
 
 export function parseIsoDate(isoDate) {

@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { fetchSettings, updatePayrollSchedule } from '../../../../../services/settings'
+import { fetchPayrollScheduleSettings, updatePayrollScheduleSettings } from '../../../../../services/payrollScheduleSettings'
+import { fetchBankAccounts } from '../../../../../services/bankAccounts'
+import { runPayrollScheduleSync } from '../PayrollView/payrollScheduleSync'
 import './PayrollSchedulePanel.css'
 
 const DAYS_1_TO_30 = Array.from({ length: 30 }, (_, index) => index + 1)
@@ -21,7 +24,7 @@ const TAX_OBLIGATIONS_OPTIONS = [
 // "Payroll taxes/charges" into its own pill; the Payroll Statement view
 // reads `payroll_schedule_type` to decide how many pay-period columns to
 // show.
-function PayrollSchedulePanel({ calendarMode = 'real' }) {
+function PayrollSchedulePanel({ calendarMode = 'real', companyId }) {
   const [scheduleType, setScheduleType] = useState('')
   const [monthlyDay, setMonthlyDay] = useState(1)
   const [biweeklyDay1, setBiweeklyDay1] = useState(1)
@@ -30,6 +33,15 @@ function PayrollSchedulePanel({ calendarMode = 'real' }) {
   const [scheduleStatus, setScheduleStatus] = useState('loading')
   const [scheduleMessage, setScheduleMessage] = useState('')
   const [scheduleDirty, setScheduleDirty] = useState(false)
+
+  const [bankAccounts, setBankAccounts] = useState([])
+  const [payrollBankAccountId, setPayrollBankAccountId] = useState('')
+  const [taxesBankAccountId, setTaxesBankAccountId] = useState('')
+  const [benefitsBankAccountId, setBenefitsBankAccountId] = useState('')
+  const [automaticSchedule, setAutomaticSchedule] = useState(false)
+  const [disbursementStatus, setDisbursementStatus] = useState('loading')
+  const [disbursementMessage, setDisbursementMessage] = useState('')
+  const [disbursementDirty, setDisbursementDirty] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -54,6 +66,30 @@ function PayrollSchedulePanel({ calendarMode = 'real' }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!companyId) return undefined
+    let cancelled = false
+    Promise.all([fetchBankAccounts(companyId), fetchPayrollScheduleSettings(companyId)])
+      .then(([accounts, disbursementSettings]) => {
+        if (cancelled) return
+        setBankAccounts(accounts)
+        setPayrollBankAccountId(disbursementSettings.payroll_bank_account_id || '')
+        setTaxesBankAccountId(disbursementSettings.taxes_bank_account_id || '')
+        setBenefitsBankAccountId(disbursementSettings.benefits_bank_account_id || '')
+        setAutomaticSchedule(Boolean(disbursementSettings.automatic_schedule))
+        setDisbursementStatus('idle')
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setDisbursementStatus('error')
+          setDisbursementMessage(error.message)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [companyId])
+
   const markDirty = (setter) => (value) => {
     setter(value)
     setScheduleDirty(true)
@@ -76,6 +112,37 @@ function PayrollSchedulePanel({ calendarMode = 'real' }) {
     } catch (error) {
       setScheduleStatus('error')
       setScheduleMessage(error.message || 'Failed to save the schedule.')
+    }
+  }
+
+  const markDisbursementDirty = (setter) => (value) => {
+    setter(value)
+    setDisbursementDirty(true)
+  }
+
+  const handleSaveDisbursementSettings = async () => {
+    setDisbursementStatus('saving')
+    setDisbursementMessage('')
+    try {
+      await updatePayrollScheduleSettings(companyId, {
+        payroll_bank_account_id: payrollBankAccountId || null,
+        taxes_bank_account_id: taxesBankAccountId || null,
+        benefits_bank_account_id: benefitsBankAccountId || null,
+        automatic_schedule: automaticSchedule,
+      })
+      setDisbursementDirty(false)
+      const summary = await runPayrollScheduleSync(companyId)
+      setDisbursementStatus('idle')
+      setDisbursementMessage(
+        automaticSchedule
+          ? `Saved. ${summary.created + summary.updated + summary.deleted} entr${
+              summary.created + summary.updated + summary.deleted === 1 ? 'y' : 'ies'
+            } synced (${summary.created} created, ${summary.updated} updated, ${summary.deleted} removed).`
+          : 'Saved. Automatic schedule is off.',
+      )
+    } catch (error) {
+      setDisbursementStatus('error')
+      setDisbursementMessage(error.message || 'Failed to save the disbursement settings.')
     }
   }
 
@@ -176,6 +243,84 @@ function PayrollSchedulePanel({ calendarMode = 'real' }) {
         {scheduleMessage && (
           <span className={`payroll-schedule-panel__message ${scheduleStatus === 'error' ? 'is-error' : ''}`}>{scheduleMessage}</span>
         )}
+      </div>
+
+      <div className="payroll-schedule-panel__disbursement">
+        <h6 className="payroll-schedule-panel__disbursement-title">Payroll disbursement accounts</h6>
+        <p className="payroll-schedule-panel__hint">
+          Which bank account each category debits when its Commercial Operations entries are generated. A category with no
+          account chosen is skipped.
+        </p>
+
+        <div className="payroll-schedule-panel__disbursement-grid">
+          <label className="payroll-schedule-panel__schedule-day">
+            Payroll
+            <select
+              value={payrollBankAccountId}
+              onChange={(event) => markDisbursementDirty(setPayrollBankAccountId)(event.target.value)}
+            >
+              <option value="">— None —</option>
+              {bankAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.bank_name} — {account.account_name} · {account.account_number}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="payroll-schedule-panel__schedule-day">
+            Taxes &amp; Contributions
+            <select
+              value={taxesBankAccountId}
+              onChange={(event) => markDisbursementDirty(setTaxesBankAccountId)(event.target.value)}
+            >
+              <option value="">— None —</option>
+              {bankAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.bank_name} — {account.account_name} · {account.account_number}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="payroll-schedule-panel__schedule-day">
+            Benefits
+            <select
+              value={benefitsBankAccountId}
+              onChange={(event) => markDisbursementDirty(setBenefitsBankAccountId)(event.target.value)}
+            >
+              <option value="">— None —</option>
+              {bankAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.bank_name} — {account.account_name} · {account.account_number}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="payroll-schedule-panel__automatic-toggle">
+          <input
+            type="checkbox"
+            checked={automaticSchedule}
+            onChange={(event) => markDisbursementDirty(setAutomaticSchedule)(event.target.checked)}
+          />
+          Automatic schedule — auto-generate these entries in Commercial Operations whenever payroll changes
+        </label>
+
+        <div className="payroll-schedule-panel__actions">
+          <button
+            type="button"
+            className="payroll-schedule-panel__save-btn"
+            onClick={handleSaveDisbursementSettings}
+            disabled={!disbursementDirty || disbursementStatus === 'saving'}
+          >
+            {disbursementStatus === 'saving' ? 'Saving…' : 'Save'}
+          </button>
+          {disbursementMessage && (
+            <span className={`payroll-schedule-panel__message ${disbursementStatus === 'error' ? 'is-error' : ''}`}>
+              {disbursementMessage}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
