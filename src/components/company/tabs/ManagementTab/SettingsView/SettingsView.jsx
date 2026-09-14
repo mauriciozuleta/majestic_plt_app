@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { IconX } from '@tabler/icons-react'
 import RoadmapDateInput from '../RoadmapView/RoadmapDateInput'
 import PayrollLevelsModal from './PayrollLevelsModal'
+import AccountingHealthCheckCard from './AccountingHealthCheckCard'
 import USPayrollTaxPanel from './USPayrollTaxPanel'
 import PayrollSchedulePanel from './PayrollSchedulePanel'
 import USBenefitsPanel from './USBenefitsPanel'
@@ -507,6 +508,8 @@ function SettingsView() {
           Edit payroll settings
         </button>
       </div>
+
+      <AccountingHealthCheckCard />
 
       <div className="settings-view__card">
         <button

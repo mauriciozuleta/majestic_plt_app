@@ -18,6 +18,7 @@ import SimulatorTab from './components/company/tabs/SimulatorTab/SimulatorTab'
 import DriversTab from './components/company/tabs/DriversTab/DriversTab'
 import DocumentationTab from './components/company/tabs/DocumentationTab/DocumentationTab'
 import SettingsView from './components/company/tabs/ManagementTab/SettingsView/SettingsView'
+import AccountingAuditView from './components/accountingAudit/AccountingAuditView'
 import { addCompany as createCompany, fetchCompanies } from './services/companies'
 import { getCurrentUser } from './services/user'
 import { useAppStore } from './store/useAppStore'
@@ -42,6 +43,7 @@ function Layout() {
                 <Route path=":companyId/:sub" element={<SimParametersView />} />
               </Route>
               <Route path="/settings" element={<SettingsView />} />
+              <Route path="/accounting-audit" element={<AccountingAuditView />} />
 
               <Route path="/company/:companyId" element={<CompanyWorkspace />}>
                 <Route path="overview" element={<OverviewTab />} />

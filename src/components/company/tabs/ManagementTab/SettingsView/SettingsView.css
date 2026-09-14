@@ -111,6 +111,30 @@
   color: white;
 }
 
+.settings-view__audit-toggle-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-view__audit-status-row {
+  display: flex;
+  align-items: center;
+}
+
+.settings-view__audit-actions-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.settings-view__audit-actions-row .settings-view__btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
 .settings-view__tax-list {
   display: grid;
   gap: 0.5rem;

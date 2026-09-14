@@ -46,6 +46,16 @@ class PortfolioSettings(Base):
     # there's one US company in practice, same scope as the other fields on
     # this row.
     us_payroll_state = Column(String, nullable=True)
+    # Accounting Health Check (see accounting_auditor.py): whether the
+    # weekly-by-default background audit is on, how often it runs, and which
+    # company it's scoped to (null = every company). audit_last_run_at is
+    # only a display convenience — accounting_audit_scheduler.py's own due
+    # check reads the latest AccountingAuditRun row instead, so it stays
+    # correct even if this column and that row ever disagree.
+    audit_enabled = Column(Boolean, nullable=False, default=False)
+    audit_interval_days = Column(Integer, nullable=False, default=7)
+    audit_scope_company_id = Column(String, nullable=True)
+    audit_last_run_at = Column(String, nullable=True)
 
 
 class CountryInflation(Base):
@@ -461,3 +471,40 @@ class ProductCustomOverride(Base):
     custom_price = Column(Float, nullable=True)
     custom_weight_kg = Column(Float, nullable=True)
     updated_at = Column(String, nullable=False)
+
+
+class AccountingAuditRun(Base):
+    """One execution of the accounting auditor (accounting_auditor.py) —
+    manual ("Run now") or scheduled. Deliberately has no foreign key onto
+    anything the auditor itself checks (CommercialOperationEntry,
+    BankTransaction, JournalEntry/Line) — it's an independent record of the
+    audit's own activity, not part of the books being audited."""
+    __tablename__ = 'accounting_audit_runs'
+
+    id = Column(String, primary_key=True, index=True)
+    started_at = Column(String, nullable=False)
+    finished_at = Column(String, nullable=True)
+    status = Column(String, nullable=False, default='running')  # running | completed | failed
+    scope_company_id = Column(String, nullable=True)  # null = every company
+    triggered_by = Column(String, nullable=False, default='manual')  # manual | scheduled
+    entries_checked = Column(Integer, nullable=False, default=0)
+    findings_count = Column(Integer, nullable=False, default=0)
+    error_message = Column(String, nullable=True)
+
+
+class AccountingAuditFinding(Base):
+    """One discrepancy surfaced by an AccountingAuditRun. entry_id points at
+    the CommercialOperationEntry the finding traces back to (null for a
+    company-level finding, e.g. an aggregate cash-balance mismatch) — there's
+    no ForeignKey onto commercial_operation_entries on purpose, since the
+    source entry may since have been edited or deleted and the finding
+    should still be readable as history."""
+    __tablename__ = 'accounting_audit_findings'
+
+    id = Column(String, primary_key=True, index=True)
+    run_id = Column(String, ForeignKey('accounting_audit_runs.id'), nullable=False, index=True)
+    company_id = Column(String, nullable=False, index=True)
+    entry_id = Column(String, nullable=True, index=True)
+    severity = Column(String, nullable=False, default='error')  # error | warning
+    code = Column(String, nullable=False)
+    message = Column(String, nullable=False)

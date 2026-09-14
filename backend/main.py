@@ -10,8 +10,10 @@ from sqlalchemy import inspect, text
 
 load_dotenv()
 
+from .accounting_audit_scheduler import start_accounting_audit_scheduler
 from .database import Base, engine
 from .routers import (
+    accounting_audit,
     bank_accounts,
     commercial_operations,
     commercial_structure,
@@ -80,6 +82,14 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN real_start_date VARCHAR'))
             if 'us_payroll_state' not in settings_columns:
                 connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN us_payroll_state VARCHAR'))
+            if 'audit_enabled' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN audit_enabled BOOLEAN DEFAULT 0'))
+            if 'audit_interval_days' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN audit_interval_days INTEGER DEFAULT 7'))
+            if 'audit_scope_company_id' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN audit_scope_company_id VARCHAR'))
+            if 'audit_last_run_at' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN audit_last_run_at VARCHAR'))
 
         if 'companies' in inspector.get_table_names():
             company_columns = {column['name'] for column in inspector.get_columns('companies')}
@@ -395,3 +405,9 @@ app.include_router(weight_research.router)
 app.include_router(product_overrides.router)
 app.include_router(bank_accounts.router)
 app.include_router(payroll_schedule_settings.router)
+app.include_router(accounting_audit.router)
+
+
+@app.on_event('startup')
+def _on_startup():
+    start_accounting_audit_scheduler()
