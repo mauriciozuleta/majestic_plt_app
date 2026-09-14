@@ -23,6 +23,7 @@ CATEGORIES = [
     'other_assets_purchases',
     'startup_expenses',
     'startup_payroll',
+    'investment_subsidiaries',
     'working_capital',
 ]
 

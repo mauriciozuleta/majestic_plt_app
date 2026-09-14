@@ -7,9 +7,16 @@ export const CATEGORIES = [
   { key: 'other_assets_purchases', label: 'Other assets Purchases', color: '#38bdf8' },
   { key: 'startup_expenses', label: 'Start-up Expenses', color: '#f59e0b' },
   { key: 'startup_payroll', label: 'Start-up development payroll', color: '#a78bfa' },
+  { key: 'investment_subsidiaries', label: 'Investment in Subsidiaries / support projects', color: '#2dd4bf' },
   { key: 'working_capital', label: 'Start-up Working capital requirement', color: '#f87171' },
 ]
-export const EXPENSE_CATEGORY_KEYS = ['assets_acquisition', 'other_assets_purchases', 'startup_expenses', 'startup_payroll']
+export const EXPENSE_CATEGORY_KEYS = [
+  'assets_acquisition',
+  'other_assets_purchases',
+  'startup_expenses',
+  'startup_payroll',
+  'investment_subsidiaries',
+]
 export const WORKING_CAPITAL_KEY = 'working_capital'
 
 export function buildStartupInvestmentPdfSpec(plan, records) {
