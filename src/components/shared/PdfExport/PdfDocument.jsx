@@ -11,7 +11,7 @@ const DOC_PADDING_SIDE_REM = 2.4
 
 function money(value) {
   const amount = Number(value) || 0
-  return `$${Math.round(amount).toLocaleString()}`
+  return `$${Math.round(amount).toLocaleString('en-US')}`
 }
 
 function todayLabel() {

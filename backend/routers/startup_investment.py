@@ -98,6 +98,23 @@ def update_plan(company_id: str, payload: schemas.StartupInvestmentPlanUpdate, d
     return plan
 
 
+@router.patch('/companies/{company_id}/startup-investment/plan/link-to-parent', response_model=schemas.StartupInvestmentPlanOut)
+def set_link_to_parent(company_id: str, payload: dict, db: Session = Depends(get_db)):
+    """Whether this company's own monthly cash requirement should be rolled
+    up into its parent's "Investment in Subsidiaries" category (see
+    StartupInvestmentView.jsx) — has no effect if the company has no parent,
+    but is still settable either way since a company can gain/lose a parent
+    independently of this flag."""
+    plan = _get_plan_or_404(db, company_id)
+    link_to_parent = payload.get('link_to_parent')
+    if not isinstance(link_to_parent, bool):
+        raise HTTPException(status_code=400, detail='link_to_parent must be a boolean')
+
+    plan.link_to_parent = link_to_parent
+    db.commit()
+    return plan
+
+
 @router.get('/companies/{company_id}/startup-investment/records', response_model=list[schemas.StartupInvestmentRecordOut])
 def list_records(company_id: str, db: Session = Depends(get_db)):
     _get_plan_or_404(db, company_id)

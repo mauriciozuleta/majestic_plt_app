@@ -92,7 +92,7 @@ function AddStartupRecordModal({ category, categoryLabel, monthCount, initialRec
 
           <label>
             Total amount
-            <input type="text" value={`$${totalAmount.toLocaleString()}`} readOnly />
+            <input type="text" value={`$${totalAmount.toLocaleString('en-US')}`} readOnly />
           </label>
 
           <div className="startup-record-modal__attach">

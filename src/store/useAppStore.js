@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 const ACTIVE_COMPANY_KEY = 'majestic-active-company-id'
+const COMPANY_ORDER_KEY = 'majestic-company-order'
 const LEGACY_STORAGE_KEY = 'majestic-app-state'
 
 const loadPersistedActiveCompanyId = () => {
@@ -30,6 +31,39 @@ const persistActiveCompanyId = (activeCompanyId) => {
   }
 }
 
+const loadPersistedCompanyOrder = () => {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const raw = window.localStorage.getItem(COMPANY_ORDER_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const persistCompanyOrder = (companyIds) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(COMPANY_ORDER_KEY, JSON.stringify(companyIds))
+}
+
+// Sidebar drag-to-reorder is purely a per-browser display preference (see
+// CompanyList.jsx) — not synced to the backend, same scope as
+// ACTIVE_COMPANY_KEY above. Companies not yet in the saved order (new ones,
+// or a first run with no saved order at all) keep their fetch order,
+// appended after every company the saved order does know about.
+const applyPersistedCompanyOrder = (companies) => {
+  const order = loadPersistedCompanyOrder()
+  if (order.length === 0) return companies
+
+  const byId = new Map(companies.map((company) => [company.id, company]))
+  const ordered = order.map((id) => byId.get(id)).filter(Boolean)
+  const orderedIds = new Set(ordered.map((company) => company.id))
+  const remaining = companies.filter((company) => !orderedIds.has(company.id))
+  return [...ordered, ...remaining]
+}
+
 const initialActiveCompanyId = loadPersistedActiveCompanyId()
 
 export const useAppStore = create((set, get) => ({
@@ -42,17 +76,33 @@ export const useAppStore = create((set, get) => ({
   setCurrentUser: (user) => set({ currentUser: user }),
   setCompanies: (companies) =>
     set((state) => {
+      const orderedCompanies = applyPersistedCompanyOrder(companies)
       const nextActiveCompanyId =
-        companies.find((company) => company.id === state.activeCompanyId)?.id ??
-        companies[0]?.id ??
+        orderedCompanies.find((company) => company.id === state.activeCompanyId)?.id ??
+        orderedCompanies[0]?.id ??
         null
 
       persistActiveCompanyId(nextActiveCompanyId)
 
       return {
-        companies,
+        companies: orderedCompanies,
         activeCompanyId: nextActiveCompanyId,
       }
+    }),
+  reorderCompanies: (draggedCompanyId, targetCompanyId) =>
+    set((state) => {
+      if (draggedCompanyId === targetCompanyId) return {}
+
+      const companies = [...state.companies]
+      const fromIndex = companies.findIndex((company) => company.id === draggedCompanyId)
+      const toIndex = companies.findIndex((company) => company.id === targetCompanyId)
+      if (fromIndex === -1 || toIndex === -1) return {}
+
+      const [dragged] = companies.splice(fromIndex, 1)
+      companies.splice(toIndex, 0, dragged)
+
+      persistCompanyOrder(companies.map((company) => company.id))
+      return { companies }
     }),
   addCompany: (company) => {
     set((state) => ({

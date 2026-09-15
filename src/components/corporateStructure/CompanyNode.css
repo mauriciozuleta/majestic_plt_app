@@ -1,0 +1,62 @@
+.company-node {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  text-align: center;
+}
+
+.company-node__logo {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.company-node__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.company-node__badge {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.company-node__badge.is-standalone {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.14);
+}
+
+.company-node__badge.is-subsidiary {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.14);
+}
+
+.company-node__parent {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+.company-node__handle {
+  background: var(--accent-amber) !important;
+  width: 8px !important;
+  height: 8px !important;
+  border: none !important;
+}

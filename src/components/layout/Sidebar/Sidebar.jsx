@@ -4,6 +4,7 @@ import {
   IconHome,
   IconLayoutDashboard,
   IconSettings,
+  IconSitemap,
   IconPlus,
   IconWorld,
 } from '@tabler/icons-react'
@@ -51,6 +52,7 @@ function Sidebar() {
     <aside className="sidebar-shell">
       <div className="sidebar-shell__inner">
         <SidebarNavItem icon={IconHome} label="Home" to="/" />
+        <SidebarNavItem icon={IconSitemap} label="Corporate structure" to="/corporate-structure" />
         <SidebarNavItem icon={IconLayoutDashboard} label="Control dashboard" to="/dashboard" />
         <SidebarNavItem icon={IconWorld} label="Commercial Structure" to="/commercial-structure" />
         <SidebarNavItem icon={IconChartDots} label="Simulations" to="/simulations" />

@@ -54,6 +54,11 @@ def _ensure_schema_migrations():
         if 'startup_investment_entries' in inspector.get_table_names():
             connection.execute(text('DROP TABLE startup_investment_entries'))
 
+        if 'startup_investment_plans' in inspector.get_table_names():
+            plan_columns = {column['name'] for column in inspector.get_columns('startup_investment_plans')}
+            if 'link_to_parent' not in plan_columns:
+                connection.execute(text('ALTER TABLE startup_investment_plans ADD COLUMN link_to_parent BOOLEAN DEFAULT 0'))
+
         if 'portfolio_settings' in inspector.get_table_names():
             settings_columns = {column['name'] for column in inspector.get_columns('portfolio_settings')}
             if 'projection_years' not in settings_columns:

@@ -227,6 +227,8 @@ function PayrollView({ companyId: companyIdProp }) {
   }
 
   const handleDelete = async () => {
+    const count = selectedIds.length
+    if (!window.confirm(`Delete ${count} position${count === 1 ? '' : 's'}? This can't be undone.`)) return
     await deleteSelected(selectedIds)
     reset()
   }

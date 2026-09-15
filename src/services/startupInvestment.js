@@ -27,6 +27,16 @@ export async function updateStartupInvestmentPlan(companyId, preOperationalMonth
   return response.json()
 }
 
+export async function updateStartupInvestmentLinkToParent(companyId, linkToParent) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/startup-investment/plan/link-to-parent`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ link_to_parent: linkToParent }),
+  })
+  if (!response.ok) throw new Error('Failed to update the "Link to parent accounts" setting')
+  return response.json()
+}
+
 export async function fetchStartupInvestmentRecords(companyId) {
   const response = await fetch(`${API_BASE}/companies/${companyId}/startup-investment/records`)
   if (!response.ok) throw new Error('Failed to load start-up investment records')

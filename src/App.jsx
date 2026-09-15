@@ -9,7 +9,7 @@ import ControlDashboardView from './components/dashboard/ControlDashboardView'
 import CommercialStructureView from './components/commercialStructure/CommercialStructureView'
 import SimulationsView, { SimulationsIndexRedirect } from './components/simulations/SimulationsView'
 import SimParametersView from './components/simulations/SimParametersView'
-import CompanyWorkspace from './components/company/CompanyWorkspace/CompanyWorkspace'
+import CompanyWorkspace, { CompanyIndexRedirect } from './components/company/CompanyWorkspace/CompanyWorkspace'
 import OverviewTab from './components/company/tabs/OverviewTab/OverviewTab'
 import ManagementTab from './components/company/tabs/ManagementTab/ManagementTab'
 import FinancialTab from './components/company/tabs/FinancialTab/FinancialTab'
@@ -19,6 +19,7 @@ import DriversTab from './components/company/tabs/DriversTab/DriversTab'
 import DocumentationTab from './components/company/tabs/DocumentationTab/DocumentationTab'
 import SettingsView from './components/company/tabs/ManagementTab/SettingsView/SettingsView'
 import AccountingAuditView from './components/accountingAudit/AccountingAuditView'
+import CorporateStructureView from './components/corporateStructure/CorporateStructureView'
 import { addCompany as createCompany, fetchCompanies } from './services/companies'
 import { getCurrentUser } from './services/user'
 import { useAppStore } from './store/useAppStore'
@@ -35,6 +36,7 @@ function Layout() {
           <div className="content-panel">
             <Routes>
               <Route path="/" element={<HomeView />} />
+              <Route path="/corporate-structure" element={<CorporateStructureView />} />
               <Route path="/dashboard" element={<ControlDashboardView />} />
               <Route path="/commercial-structure" element={<CommercialStructureView />} />
               <Route path="/simulations" element={<SimulationsView />}>
@@ -55,7 +57,7 @@ function Layout() {
                 <Route path="simulator" element={<SimulatorTab />} />
                 <Route path="drivers" element={<DriversTab />} />
                 <Route path="documentation" element={<DocumentationTab />} />
-                <Route index element={<Navigate to="management/roadmap" replace />} />
+                <Route index element={<CompanyIndexRedirect />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

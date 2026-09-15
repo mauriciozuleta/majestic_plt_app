@@ -303,7 +303,17 @@ function PayrollMatrix({
             <div className="payroll-matrix__seat-name">
               {indent && <span className="payroll-matrix__group-indent" />}
               {label}
-              <button type="button" className="payroll-matrix__remove" title="Remove this seat" onClick={() => onRemoveEmployee(employee.id)}>×</button>
+              <button
+                type="button"
+                className="payroll-matrix__remove"
+                title="Remove this seat"
+                onClick={() => {
+                  if (!window.confirm(`Remove "${label}" from the roster? This can't be undone.`)) return
+                  onRemoveEmployee(employee.id)
+                }}
+              >
+                ×
+              </button>
             </div>
           </td>
           <td className="sticky-col sticky-2" />

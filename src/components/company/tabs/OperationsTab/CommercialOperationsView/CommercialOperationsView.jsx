@@ -247,7 +247,7 @@ function CommercialOperationsView({ companyId }) {
       <div className="commercial-ops__totals">
         {periodTotals.map((category) => (
           <span key={category.key} className="commercial-ops__total-pill" style={{ borderColor: category.color, color: category.color }}>
-            {category.label} total: ${category.total.toLocaleString()}
+            {category.label} total: ${category.total.toLocaleString('en-US')}
           </span>
         ))}
       </div>

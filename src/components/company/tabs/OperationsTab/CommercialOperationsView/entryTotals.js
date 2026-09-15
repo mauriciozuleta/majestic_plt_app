@@ -16,6 +16,6 @@ export function entriesInRange(entries, start, endExclusive) {
 
 export function formatCategoryTooltip(entries) {
   return sumByCategory(entries)
-    .map((category) => `${category.label}: $${category.total.toLocaleString()}`)
+    .map((category) => `${category.label}: $${category.total.toLocaleString('en-US')}`)
     .join('\n')
 }

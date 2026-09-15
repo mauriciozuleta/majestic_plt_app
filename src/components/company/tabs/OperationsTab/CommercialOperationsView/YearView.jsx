@@ -23,7 +23,7 @@ function YearView({ calendarMode, referenceDate, entries, onSelectMonth }) {
             <div className="commercial-ops-year__month-totals">
               {totalsByCategory.map((category) => (
                 <span key={category.key} className="commercial-ops-year__month-total" style={{ color: category.color }}>
-                  {category.label}: ${category.total.toLocaleString()}
+                  {category.label}: ${category.total.toLocaleString('en-US')}
                 </span>
               ))}
             </div>

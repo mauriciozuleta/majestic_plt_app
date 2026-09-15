@@ -37,7 +37,7 @@ const PAYROLL_ACCOUNT_CODES = new Set(['6100', '6200', '6300', '2200', '2250', '
 
 function money(value) {
   const amount = Number(value) || 0
-  return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function sortRowsForDisplay(rows, sortMode) {

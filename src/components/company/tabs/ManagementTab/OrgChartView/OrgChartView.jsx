@@ -149,6 +149,7 @@ function OrgChartView({ companyId: companyIdProp }) {
                 type="button"
                 className="org-chart-view__editor-delete"
                 onClick={async () => {
+                  if (!window.confirm(`Delete "${selectedNode.data.officeName || 'this office'}"? This can't be undone.`)) return
                   await removeOffice(selectedNode.id)
                   setSelectedNodeId(null)
                 }}

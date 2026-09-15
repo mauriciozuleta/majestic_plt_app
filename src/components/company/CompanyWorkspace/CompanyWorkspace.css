@@ -110,6 +110,18 @@
   color: var(--text-secondary);
 }
 
+.company-workspace__subtab--startup-investment {
+  background: linear-gradient(135deg, rgba(53, 211, 153, 0.3), rgba(53, 211, 153, 0.12));
+  border-color: rgba(53, 211, 153, 0.65);
+  color: #eafff5;
+}
+
+.company-workspace__subtab--startup-investment.is-active {
+  background: linear-gradient(135deg, rgba(53, 211, 153, 0.48), rgba(53, 211, 153, 0.18));
+  border-color: rgba(53, 211, 153, 0.85);
+  color: #eafff5;
+}
+
 .company-workspace__content {
   min-height: 16rem;
   width: 100%;

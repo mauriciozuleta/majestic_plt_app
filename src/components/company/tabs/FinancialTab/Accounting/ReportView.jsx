@@ -6,7 +6,7 @@ import './Accounting.css'
 function money(value) {
   const amount = Number(value) || 0
   const sign = amount < 0 ? '-' : ''
-  return `${sign}$${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${sign}$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function signClass(amount, colorBySign) {

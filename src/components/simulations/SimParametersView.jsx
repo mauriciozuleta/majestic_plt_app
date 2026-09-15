@@ -82,7 +82,7 @@ function SimParametersView() {
                     </span>
                   </td>
                   <td>{label}</td>
-                  <td className="num">${entry.amount.toLocaleString()}</td>
+                  <td className="num">${entry.amount.toLocaleString('en-US')}</td>
                 </tr>
               )
             })}

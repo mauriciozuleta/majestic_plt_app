@@ -32,7 +32,7 @@ function MonthView({ calendarMode, referenceDate, entriesByDate, onSelectDay }) 
                 <div className="commercial-ops-month__day-totals">
                   {nonZeroCategories.map((category) => (
                     <span key={category.key} className="commercial-ops-month__day-total" style={{ color: category.color }}>
-                      {category.label}: ${category.total.toLocaleString()}
+                      {category.label}: ${category.total.toLocaleString('en-US')}
                     </span>
                   ))}
                 </div>

@@ -1,0 +1,33 @@
+.corporate-structure-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 1rem;
+}
+
+.corporate-structure-view__header h3 {
+  margin: 0;
+}
+
+.corporate-structure-view__header p {
+  margin: 0.3rem 0 0;
+  color: var(--text-muted);
+  max-width: 46rem;
+}
+
+.corporate-structure-view__status {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: 10px;
+  padding: 0.85rem;
+  font-size: 0.8rem;
+}
+
+/* .org-chart-canvas is OrgChartCanvas's own class (reused as-is) — this
+   page gives it more room than a tab panel would. */
+.corporate-structure-view .org-chart-canvas {
+  height: 70vh;
+  min-height: 26rem;
+}

@@ -218,7 +218,10 @@ function RoadmapView({ companyId: companyIdProp }) {
                 : updates
               return saveTask(selectedTaskDerived.id, nextUpdates)
             }}
-            onDelete={() => removeTask(selectedTaskDerived.id)}
+            onDelete={() => {
+              if (!window.confirm(`Delete "${selectedTaskDerived.name}"? This can't be undone.`)) return
+              removeTask(selectedTaskDerived.id)
+            }}
             onIndent={canIndent ? () => setTaskParent(selectedTaskDerived.id, previousTask.id) : null}
             onOutdent={canOutdent ? () => setTaskParent(selectedTaskDerived.id, parentTask?.parent_task_id ?? null) : null}
             onMoveUp={canMoveUp ? () => moveSelectedTask('up') : null}

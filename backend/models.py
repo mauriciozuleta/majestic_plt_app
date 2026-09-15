@@ -313,6 +313,12 @@ class StartupInvestmentPlan(Base):
     id = Column(String, primary_key=True, index=True)
     company_id = Column(String, unique=True, nullable=False, index=True)
     pre_operational_months = Column(Integer, nullable=False)
+    # Whether this company's own monthly cash requirement should be rolled
+    # up, read-only, into its parent's "Investment in Subsidiaries / support
+    # projects" category (see StartupInvestmentView.jsx) — set on the CHILD
+    # company's own plan, surfaced on the PARENT's view. No effect on a
+    # stand-alone company with no parent.
+    link_to_parent = Column(Boolean, nullable=False, default=False)
 
 
 class PayrollScheduleSettings(Base):

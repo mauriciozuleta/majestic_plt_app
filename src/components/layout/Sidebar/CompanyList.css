@@ -24,13 +24,47 @@
   border-color: var(--border);
 }
 
+.company-list__item.is-drag-over {
+  border-color: var(--accent-amber, #f59e0b);
+  box-shadow: inset 0 2px 0 var(--accent-amber, #f59e0b);
+}
+
+.company-list__grab {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.6rem;
+  margin-left: 0.2rem;
+  border: none;
+  background: transparent;
+  color: var(--text-dim, #64748b);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.company-list__item:hover .company-list__grab,
+.company-list__item:focus-within .company-list__grab {
+  opacity: 1;
+}
+
+.company-list__grab:hover {
+  color: var(--text-primary);
+}
+
+.company-list__grab:active {
+  cursor: grabbing;
+}
+
 .company-list__row {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.6rem 0.4rem 0.6rem 0.45rem;
+  padding: 0.6rem 0.4rem 0.6rem 0.15rem;
   border: none;
   background: transparent;
   color: var(--text-secondary);

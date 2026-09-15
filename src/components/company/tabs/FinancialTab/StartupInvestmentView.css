@@ -17,6 +17,69 @@
   margin: 0;
 }
 
+.startup-investment__title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.startup-investment__link-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.startup-investment__link-toggle input {
+  cursor: pointer;
+}
+
+.startup-investment__selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.startup-investment__selection-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.startup-investment__record-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.startup-investment__record-cell .startup-investment__record-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.startup-investment__record-checkbox {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.startup-investment__record-row.is-linked {
+  font-style: italic;
+}
+
+.startup-investment__linked-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.startup-investment__linked-icon {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
 .startup-investment__status {
   padding: 1rem;
   color: var(--text-muted);

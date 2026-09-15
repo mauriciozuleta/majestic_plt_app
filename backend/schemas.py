@@ -286,6 +286,7 @@ class StartupInvestmentPlanCreate(BaseModel):
 class StartupInvestmentPlanOut(StartupInvestmentPlanCreate):
     id: str
     company_id: str
+    link_to_parent: bool = False
 
     class Config:
         from_attributes = True

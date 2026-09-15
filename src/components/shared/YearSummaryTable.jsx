@@ -1,6 +1,6 @@
 import './YearSummaryTable.css'
 
-const defaultFormat = (value) => Math.round(value).toLocaleString()
+const defaultFormat = (value) => Math.round(value).toLocaleString('en-US')
 
 function asParts(value) {
   if (!value) return []

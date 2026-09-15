@@ -1,5 +1,6 @@
 import './HomeView.css'
 import MetricCard from './MetricCard'
+import StartupInvestmentSummaryCard from './StartupInvestmentSummaryCard'
 import { useAppStore } from '../../store/useAppStore'
 
 function HomeView() {
@@ -10,6 +11,7 @@ function HomeView() {
       <div className="home-view__grid">
         <MetricCard label="Active companies" value={String(companies.length)} tone="teal" />
         <MetricCard label="Financial performance" value="+18.4%" tone="amber" />
+        <StartupInvestmentSummaryCard />
       </div>
     </div>
   )

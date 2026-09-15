@@ -1,8 +1,18 @@
 import { useEffect } from 'react'
 import './CompanyWorkspace.css'
-import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAppStore } from '../../../store/useAppStore'
 import { usePayrollScheduleSync } from '../../../hooks/usePayrollScheduleSync'
+import { getLastCompanyPath, setLastCompanyPath } from '../../../utils/lastCompanyPath'
+
+// The bare `/company/:companyId` route (no sub-path) uses this instead of a
+// static redirect, so returning to a company you've already visited lands
+// back on whatever tab you last left it on there, not always Management ▸
+// Roadmap.
+function CompanyIndexRedirect() {
+  const { companyId } = useParams()
+  return <Navigate to={getLastCompanyPath(companyId) || 'management/roadmap'} replace />
+}
 
 const subTabLabels = {
   'revenue-streams': 'Revenue/COS',
@@ -35,7 +45,7 @@ const tabConfig = {
   },
   financial: {
     label: 'Financial',
-    subTabs: ['revenue-streams', 'expenses', 'accounting', 'financial-modeling', 'startup-investment', 'bank-accounts'],
+    subTabs: ['startup-investment', 'revenue-streams', 'expenses', 'accounting', 'financial-modeling', 'bank-accounts'],
   },
   simulator: {
     label: 'Simulator',
@@ -67,6 +77,12 @@ function CompanyWorkspace() {
     const suffix = pathname.split('/').slice(3).join('/')
     navigate(`/company/${company.id}${suffix ? `/${suffix}` : ''}`, { replace: true })
   }, [company, companyId, navigate, pathname])
+
+  useEffect(() => {
+    if (!company) return
+    const subPath = pathname.split('/').slice(3).join('/')
+    if (subPath) setLastCompanyPath(company.id, subPath)
+  }, [company, pathname])
 
   if (!company) return null
 
@@ -143,7 +159,11 @@ function CompanyWorkspace() {
             <NavLink
               key={entry}
               to={`/company/${companyId}/${activeTab}/${entry}`}
-              className={({ isActive }) => `company-workspace__subtab ${isActive ? 'is-active' : ''}`}
+              className={({ isActive }) =>
+                `company-workspace__subtab ${entry === 'startup-investment' ? 'company-workspace__subtab--startup-investment' : ''} ${
+                  isActive ? 'is-active' : ''
+                }`
+              }
             >
               {subTabLabels[entry] || entry.replace(/-/g, ' ')}
             </NavLink>
@@ -159,3 +179,4 @@ function CompanyWorkspace() {
 }
 
 export default CompanyWorkspace
+export { CompanyIndexRedirect }
