@@ -17,6 +17,10 @@ class Company(Base):
     country_code = Column(String, nullable=True)
     currency_name = Column(String, nullable=True)
     currency_code = Column(String, nullable=True)
+    # Which development phase (see PortfolioSettings.phases_json) this
+    # company's own "Year 1, Month 1, Day 1" anchors to, when phases are
+    # enabled — null means "Phase 1" by default (see gl_engine's use of it).
+    phase_number = Column(Integer, nullable=True)
 
 
 class PortfolioSettings(Base):
@@ -56,6 +60,16 @@ class PortfolioSettings(Base):
     audit_interval_days = Column(Integer, nullable=False, default=7)
     audit_scope_company_id = Column(String, nullable=True)
     audit_last_run_at = Column(String, nullable=True)
+    # Development Phases: an alternative to the single portfolio-wide
+    # real_start_date above — when enabled, each company anchors its own
+    # "Year 1, Month 1, Day 1" to whichever phase it's assigned
+    # (Company.phase_number), not to one shared date. phases_json holds
+    # [{"phase_number": 1, "start_date": "2026-01-01"}, ...], one entry per
+    # phase from 1..phases_count; every phase must have a start_date before
+    # this can be saved as enabled (see routers/settings.py).
+    phases_enabled = Column(Boolean, nullable=False, default=False)
+    phases_count = Column(Integer, nullable=True)
+    phases_json = Column(String, nullable=False, default='[]')
 
 
 class CountryInflation(Base):
@@ -80,6 +94,11 @@ class BankAccount(Base):
     account_type = Column(String, nullable=False)  # 'main' | 'secondary'
     account_name = Column(String, nullable=False)
     logo = Column(String, nullable=True)
+    # Marks this account as cash set aside for a specific obligation rather
+    # than day-to-day operating funds — see reserve_account_id below. Purely
+    # a display/reporting flag; it doesn't restrict what the account can be
+    # used for.
+    is_reserve = Column(Boolean, nullable=False, default=False)
 
 
 class BankTransaction(Base):
@@ -387,6 +406,15 @@ class CommercialOperationEntry(Base):
     # them cascade to the rest, unlike recurrence_* above which is just each
     # row's own memory of the pattern used, with no link between rows.
     series_id = Column(String, nullable=True, index=True)
+    # Only meaningful for a treatment with a future settlement leg (an
+    # accrued cos/expense — see gl_engine.CASH_TIMING_BY_TREATMENT). When
+    # set, the cash for this obligation is moved into this reserve account
+    # at entry_date (an internal transfer, no P&L effect — see
+    # _post_bank_transaction) and the eventual settlement-date disbursement
+    # is drawn from here instead of bank_account_id. The liability itself
+    # (booked by post_commercial_operation_entry) is untouched either way —
+    # funding a reserve doesn't pay the obligation, only earmarks cash for it.
+    reserve_account_id = Column(String, nullable=True)
 
 
 class SimParameter(Base):
@@ -514,3 +542,54 @@ class AccountingAuditFinding(Base):
     severity = Column(String, nullable=False, default='error')  # error | warning
     code = Column(String, nullable=False)
     message = Column(String, nullable=False)
+
+
+class RiskCategory(Base):
+    """A per-company grouping of risks (Market, Competition, ... or a
+    custom one the user added). The 6 default categories are lazily seeded
+    the first time a company's risk analysis is fetched (see
+    routers/risk_analysis.py), same pattern as gl_engine's default chart of
+    accounts — so an existing company picks them up with no migration."""
+    __tablename__ = 'risk_categories'
+
+    id = Column(String, primary_key=True, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    color = Column(String, nullable=False)
+    sort_order = Column(Integer, default=0)
+    is_custom = Column(Boolean, nullable=False, default=False)
+
+
+class Risk(Base):
+    """One identified risk within a category. probability/impact are the
+    5-point scale letters (VL/L/M/H/VH) — see risk_scoring.py for how they
+    combine into an Exposure score. description is the free-text "what
+    happens if this isn't managed" — the same field the Generate Plan
+    feature reads as its knowledge source, not a separate log, so it's
+    always exactly as current as the risk itself."""
+    __tablename__ = 'risks'
+
+    id = Column(String, primary_key=True, index=True)
+    category_id = Column(String, ForeignKey('risk_categories.id'), nullable=False, index=True)
+    company_id = Column(String, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    probability = Column(String, nullable=False, default='M')
+    impact = Column(String, nullable=False, default='M')
+    sort_order = Column(Integer, default=0)
+
+
+class RiskMechanism(Base):
+    """One management mechanism for a risk. capacity/cost are the same
+    5-point scale letters as Risk's own probability/impact, but cost is
+    read on an inverted scale (a cheap mechanism scores high) — see
+    risk_scoring.py."""
+    __tablename__ = 'risk_mechanisms'
+
+    id = Column(String, primary_key=True, index=True)
+    risk_id = Column(String, ForeignKey('risks.id'), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    capacity = Column(String, nullable=False, default='M')
+    cost = Column(String, nullable=False, default='M')
+    sort_order = Column(Integer, default=0)

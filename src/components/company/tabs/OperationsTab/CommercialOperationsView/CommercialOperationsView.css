@@ -432,6 +432,9 @@
 
 .commercial-ops-modal {
   width: min(28rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100vh - 2rem));
+  display: flex;
+  flex-direction: column;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
   border-radius: 16px;
@@ -443,12 +446,23 @@
   margin: 0 0 0.7rem;
   color: var(--text-primary);
   font-size: 1.05rem;
+  flex-shrink: 0;
 }
 
 .commercial-ops-modal__form {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  /* The form can grow well past the viewport once treatments, a settlement
+     schedule and a repeat pattern all show at once — this is the scrolling
+     region so it does that internally instead of pushing Save off-screen.
+     min-height: 0 overrides a flex item's default of never shrinking below
+     its own content size, which would otherwise defeat overflow entirely. */
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+  margin-right: -0.3rem;
 }
 
 .commercial-ops-modal__form label {
@@ -508,6 +522,17 @@
 
 .commercial-ops-modal__radio input {
   width: auto;
+}
+
+.commercial-ops-modal__transfer-link {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-teal-text);
+  font-size: 0.74rem;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .commercial-ops-modal__checkbox {
@@ -577,6 +602,11 @@
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.4rem;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-panel);
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
 }
 
 .commercial-ops-modal__cancel,

@@ -124,6 +124,12 @@
   background: rgba(249, 115, 22, 0.12);
 }
 
+.bank-accounts-view__type-tag--reserve {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(59, 130, 246, 0.12);
+}
+
 .bank-accounts-view__remove {
   flex-shrink: 0;
   width: 1.6rem;

@@ -66,6 +66,21 @@
   outline: none;
 }
 
+.bank-account-modal__checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.bank-account-modal__checkbox input {
+  width: auto;
+}
+
 .bank-account-modal__upload-row {
   display: flex;
   align-items: center;

@@ -16,6 +16,7 @@ function AddBankAccountModal({ existingAccounts, onSave, onCancel }) {
   const [accountType, setAccountType] = useState('main')
   const [accountName, setAccountName] = useState('')
   const [accountNameTouched, setAccountNameTouched] = useState(false)
+  const [isReserve, setIsReserve] = useState(false)
   const [logo, setLogo] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -76,6 +77,7 @@ function AddBankAccountModal({ existingAccounts, onSave, onCancel }) {
         account_type: accountType,
         account_name: trimmedAccountName,
         logo: logo || null,
+        is_reserve: isReserve,
       })
     } catch (saveError) {
       setError(saveError.message || 'Failed to save the account.')
@@ -136,6 +138,11 @@ function AddBankAccountModal({ existingAccounts, onSave, onCancel }) {
               }}
               placeholder="e.g. Bank of America Main Account"
             />
+          </label>
+
+          <label className="bank-account-modal__checkbox" title="Cash held here is earmarked for a specific obligation, not day-to-day operating funds.">
+            <input type="checkbox" checked={isReserve} onChange={(event) => setIsReserve(event.target.checked)} />
+            Reserve account
           </label>
 
           <div className="bank-account-modal__field">

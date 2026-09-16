@@ -269,6 +269,7 @@ class CommercialOperationEntryCreate(BaseModel):
     source: Optional[str] = None
     schedule_key: Optional[str] = None
     series_id: Optional[str] = None
+    reserve_account_id: Optional[str] = None
 
 
 class CommercialOperationEntryOut(CommercialOperationEntryCreate):

@@ -103,6 +103,16 @@ export async function updateUsPayrollState(state) {
   return response.json()
 }
 
+export async function updateDevelopmentPhases(payload) {
+  const response = await fetch(`${API_BASE}/settings/development-phases`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to update development phases'))
+  return response.json()
+}
+
 export async function updatePayrollSchedule(payload) {
   const response = await fetch(`${API_BASE}/settings/payroll-schedule`, {
     method: 'PATCH',

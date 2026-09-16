@@ -6,6 +6,7 @@ import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 load_dotenv()
@@ -31,6 +32,7 @@ from .routers import (
     price_comparison,
     product_overrides,
     revenue_streams,
+    risk_analysis,
     roadmap,
     settings,
     sim_parameters,
@@ -95,17 +97,40 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN audit_scope_company_id VARCHAR'))
             if 'audit_last_run_at' not in settings_columns:
                 connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN audit_last_run_at VARCHAR'))
+            if 'phases_enabled' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN phases_enabled BOOLEAN DEFAULT 0'))
+            if 'phases_count' not in settings_columns:
+                connection.execute(text('ALTER TABLE portfolio_settings ADD COLUMN phases_count INTEGER'))
+            if 'phases_json' not in settings_columns:
+                connection.execute(text("ALTER TABLE portfolio_settings ADD COLUMN phases_json VARCHAR DEFAULT '[]'"))
 
         if 'companies' in inspector.get_table_names():
             company_columns = {column['name'] for column in inspector.get_columns('companies')}
             if 'country_name' not in company_columns:
                 connection.execute(text('ALTER TABLE companies ADD COLUMN country_name VARCHAR'))
+            if 'phase_number' not in company_columns:
+                connection.execute(text('ALTER TABLE companies ADD COLUMN phase_number INTEGER'))
             if 'country_code' not in company_columns:
                 connection.execute(text('ALTER TABLE companies ADD COLUMN country_code VARCHAR'))
             if 'currency_name' not in company_columns:
                 connection.execute(text('ALTER TABLE companies ADD COLUMN currency_name VARCHAR'))
             if 'currency_code' not in company_columns:
                 connection.execute(text('ALTER TABLE companies ADD COLUMN currency_code VARCHAR'))
+
+            # One-time cleanup: a logo stored as a data: URL directly in this
+            # column (the old behavior) is a few hundred KB to over a MB of
+            # base64 text per company — moved out to a real file under
+            # company_logos/ instead (see persist_logo in
+            # routers/companies.py), same place any new upload goes from now
+            # on. This class of storage is exactly what let a company's logo
+            # silently disappear on some unrelated edit.
+            legacy_logo_rows = connection.execute(text("SELECT id, logo FROM companies WHERE logo LIKE 'data:image/%'")).fetchall()
+            for legacy_company_id, legacy_logo in legacy_logo_rows:
+                new_logo = companies.persist_logo(legacy_company_id, legacy_logo)
+                connection.execute(
+                    text('UPDATE companies SET logo = :logo WHERE id = :id'),
+                    {'logo': new_logo, 'id': legacy_company_id},
+                )
 
         if 'org_chart_nodes' in inspector.get_table_names():
             node_columns = {column['name'] for column in inspector.get_columns('org_chart_nodes')}
@@ -279,6 +304,13 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN schedule_key VARCHAR'))
             if 'series_id' not in commercial_op_columns:
                 connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN series_id VARCHAR'))
+            if 'reserve_account_id' not in commercial_op_columns:
+                connection.execute(text('ALTER TABLE commercial_operation_entries ADD COLUMN reserve_account_id VARCHAR'))
+
+        if 'bank_accounts' in inspector.get_table_names():
+            bank_account_columns = {column['name'] for column in inspector.get_columns('bank_accounts')}
+            if 'is_reserve' not in bank_account_columns:
+                connection.execute(text('ALTER TABLE bank_accounts ADD COLUMN is_reserve BOOLEAN DEFAULT 0'))
 
         if 'payroll_employees' in inspector.get_table_names():
             employee_columns = {column['name'] for column in inspector.get_columns('payroll_employees')}
@@ -387,6 +419,9 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
+companies.LOGOS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount('/company-logos', StaticFiles(directory=str(companies.LOGOS_DIR)), name='company-logos')
+
 app.include_router(roadmap.router)
 app.include_router(settings.router)
 app.include_router(companies.router)
@@ -411,6 +446,7 @@ app.include_router(product_overrides.router)
 app.include_router(bank_accounts.router)
 app.include_router(payroll_schedule_settings.router)
 app.include_router(accounting_audit.router)
+app.include_router(risk_analysis.router)
 
 
 @app.on_event('startup')

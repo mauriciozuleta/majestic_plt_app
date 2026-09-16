@@ -24,6 +24,7 @@ function AddEntryModal({
   seriesEntryCount,
   onSave,
   onCancel,
+  onOpenTransfer,
 }) {
   const isEditMode = Boolean(initialEntry)
   const categoryMeta = CATEGORIES.find((item) => item.key === category)
@@ -137,6 +138,7 @@ function AddEntryModal({
     setSelectedAccountId(match.id)
   }, [initialEntry, bankAccounts, bankNames, selectedBankName])
   const isDebitCategory = category === 'cos' || category === 'expenses'
+  const selectedTreatment = treatments.find((item) => item.key === accountingTreatment)
 
   // Shows the account's current balance so the user can tell whether the
   // source they're about to pick actually has money for this cos/expense —
@@ -329,8 +331,6 @@ function AddEntryModal({
     </label>
   )
 
-  const selectedTreatment = treatments.find((item) => item.key === accountingTreatment)
-
   const frequencyMeta = FREQUENCIES.find((item) => item.key === frequency)
   const effectiveUnit = frequency === 'custom' ? customUnit : frequencyMeta?.unit
   const unitLabel = effectiveUnit ? `${effectiveUnit}${Number(repeatInterval) === 1 ? '' : 's'}` : ''
@@ -443,6 +443,17 @@ function AddEntryModal({
             />
           </label>
 
+          {isDebitCategory && onOpenTransfer && (
+            <button
+              type="button"
+              className="commercial-ops-modal__transfer-link"
+              onClick={onOpenTransfer}
+              title="Moving money between your own accounts (e.g. into a reserve) isn't an expense — use Inter-bank Transfer instead."
+            >
+              Transfer between accounts instead
+            </button>
+          )}
+
           <label>
             Reference Document
             <input
@@ -509,6 +520,7 @@ function AddEntryModal({
               )}
             </label>
           )}
+
           {isDebitCategory && selectedAccountId && (
             <p className="commercial-ops-modal__repeat-hint">This will post a debit to the selected account.</p>
           )}

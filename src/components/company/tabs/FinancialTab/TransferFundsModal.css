@@ -10,6 +10,9 @@
 
 .transfer-funds-modal {
   width: min(28rem, calc(100vw - 2rem));
+  max-height: min(38rem, calc(100vh - 2rem));
+  display: flex;
+  flex-direction: column;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
   border-radius: 16px;
@@ -21,12 +24,18 @@
   margin: 0 0 0.7rem;
   color: var(--text-primary);
   font-size: 1.05rem;
+  flex-shrink: 0;
 }
 
 .transfer-funds-modal__form {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+  margin-right: -0.3rem;
 }
 
 .transfer-funds-modal__form label {
@@ -58,11 +67,58 @@
   font-size: 0.75rem;
 }
 
+.transfer-funds-modal__checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.45rem !important;
+  color: var(--text-secondary) !important;
+  font-size: 0.8rem !important;
+  cursor: pointer;
+}
+
+.transfer-funds-modal__checkbox input {
+  width: auto;
+}
+
+.transfer-funds-modal__repeat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.transfer-funds-modal__repeat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.transfer-funds-modal__repeat-unit {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  padding-bottom: 0.55rem;
+}
+
+.transfer-funds-modal__repeat-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-style: italic;
+}
+
 .transfer-funds-modal__actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.4rem;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-panel);
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
 }
 
 .transfer-funds-modal__cancel,

@@ -21,6 +21,7 @@ const subTabLabels = {
   'financial-modeling': 'Financial Modeling',
   'startup-investment': 'Start-up Investment',
   'bank-accounts': 'Bank Accounts',
+  'risk-analysis': 'Risk Analysis',
 }
 
 function slugify(value) {
@@ -41,7 +42,7 @@ const tabConfig = {
   },
   management: {
     label: 'Management',
-    subTabs: ['roadmap', 'org-chart', 'payroll'],
+    subTabs: ['roadmap', 'org-chart', 'payroll', 'risk-analysis'],
   },
   financial: {
     label: 'Financial',

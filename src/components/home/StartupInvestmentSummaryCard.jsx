@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useAppStore } from '../../store/useAppStore'
-import { fetchStartupInvestmentPlan, fetchStartupInvestmentRecords } from '../../services/startupInvestment'
-import { CATEGORIES, EXPENSE_CATEGORY_KEYS, WORKING_CAPITAL_KEY } from '../company/tabs/FinancialTab/startupInvestmentPdfSpec'
+import { useStartupInvestmentTotals } from '../../hooks/useStartupInvestmentTotals'
+import { CATEGORIES } from '../company/tabs/FinancialTab/startupInvestmentPdfSpec'
 import { formatCurrencyValue } from '../../utils/currencyFormat'
+import './pieChart3d.css'
 import './StartupInvestmentSummaryCard.css'
 
 function formatUsdWhole(value) {
@@ -44,66 +45,7 @@ function buildConicGradient(segments) {
 
 function StartupInvestmentSummaryCard() {
   const companies = useAppStore((state) => state.companies)
-  const [totalsByCompanyId, setTotalsByCompanyId] = useState({})
-  const [totalsByCategory, setTotalsByCategory] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (companies.length === 0) {
-      setTotalsByCompanyId({})
-      setTotalsByCategory({})
-      setLoading(false)
-      return undefined
-    }
-
-    let cancelled = false
-    setLoading(true)
-    setError('')
-
-    Promise.all(
-      companies.map(async (company) => {
-        const plan = await fetchStartupInvestmentPlan(company.id)
-        // No plan yet for this company (fetchStartupInvestmentPlan returns
-        // null on 404) — records would 404 too, so it contributes $0 rather
-        // than being skipped out of the breakdown entirely.
-        if (!plan) return [company.id, []]
-
-        const records = await fetchStartupInvestmentRecords(company.id)
-        return [company.id, records]
-      }),
-    )
-      .then((pairs) => {
-        if (cancelled) return
-
-        const nextTotalsByCompanyId = {}
-        const nextTotalsByCategory = {}
-
-        pairs.forEach(([companyId, records]) => {
-          let companyTotal = 0
-          records.forEach((record) => {
-            const countsTowardTotal = EXPENSE_CATEGORY_KEYS.includes(record.category) || record.category === WORKING_CAPITAL_KEY
-            if (!countsTowardTotal) return
-            companyTotal += record.total_amount
-            nextTotalsByCategory[record.category] = (nextTotalsByCategory[record.category] || 0) + record.total_amount
-          })
-          nextTotalsByCompanyId[companyId] = companyTotal
-        })
-
-        setTotalsByCompanyId(nextTotalsByCompanyId)
-        setTotalsByCategory(nextTotalsByCategory)
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || 'Failed to load start-up investment totals.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [companies])
+  const { totalsByCompanyId, totalsByCategory, loading, error } = useStartupInvestmentTotals(companies)
 
   const grandTotal = useMemo(
     () => Object.values(totalsByCompanyId).reduce((sum, value) => sum + value, 0),
@@ -155,12 +97,14 @@ function StartupInvestmentSummaryCard() {
 
           {pieSegments.length > 0 && (
             <div className="startup-investment-summary-card__pie-section">
-              <div
-                className="startup-investment-summary-card__pie"
-                style={{ background: buildConicGradient(pieSegments) }}
-                role="img"
-                aria-label="Share of start-up investment by category"
-              />
+              <div className="pie-chart-3d-wrap">
+                <div
+                  className="pie-chart-3d"
+                  style={{ background: buildConicGradient(pieSegments) }}
+                  role="img"
+                  aria-label="Share of start-up investment by category"
+                />
+              </div>
               <ul className="startup-investment-summary-card__legend">
                 {pieSegments.map((segment) => (
                   <li key={segment.key}>

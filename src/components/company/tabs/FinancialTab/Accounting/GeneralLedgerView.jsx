@@ -12,6 +12,7 @@ import {
 import { fetchSettings } from '../../../../../services/settings'
 import { createSimParameter, deleteSimParameter, fetchSimParameters } from '../../../../../services/simParameters'
 import AddEntryModal from '../../OperationsTab/CommercialOperationsView/AddEntryModal'
+import DeleteSeriesModal from '../../../../shared/DeleteSeriesModal/DeleteSeriesModal'
 import DateFilter from '../../../../shared/DateFilter/DateFilter'
 import { buildGeneralLedgerSummary, generalLedgerToCsvRows, reportToPdfSpec } from './accountingReports'
 import './Accounting.css'
@@ -68,6 +69,7 @@ function GeneralLedgerView() {
   const [collapsedAccountIds, setCollapsedAccountIds] = useState(() => new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedSourceIds, setSelectedSourceIds] = useState(() => new Set())
+  const [pendingSeriesDelete, setPendingSeriesDelete] = useState(null)
   const [dateFilterPrefix, setDateFilterPrefix] = useState('')
   // Per-account display order — sorting only ever reorders what's shown;
   // the running Balance column is computed once in true chronological
@@ -234,15 +236,10 @@ function GeneralLedgerView() {
     setEditingEntry(entry)
   }
 
-  const handleDeleteSelected = async () => {
-    const count = selectedSourceIds.size
-    if (count === 0) return
-    if (!window.confirm(`Delete ${count} ${count === 1 ? 'entry' : 'entries'}? This removes ${count === 1 ? 'it' : 'them'} from Commercial Operations too, and un-posts ${count === 1 ? 'it' : 'them'} from the ledger.`)) {
-      return
-    }
+  const performDelete = async (idsToDelete) => {
     setActionError('')
     try {
-      for (const sourceId of selectedSourceIds) {
+      for (const sourceId of idsToDelete) {
         // eslint-disable-next-line no-await-in-loop
         await deleteCommercialOperationEntry(companyId, sourceId)
       }
@@ -252,6 +249,34 @@ function GeneralLedgerView() {
     } catch (err) {
       setActionError(err.message || 'Failed to delete the selected entries.')
     }
+  }
+
+  const handleDeleteSelected = () => {
+    const idsToDelete = [...selectedSourceIds]
+    const count = idsToDelete.length
+    if (count === 0) return
+
+    // A single selected row might be one occurrence of a repeating series —
+    // offer the same explicit "just this one / delete all N / cancel"
+    // choice Commercial Operations' own delete does. A multi-row selection
+    // was already deliberately picked by hand, so it keeps the plain
+    // confirm below.
+    if (count === 1) {
+      const entry = commercialOperationEntries.find((item) => item.id === idsToDelete[0])
+      const siblingIds = entry?.series_id
+        ? commercialOperationEntries.filter((item) => item.series_id === entry.series_id).map((item) => item.id)
+        : []
+      if (siblingIds.length > 1) {
+        setPendingSeriesDelete({ entryId: idsToDelete[0], siblingIds, siblingCount: siblingIds.length })
+        return
+      }
+      if (!window.confirm('Delete this entry? This removes it from Commercial Operations too, and un-posts it from the ledger.')) return
+      performDelete(idsToDelete)
+      return
+    }
+
+    if (!window.confirm(`Delete ${count} entries? This removes them from Commercial Operations too, and un-posts them from the ledger.`)) return
+    performDelete(idsToDelete)
   }
 
   // Same edit-then-repeat semantics as Commercial Operations' own edit flow:
@@ -487,6 +512,22 @@ function GeneralLedgerView() {
           }
           onSave={handleUpdateEntry}
           onCancel={() => setEditingEntry(null)}
+        />
+      )}
+
+      {pendingSeriesDelete && (
+        <DeleteSeriesModal
+          entryLabel="This entry"
+          siblingCount={pendingSeriesDelete.siblingCount}
+          onCancel={() => setPendingSeriesDelete(null)}
+          onDeleteOne={() => {
+            performDelete([pendingSeriesDelete.entryId])
+            setPendingSeriesDelete(null)
+          }}
+          onDeleteAll={() => {
+            performDelete(pendingSeriesDelete.siblingIds)
+            setPendingSeriesDelete(null)
+          }}
         />
       )}
     </div>

@@ -11,6 +11,75 @@
   margin-bottom: 0.6rem;
 }
 
+.bank-ledger-panel__commitments {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bank-ledger-panel__commitments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bank-ledger-panel__commitments-header input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.bank-ledger-panel__commitments-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.bank-ledger-panel__commitments-summary strong {
+  font-variant-numeric: tabular-nums;
+  margin-left: 0.3rem;
+}
+
+.bank-ledger-panel__commitments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.bank-ledger-panel__commitments-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.bank-ledger-panel__commitments-list li span:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .bank-ledger-panel__scroll {
   overflow: auto;
   max-height: 22rem;
@@ -46,6 +115,28 @@
   padding: 0.5rem;
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
+}
+
+.bank-ledger-panel__row--scheduled {
+  opacity: 0.65;
+}
+
+.bank-ledger-panel__row--scheduled td:first-child {
+  border-left: 2px dashed var(--text-dim);
+}
+
+.bank-ledger-panel__scheduled-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  white-space: nowrap;
 }
 
 .bank-ledger-panel__table th:nth-child(n + 5),

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import SimulationDatePicker from '../../../shared/SimulationCalendar/SimulationDatePicker'
 import { fetchSettings } from '../../../../services/settings'
 import { getDefaultCalendarDate } from '../../../../services/calendarDates'
 import { fetchBankTransactions } from '../../../../services/bankAccounts'
 import { formatCurrencyValue } from '../../../../utils/currencyFormat'
+import { DAYS_1_TO_30, FREQUENCIES, MAX_OCCURRENCES, UNITS, buildRecurrenceDates } from '../OperationsTab/CommercialOperationsView/recurrence'
 import './TransferFundsModal.css'
 
 function accountLabel(account) {
@@ -41,6 +42,19 @@ function TransferFundsModal({ accounts, onSave, onCancel }) {
   const [toAccountId, setToAccountId] = useState('')
   const [amount, setAmount] = useState('')
   const [entryDate, setEntryDate] = useState('')
+  // Recurring transfer — e.g. "move $X into the reserve account every 30
+  // days" — kept independent of any expense/COS entry, since setting money
+  // aside is a balance-sheet-only move with no accrual or payment schedule
+  // of its own attached to it. Same recurrence primitives as "Repeat this
+  // entry" on Commercial Operations, minus anything settlement-related
+  // (a transfer has no separate settlement leg to schedule).
+  const [repeat, setRepeat] = useState(false)
+  const [frequency, setFrequency] = useState('monthly')
+  const [customUnit, setCustomUnit] = useState('day')
+  const [repeatInterval, setRepeatInterval] = useState(1)
+  const [recurrenceDay1, setRecurrenceDay1] = useState(1)
+  const [recurrenceDay2, setRecurrenceDay2] = useState(15)
+  const [untilDate, setUntilDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -62,6 +76,27 @@ function TransferFundsModal({ accounts, onSave, onCancel }) {
   const fromBalance = useAccountBalance(fromAccountId)
   const toBalance = useAccountBalance(toAccountId)
 
+  const renderDateInput = (value, onChange, ariaLabel) =>
+    calendarMode === 'simulation' ? (
+      <SimulationDatePicker value={value} onChange={onChange} />
+    ) : (
+      <input type="date" value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel} />
+    )
+
+  const frequencyMeta = FREQUENCIES.find((item) => item.key === frequency)
+  const effectiveUnit = frequency === 'custom' ? customUnit : frequencyMeta?.unit
+  const unitLabel = effectiveUnit ? `${effectiveUnit}${Number(repeatInterval) === 1 ? '' : 's'}` : ''
+  const occurrenceCount = useMemo(() => {
+    if (!repeat || !entryDate || !untilDate) return 0
+    return buildRecurrenceDates(calendarMode, entryDate, {
+      frequency,
+      customUnit,
+      interval: repeatInterval,
+      untilIsoDate: untilDate,
+      biweeklyDays: [Number(recurrenceDay1), Number(recurrenceDay2)],
+    }).length
+  }, [repeat, entryDate, untilDate, calendarMode, frequency, customUnit, repeatInterval, recurrenceDay1, recurrenceDay2])
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     const parsedAmount = Number(amount)
@@ -81,11 +116,36 @@ function TransferFundsModal({ accounts, onSave, onCancel }) {
       setError('Date is required.')
       return
     }
+    if (repeat && !untilDate) {
+      setError('Pick an end date for the repeat.')
+      return
+    }
+    if (repeat && untilDate < entryDate) {
+      setError('The repeat end date must be after the start date.')
+      return
+    }
+
+    const dates = repeat
+      ? buildRecurrenceDates(calendarMode, entryDate, {
+          frequency,
+          customUnit,
+          interval: repeatInterval,
+          untilIsoDate: untilDate,
+          biweeklyDays: [Number(recurrenceDay1), Number(recurrenceDay2)],
+        })
+      : [entryDate]
 
     setSaving(true)
     setError('')
     try {
-      await onSave({ from_account_id: fromAccountId, to_account_id: toAccountId, amount: parsedAmount, entry_date: entryDate })
+      await onSave(
+        dates.map((occurrenceEntryDate) => ({
+          from_account_id: fromAccountId,
+          to_account_id: toAccountId,
+          amount: parsedAmount,
+          entry_date: occurrenceEntryDate,
+        })),
+      )
     } catch (err) {
       setError(err.message || 'Could not create the transfer.')
     } finally {
@@ -126,6 +186,7 @@ function TransferFundsModal({ accounts, onSave, onCancel }) {
                 .map((account) => (
                   <option key={account.id} value={account.id}>
                     {accountLabel(account)}
+                    {account.is_reserve ? ' (Reserve)' : ''}
                   </option>
                 ))}
             </select>
@@ -150,12 +211,91 @@ function TransferFundsModal({ accounts, onSave, onCancel }) {
 
           <label>
             Date
-            {calendarMode === 'simulation' ? (
-              <SimulationDatePicker value={entryDate} onChange={setEntryDate} />
-            ) : (
-              <input type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} />
-            )}
+            {renderDateInput(entryDate, setEntryDate, 'Entry date')}
           </label>
+
+          <label className="transfer-funds-modal__checkbox">
+            <input type="checkbox" checked={repeat} onChange={(event) => setRepeat(event.target.checked)} />
+            Repeat this transfer
+          </label>
+
+          {repeat && (
+            <div className="transfer-funds-modal__repeat">
+              <div className="transfer-funds-modal__repeat-row">
+                <label>
+                  Frequency
+                  <select value={frequency} onChange={(event) => setFrequency(event.target.value)}>
+                    {FREQUENCIES.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {frequency === 'biweekly' ? (
+                  <>
+                    <label>
+                      Day 1
+                      <select value={recurrenceDay1} onChange={(event) => setRecurrenceDay1(Number(event.target.value))}>
+                        {DAYS_1_TO_30.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Day 2
+                      <select value={recurrenceDay2} onChange={(event) => setRecurrenceDay2(Number(event.target.value))}>
+                        {DAYS_1_TO_30.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <label>
+                      Every
+                      <input
+                        type="number"
+                        min="1"
+                        max="52"
+                        value={repeatInterval}
+                        onChange={(event) => setRepeatInterval(event.target.value)}
+                      />
+                    </label>
+                    {frequency === 'custom' ? (
+                      <label>
+                        Unit
+                        <select value={customUnit} onChange={(event) => setCustomUnit(event.target.value)}>
+                          {UNITS.map((item) => (
+                            <option key={item.key} value={item.key}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <span className="transfer-funds-modal__repeat-unit">{unitLabel}</span>
+                    )}
+                  </>
+                )}
+              </div>
+              <label>
+                Until
+                {renderDateInput(untilDate, setUntilDate, 'Repeat until')}
+              </label>
+              {occurrenceCount > 0 && (
+                <p className="transfer-funds-modal__repeat-hint">
+                  This will create {occurrenceCount} {occurrenceCount === 1 ? 'transfer' : 'transfers'}
+                  {occurrenceCount >= MAX_OCCURRENCES ? ` (capped at ${MAX_OCCURRENCES})` : ''}.
+                </p>
+              )}
+            </div>
+          )}
 
           {error && <div className="transfer-funds-modal__error">{error}</div>}
 

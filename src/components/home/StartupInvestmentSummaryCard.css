@@ -105,14 +105,6 @@
   flex-wrap: wrap;
 }
 
-.startup-investment-summary-card__pie {
-  flex-shrink: 0;
-  width: 7.5rem;
-  height: 7.5rem;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--border);
-}
-
 .startup-investment-summary-card__legend {
   flex: 1 1 12rem;
   list-style: none;

@@ -39,6 +39,14 @@ def _get_or_create_settings(db: Session):
     return settings
 
 
+def _load_phases(settings) -> list[dict]:
+    try:
+        phases = json.loads(settings.phases_json or '[]')
+    except (TypeError, ValueError):
+        return []
+    return phases if isinstance(phases, list) else []
+
+
 def _parse_iso_date(value: str, field_name: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -46,7 +54,22 @@ def _parse_iso_date(value: str, field_name: str) -> date:
         raise HTTPException(status_code=400, detail=f'Invalid {field_name}. Expected YYYY-MM-DD') from error
 
 
-def _convert_real_to_simulation(db: Session, real_start: date):
+def _shift_phase_dates(settings, shift) -> None:
+    """Re-expresses every Development Phase's start_date in the new mode's
+    native format (same elapsed-time-preserving shift as Roadmap tasks and
+    Payroll records above) — otherwise a phase date entered before a
+    calendar-mode switch would keep meaning what it meant under the OLD
+    mode, silently mismatching every phase entered after the switch."""
+    if not settings.phases_enabled:
+        return
+    phases = _load_phases(settings)
+    for phase in phases:
+        if isinstance(phase, dict) and phase.get('start_date'):
+            phase['start_date'] = shift(phase['start_date'])
+    settings.phases_json = json.dumps(phases)
+
+
+def _convert_real_to_simulation(db: Session, real_start: date, settings=None):
     def shift(iso_date_str):
         stored = date.fromisoformat(iso_date_str)
         elapsed_days = (stored - real_start).days
@@ -61,10 +84,13 @@ def _convert_real_to_simulation(db: Session, real_start: date):
     for record in records:
         record.start_date = shift(record.start_date)
 
+    if settings is not None:
+        _shift_phase_dates(settings, shift)
+
     return len(tasks), len(records)
 
 
-def _convert_simulation_to_real(db: Session, real_start: date):
+def _convert_simulation_to_real(db: Session, real_start: date, settings=None):
     def shift(iso_date_str):
         stored = date.fromisoformat(iso_date_str)
         elapsed_days = (stored - FICTITIOUS_EPOCH).days
@@ -78,6 +104,9 @@ def _convert_simulation_to_real(db: Session, real_start: date):
     records = db.query(models.PayrollRecord).all()
     for record in records:
         record.start_date = shift(record.start_date)
+
+    if settings is not None:
+        _shift_phase_dates(settings, shift)
 
     return len(tasks), len(records)
 
@@ -106,6 +135,9 @@ def get_settings(db: Session = Depends(get_db)):
         # anchor for Payroll Schedule's automatic entry generation.
         'real_start_date': settings.real_start_date or date.today().isoformat(),
         'us_payroll_state': settings.us_payroll_state,
+        'phases_enabled': settings.phases_enabled,
+        'phases_count': settings.phases_count,
+        'phases': _load_phases(settings),
     }
 
 
@@ -230,6 +262,52 @@ def set_us_payroll_state(payload: dict, db: Session = Depends(get_db)):
     return {'us_payroll_state': settings.us_payroll_state}
 
 
+MIN_PHASES = 1
+MAX_PHASES = 20
+
+
+@router.patch('/settings/development-phases')
+def set_development_phases(payload: dict, db: Session = Depends(get_db)):
+    """Turning this on replaces the single portfolio-wide real_start_date
+    anchor with one anchor per phase — every phase from 1..count must have
+    its own start_date before this can be saved as enabled, since a phase
+    with no date would leave any company assigned to it with no "Year 1 Day
+    1" to compute from at all."""
+    settings = _get_or_create_settings(db)
+    enabled = payload.get('enabled')
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=400, detail='enabled must be a boolean')
+
+    if not enabled:
+        settings.phases_enabled = False
+        settings.phases_count = None
+        settings.phases_json = '[]'
+        db.commit()
+        return {'phases_enabled': False, 'phases_count': None, 'phases': []}
+
+    count = payload.get('count')
+    if not isinstance(count, int) or not (MIN_PHASES <= count <= MAX_PHASES):
+        raise HTTPException(status_code=400, detail=f'count must be an integer between {MIN_PHASES} and {MAX_PHASES}')
+
+    phases = payload.get('phases')
+    if not isinstance(phases, list) or len(phases) != count:
+        raise HTTPException(status_code=400, detail=f'phases must be a list of exactly {count} entries')
+
+    cleaned = []
+    for index, phase in enumerate(phases):
+        phase_number = index + 1
+        start_date = phase.get('start_date') if isinstance(phase, dict) else None
+        if not start_date:
+            raise HTTPException(status_code=400, detail=f'Phase {phase_number} needs a start date before this can be saved')
+        cleaned.append({'phase_number': phase_number, 'start_date': start_date})
+
+    settings.phases_enabled = True
+    settings.phases_count = count
+    settings.phases_json = json.dumps(cleaned)
+    db.commit()
+    return {'phases_enabled': True, 'phases_count': count, 'phases': cleaned}
+
+
 @router.patch('/settings/payroll-schedule')
 def set_payroll_schedule(payload: dict, db: Session = Depends(get_db)):
     """Persists the payroll-run and tax-remittance schedule selections —
@@ -304,9 +382,9 @@ def set_calendar_mode(payload: dict, db: Session = Depends(get_db)):
     real_start = _parse_iso_date(payload.get('real_start_date'), 'real_start_date')
 
     if mode == 'simulation':
-        tasks_count, records_count = _convert_real_to_simulation(db, real_start)
+        tasks_count, records_count = _convert_real_to_simulation(db, real_start, settings)
     else:
-        tasks_count, records_count = _convert_simulation_to_real(db, real_start)
+        tasks_count, records_count = _convert_simulation_to_real(db, real_start, settings)
         settings.real_start_date = real_start.isoformat()
 
     settings.calendar_mode = mode
@@ -325,7 +403,7 @@ def assign_start_date(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail='Project is not in Simulation mode')
 
     real_start = _parse_iso_date(payload.get('real_start_date'), 'real_start_date')
-    tasks_count, records_count = _convert_simulation_to_real(db, real_start)
+    tasks_count, records_count = _convert_simulation_to_real(db, real_start, settings)
 
     settings.calendar_mode = 'real'
     settings.real_start_date = real_start.isoformat()

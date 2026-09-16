@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models
+from ..gl_engine import sync_opening_balance
 
 router = APIRouter()
 
@@ -25,6 +26,7 @@ class BankAccountCreate(BaseModel):
     account_type: str
     account_name: str
     logo: str | None = None
+    is_reserve: bool = False
 
 
 class BankAccountOut(BankAccountCreate):
@@ -44,6 +46,17 @@ class BankTransactionOut(BaseModel):
     reference: str | None = None
     credit: float
     debit: float
+    # Lets the frontend tell a real cos/expense transaction apart from an
+    # internal transfer or reserve-funding leg — needed to compute the
+    # "committed vs free" breakdown (see BankLedgerPanel.jsx), which only
+    # ever counts commercial_operation_entry rows.
+    source_type: str | None = None
+    # Shared by a reserve-funded entry's funding-transfer leg and its
+    # eventual disbursement leg (both point back at the same
+    # CommercialOperationEntry.id) — lets the frontend pair them up so a
+    # pending disbursement is only ever flagged "committed" once its own
+    # funding has actually landed in the account, not before.
+    source_id: str | None = None
 
     class Config:
         from_attributes = True
@@ -111,10 +124,19 @@ def create_bank_account(company_id: str, payload: BankAccountCreate, db: Session
         account_type=account_type,
         account_name=account_name,
         logo=payload.logo or None,
+        is_reserve=payload.is_reserve,
     )
     db.add(account)
     db.commit()
     db.refresh(account)
+
+    if account_type == 'main':
+        # Attaches this account's opening-balance transaction (the company's
+        # Total Start-up Working Capital, if any) immediately — otherwise it
+        # would sit unattached until the next Start-up Investment edit
+        # happened to re-run this sync.
+        sync_opening_balance(db, company_id)
+
     return account
 
 
@@ -123,6 +145,11 @@ def delete_bank_account(account_id: str, db: Session = Depends(get_db)):
     account = db.query(models.BankAccount).filter_by(id=account_id).first()
     if not account:
         raise HTTPException(status_code=404, detail='Bank account not found')
+    if account.account_type == 'main':
+        raise HTTPException(
+            status_code=400,
+            detail='A company must have a Main bank account to be able to operate — this account cannot be deleted.',
+        )
     db.delete(account)
     db.commit()
     return {'ok': True}

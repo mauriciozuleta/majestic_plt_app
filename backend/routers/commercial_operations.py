@@ -14,11 +14,30 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
 from .. import schemas
-from ..gl_engine import expected_cash_date, post_commercial_operation_entry, unpost_commercial_operation_entry
+from ..gl_engine import CASH_TIMING_BY_TREATMENT, expected_cash_date, post_commercial_operation_entry, unpost_commercial_operation_entry
 
 router = APIRouter()
 
 VALID_CATEGORIES = {'revenue', 'cos', 'expenses'}
+RESERVE_TRANSFER_SOURCE_TYPE = 'commercial_operation_reserve_transfer'
+
+
+def _validate_reserve_account(payload):
+    if not payload.reserve_account_id:
+        return
+    # Reserve funding only makes sense for an obligation that isn't paid
+    # until some later settlement_date (an accrued cos/expense) — there's no
+    # gap between accrual and payment to hold cash aside for otherwise, and
+    # revenue's own settlement-timed treatment is money coming in, not an
+    # obligation to fund.
+    if CASH_TIMING_BY_TREATMENT.get((payload.category, payload.accounting_treatment)) != 'settlement':
+        raise HTTPException(
+            status_code=400,
+            detail='Internal operation (reserve funding) only applies to a treatment with a future settlement date, '
+            'such as an accrued cost or expense.',
+        )
+    if payload.reserve_account_id == payload.bank_account_id:
+        raise HTTPException(status_code=400, detail='Choose a reserve account different from the entry\'s own bank account.')
 
 
 def _post_bank_transaction(db: Session, entry: models.CommercialOperationEntry):
@@ -43,10 +62,15 @@ def _post_bank_transaction(db: Session, entry: models.CommercialOperationEntry):
     credit = entry.amount if entry.category == 'revenue' else 0.0
     debit = entry.amount if entry.category in ('cos', 'expenses') else 0.0
     counterparty = entry.client if entry.category == 'revenue' else entry.paid_to
+    # An "internal operation" entry has its cash pre-funded into a reserve
+    # account at entry_date (see below) — the real disbursement that clears
+    # the liability draws from there instead of the account picked on the
+    # form, or the same amount would leave the books twice.
+    disbursement_account_id = entry.reserve_account_id or entry.bank_account_id
     db.add(
         models.BankTransaction(
             id=str(uuid.uuid4()),
-            bank_account_id=entry.bank_account_id,
+            bank_account_id=disbursement_account_id,
             entry_date=transaction_date,
             description=entry.description or entry.entry_type or entry.client or entry.category,
             client=counterparty,
@@ -56,6 +80,48 @@ def _post_bank_transaction(db: Session, entry: models.CommercialOperationEntry):
             source_type='commercial_operation_entry',
             source_id=entry.id,
             created_at=datetime.utcnow().isoformat(),
+        )
+    )
+
+    if entry.reserve_account_id:
+        _post_reserve_transfer(db, entry)
+
+
+def _post_reserve_transfer(db: Session, entry: models.CommercialOperationEntry):
+    """Moves entry.amount out of the entry's own bank account and into its
+    reserve account, dated entry_date — a pure asset-to-asset internal
+    transfer (same mechanic as POST /bank-accounts/transfer), with no P&L
+    effect and no journal entry. This is what actually takes the cash out of
+    "general available" funds; the liability booked by
+    post_commercial_operation_entry stays open until the real settlement-date
+    disbursement above draws it back out of the reserve."""
+    now = datetime.utcnow().isoformat()
+    db.add(
+        models.BankTransaction(
+            id=str(uuid.uuid4()),
+            bank_account_id=entry.bank_account_id,
+            entry_date=entry.entry_date,
+            description=f'Reserve funding: {entry.description or entry.entry_type or entry.category}',
+            client='Internal Reserve Transfer',
+            credit=0.0,
+            debit=entry.amount,
+            source_type=RESERVE_TRANSFER_SOURCE_TYPE,
+            source_id=entry.id,
+            created_at=now,
+        )
+    )
+    db.add(
+        models.BankTransaction(
+            id=str(uuid.uuid4()),
+            bank_account_id=entry.reserve_account_id,
+            entry_date=entry.entry_date,
+            description=f'Reserve funding: {entry.description or entry.entry_type or entry.category}',
+            client='Internal Reserve Transfer',
+            credit=entry.amount,
+            debit=0.0,
+            source_type=RESERVE_TRANSFER_SOURCE_TYPE,
+            source_id=entry.id,
+            created_at=now,
         )
     )
 
@@ -80,6 +146,7 @@ def create_commercial_operation_entry(
         raise HTTPException(status_code=400, detail='category must be one of: revenue, cos, expenses')
     if not payload.bank_account_id:
         raise HTTPException(status_code=400, detail='A bank account is required.')
+    _validate_reserve_account(payload)
 
     entry = models.CommercialOperationEntry(
         id=str(uuid.uuid4()),
@@ -104,6 +171,7 @@ def create_commercial_operation_entry(
         source=payload.source,
         schedule_key=payload.schedule_key,
         series_id=payload.series_id,
+        reserve_account_id=payload.reserve_account_id,
     )
     db.add(entry)
     db.commit()
@@ -127,6 +195,7 @@ def update_commercial_operation_entry(
         raise HTTPException(status_code=400, detail='category must be one of: revenue, cos, expenses')
     if not payload.bank_account_id:
         raise HTTPException(status_code=400, detail='A bank account is required.')
+    _validate_reserve_account(payload)
 
     # Drop the old postings first so they can be cleanly re-derived from the
     # updated values below — same net effect as a delete followed by a
@@ -135,6 +204,9 @@ def update_commercial_operation_entry(
     unpost_commercial_operation_entry(db, entry_id)
     db.query(models.BankTransaction).filter_by(
         source_type='commercial_operation_entry', source_id=entry_id
+    ).delete(synchronize_session=False)
+    db.query(models.BankTransaction).filter_by(
+        source_type=RESERVE_TRANSFER_SOURCE_TYPE, source_id=entry_id
     ).delete(synchronize_session=False)
 
     entry.category = payload.category
@@ -157,6 +229,7 @@ def update_commercial_operation_entry(
     entry.source = payload.source
     entry.schedule_key = payload.schedule_key
     entry.series_id = payload.series_id
+    entry.reserve_account_id = payload.reserve_account_id
     db.commit()
 
     _post_bank_transaction(db, entry)
@@ -174,6 +247,9 @@ def delete_commercial_operation_entry(company_id: str, entry_id: str, db: Sessio
     db.query(models.SimParameter).filter_by(entry_id=entry_id).delete(synchronize_session=False)
     db.query(models.BankTransaction).filter_by(
         source_type='commercial_operation_entry', source_id=entry_id
+    ).delete(synchronize_session=False)
+    db.query(models.BankTransaction).filter_by(
+        source_type=RESERVE_TRANSFER_SOURCE_TYPE, source_id=entry_id
     ).delete(synchronize_session=False)
     db.delete(entry)
     db.commit()

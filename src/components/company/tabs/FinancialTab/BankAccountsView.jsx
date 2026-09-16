@@ -48,17 +48,23 @@ function BankAccountsView() {
     await reload()
   }
 
-  const handleTransfer = async (payload) => {
-    await createBankTransfer(payload)
+  const handleTransfer = async (payloads) => {
+    for (const payload of payloads) {
+      await createBankTransfer(payload)
+    }
     setTransferModalOpen(false)
     setLedgerRefreshKey((key) => key + 1)
   }
 
-  const handleDelete = async (event, accountId) => {
+  const handleDelete = async (event, account) => {
     event.stopPropagation()
+    if (account.account_type === 'main') {
+      window.alert('A company must have a Main bank account to be able to operate — this account cannot be deleted.')
+      return
+    }
     if (!window.confirm('Delete this bank account?')) return
     try {
-      await deleteBankAccount(accountId)
+      await deleteBankAccount(account.id)
       await reload()
     } catch (err) {
       setError(err.message)
@@ -115,11 +121,23 @@ function BankAccountsView() {
                   <span className={`bank-accounts-view__type-tag bank-accounts-view__type-tag--${account.account_type}`}>
                     {ACCOUNT_TYPE_LABELS[account.account_type] ?? account.account_type}
                   </span>
+                  {account.is_reserve && (
+                    <span
+                      className="bank-accounts-view__type-tag bank-accounts-view__type-tag--reserve"
+                      title="Reserve account — cash held here is earmarked for a specific obligation, not day-to-day operating funds."
+                    >
+                      Reserve
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="bank-accounts-view__remove"
-                    title="Delete this account"
-                    onClick={(event) => handleDelete(event, account.id)}
+                    title={
+                      account.account_type === 'main'
+                        ? 'A Main account cannot be deleted — a company must have one to operate'
+                        : 'Delete this account'
+                    }
+                    onClick={(event) => handleDelete(event, account)}
                   >
                     ×
                   </button>

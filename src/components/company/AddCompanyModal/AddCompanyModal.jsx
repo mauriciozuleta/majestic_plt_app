@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react'
 import { dependencyOptions, legalTypes, useAddCompanyForm } from './useAddCompanyForm'
 import { useAppStore } from '../../../store/useAppStore'
 import { fetchReferenceCountries } from '../../../services/commercialStructure'
+import { fetchSettings } from '../../../services/settings'
 
 function AddCompanyModal({ isOpen, onClose, onSave, initialCompany = null }) {
   const companies = useAppStore((state) => state.companies)
   const [referenceCountries, setReferenceCountries] = useState([])
+  const [phasesEnabled, setPhasesEnabled] = useState(false)
+  const [phasesCount, setPhasesCount] = useState(0)
   const {
     name,
     setName,
@@ -25,6 +28,8 @@ function AddCompanyModal({ isOpen, onClose, onSave, initialCompany = null }) {
     setCurrencyCode,
     setCurrencyName,
     previewUrl,
+    phaseNumber,
+    setPhaseNumber,
     error,
     inputRef,
     resetForm,
@@ -45,6 +50,19 @@ function AddCompanyModal({ isOpen, onClose, onSave, initialCompany = null }) {
       .then(setReferenceCountries)
       .catch(() => setReferenceCountries([]))
   }, [isOpen, referenceCountries.length])
+
+  useEffect(() => {
+    if (!isOpen) return
+    fetchSettings()
+      .then((settings) => {
+        setPhasesEnabled(Boolean(settings.phases_enabled))
+        setPhasesCount(settings.phases_count || 0)
+      })
+      .catch(() => {
+        setPhasesEnabled(false)
+        setPhasesCount(0)
+      })
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -129,6 +147,19 @@ function AddCompanyModal({ isOpen, onClose, onSave, initialCompany = null }) {
             ))}
           </select>
         </div>
+
+        {phasesEnabled && (
+          <div className="add-company-modal__field">
+            <label htmlFor="company-phase">Phase</label>
+            <select id="company-phase" value={phaseNumber} onChange={(event) => setPhaseNumber(Number(event.target.value))}>
+              {Array.from({ length: phasesCount }, (_, index) => index + 1).map((number) => (
+                <option key={number} value={number}>
+                  Phase {number}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {companyDependency === 'Children' && (
           <div className="add-company-modal__field">

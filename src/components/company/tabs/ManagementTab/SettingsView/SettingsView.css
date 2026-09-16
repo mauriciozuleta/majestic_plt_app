@@ -135,6 +135,29 @@
   align-items: center;
 }
 
+.settings-view__phases-toggle {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-view__phase-date-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.settings-view__phase-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+}
+
 .settings-view__tax-list {
   display: grid;
   gap: 0.5rem;

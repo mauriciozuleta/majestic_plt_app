@@ -1,5 +1,7 @@
+import base64
 import re
 import time
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,10 +12,52 @@ from .. import models
 
 router = APIRouter()
 
+LOGOS_DIR = Path(__file__).resolve().parent.parent / 'company_logos'
+DATA_URL_RE = re.compile(r'^data:image/(?P<ext>[a-zA-Z0-9.+-]+);base64,(?P<data>.+)$', re.DOTALL)
+SERVED_LOGO_RE = re.compile(r'^(?:https?://[^/]+)?/company-logos/(?P<filename>.+)$')
+
 
 def _slugify(value: str) -> str:
     slug = re.sub(r'[^a-z0-9]+', '-', value.lower()).strip('-')
     return slug or 'company'
+
+
+def persist_logo(company_id: str, logo_value: str | None) -> str | None:
+    """A logo is saved as a real file under company_logos/, not as a
+    multi-hundred-KB base64 blob in the companies table — that's what made
+    FRESH24's logo disappear in the first place (any edit that round-tripped
+    the row without resending the blob would silently drop it). Called on
+    every create/update: a fresh upload (a data: URL from the browser's
+    FileReader) gets decoded and written to disk; a URL the app already
+    served back (unchanged on this edit) is normalized to a bare path so it
+    stays portable across dev/prod origins; anything else (empty, or some
+    other already-external URL) passes through untouched."""
+    if not logo_value:
+        return logo_value
+
+    match = DATA_URL_RE.match(logo_value)
+    if match:
+        ext = match.group('ext').lower()
+        if ext in ('jpeg', 'jpg'):
+            ext = 'jpg'
+        else:
+            ext = re.sub(r'[^a-z0-9]', '', ext) or 'png'
+        try:
+            image_bytes = base64.b64decode(match.group('data'))
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=400, detail='Logo image data is not valid base64') from error
+
+        LOGOS_DIR.mkdir(parents=True, exist_ok=True)
+        for existing in LOGOS_DIR.glob(f'{company_id}.*'):
+            existing.unlink(missing_ok=True)
+        (LOGOS_DIR / f'{company_id}.{ext}').write_bytes(image_bytes)
+        return f'/company-logos/{company_id}.{ext}'
+
+    served_match = SERVED_LOGO_RE.match(logo_value)
+    if served_match:
+        return f'/company-logos/{served_match.group("filename")}'
+
+    return logo_value
 
 
 class CompanyCreate(BaseModel):
@@ -28,6 +72,7 @@ class CompanyCreate(BaseModel):
     country_code: str | None = None
     currency_name: str | None = None
     currency_code: str | None = None
+    phase_number: int | None = None
 
 
 class CompanyOut(CompanyCreate):
@@ -50,6 +95,7 @@ class CompanyUpdate(BaseModel):
     country_code: str | None = None
     currency_name: str | None = None
     currency_code: str | None = None
+    phase_number: int | None = None
 
 
 @router.get('/companies', response_model=list[CompanyOut])
@@ -63,7 +109,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
     db_company = models.Company(
         id=company_id,
         name=payload.name,
-        logo=payload.logo or '',
+        logo=persist_logo(company_id, payload.logo) or '',
         company_type=payload.company_type,
         company_dependency=payload.company_dependency,
         parent_company_id=payload.parent_company_id,
@@ -73,6 +119,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
         country_code=payload.country_code,
         currency_name=payload.currency_name,
         currency_code=payload.currency_code,
+        phase_number=payload.phase_number,
     )
     db.add(db_company)
     db.commit()
@@ -87,7 +134,7 @@ def update_company(company_id: str, payload: CompanyUpdate, db: Session = Depend
         raise HTTPException(status_code=404, detail='Company not found')
 
     company.name = payload.name
-    company.logo = payload.logo or ''
+    company.logo = persist_logo(company_id, payload.logo) or ''
     company.company_type = payload.company_type
     company.company_dependency = payload.company_dependency
     company.parent_company_id = payload.parent_company_id
@@ -97,6 +144,7 @@ def update_company(company_id: str, payload: CompanyUpdate, db: Session = Depend
     company.country_code = payload.country_code
     company.currency_name = payload.currency_name
     company.currency_code = payload.currency_code
+    company.phase_number = payload.phase_number
     db.commit()
     db.refresh(company)
     return company

@@ -8,11 +8,13 @@ import {
 import { fetchSettings } from '../../../../../services/settings'
 import { getDefaultCalendarDate } from '../../../../../services/calendarDates'
 import { createSimParameter, deleteSimParameter, fetchSimParameters } from '../../../../../services/simParameters'
+import { createBankTransfer, fetchBankAccounts } from '../../../../../services/bankAccounts'
 import JumpToDatePicker from './JumpToDatePicker'
 import MonthView from './MonthView'
 import DayView from './DayView'
 import YearView from './YearView'
 import AddEntryModal from './AddEntryModal'
+import TransferFundsModal from '../../FinancialTab/TransferFundsModal'
 import {
   getDayLabel,
   getMonthLabel,
@@ -38,27 +40,50 @@ function CommercialOperationsView({ companyId }) {
   const [modalCategory, setModalCategory] = useState(null)
   const [editingEntry, setEditingEntry] = useState(null)
   const [simParameterEntryIds, setSimParameterEntryIds] = useState(() => new Set())
+  const [bankAccounts, setBankAccounts] = useState([])
+  const [transferModalOpen, setTransferModalOpen] = useState(false)
 
   const reload = async () => {
     if (!companyId) return
     setLoading(true)
     setError('')
     try {
-      const [settings, nextEntries, simParameters] = await Promise.all([
+      const [settings, nextEntries, simParameters, accounts] = await Promise.all([
         fetchSettings(),
         fetchCommercialOperationEntries(companyId),
         fetchSimParameters(companyId),
+        fetchBankAccounts(companyId),
       ])
       const mode = settings.calendar_mode ?? 'real'
       setCalendarMode(mode)
       setEntries(nextEntries)
       setSimParameterEntryIds(new Set(simParameters.map((item) => item.entry_id)))
+      setBankAccounts(accounts)
       setReferenceDate((prev) => prev ?? getDefaultCalendarDate(mode))
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Moving money between your own accounts (e.g. into a reserve) isn't an
+  // expense or COS — it's a pure internal transfer, with no P&L effect. This
+  // opens the same Inter-bank Transfer form Bank Accounts uses, replacing
+  // whichever Add-entry modal called it (both are exclusive of each other).
+  const handleOpenTransfer = () => {
+    setModalCategory(null)
+    setEditingEntry(null)
+    setTransferModalOpen(true)
+  }
+
+  const handleTransfer = async (payloads) => {
+    for (const payload of payloads) {
+      // eslint-disable-next-line no-await-in-loop
+      await createBankTransfer(payload)
+    }
+    setTransferModalOpen(false)
+    await reload()
   }
 
   useEffect(() => {
@@ -105,8 +130,30 @@ function CommercialOperationsView({ companyId }) {
     await reload()
   }
 
-  const handleDeleteEntry = async (entryId) => {
-    await deleteCommercialOperationEntry(companyId, entryId)
+  // How many entries share each series_id — DayView needs this to know
+  // whether a given entry actually has siblings worth offering a
+  // "delete the whole series" choice for (a series_id shared by only one
+  // row, e.g. after its siblings were already deleted, is no series at all).
+  const seriesCounts = useMemo(() => {
+    const counts = new Map()
+    entries.forEach((entry) => {
+      if (!entry.series_id) return
+      counts.set(entry.series_id, (counts.get(entry.series_id) || 0) + 1)
+    })
+    return counts
+  }, [entries])
+
+  const handleDeleteEntry = async (entryId, { deleteSeries = false } = {}) => {
+    if (deleteSeries) {
+      const entry = entries.find((item) => item.id === entryId)
+      const siblingIds = entry?.series_id ? entries.filter((item) => item.series_id === entry.series_id).map((item) => item.id) : [entryId]
+      for (const siblingId of siblingIds) {
+        // eslint-disable-next-line no-await-in-loop
+        await deleteCommercialOperationEntry(companyId, siblingId)
+      }
+    } else {
+      await deleteCommercialOperationEntry(companyId, entryId)
+    }
     await reload()
   }
 
@@ -264,6 +311,14 @@ function CommercialOperationsView({ companyId }) {
             + Add {category.label}
           </button>
         ))}
+        <button
+          type="button"
+          className="commercial-ops__add-btn"
+          style={{ borderColor: 'var(--accent-teal)', color: 'var(--accent-teal-text)' }}
+          onClick={handleOpenTransfer}
+        >
+          + Add Interbank Transfer
+        </button>
       </div>
 
       {error && <div className="commercial-ops__error">{error}</div>}
@@ -272,7 +327,7 @@ function CommercialOperationsView({ companyId }) {
         <MonthView calendarMode={calendarMode} referenceDate={referenceDate} entriesByDate={entriesByDate} onSelectDay={handleSelectDay} />
       )}
       {viewMode === 'day' && (
-        <DayView dayEntries={dayEntries} onDeleteEntry={handleDeleteEntry} onEditEntry={handleEditEntry} />
+        <DayView dayEntries={dayEntries} seriesCounts={seriesCounts} onDeleteEntry={handleDeleteEntry} onEditEntry={handleEditEntry} />
       )}
       {viewMode === 'year' && (
         <YearView calendarMode={calendarMode} referenceDate={referenceDate} entries={entries} onSelectMonth={handleSelectMonth} />
@@ -286,6 +341,7 @@ function CommercialOperationsView({ companyId }) {
           calendarMode={calendarMode}
           onSave={handleSaveEntry}
           onCancel={() => setModalCategory(null)}
+          onOpenTransfer={handleOpenTransfer}
         />
       )}
 
@@ -300,7 +356,12 @@ function CommercialOperationsView({ companyId }) {
           seriesEntryCount={seriesEntryCount}
           onSave={handleUpdateEntry}
           onCancel={() => setEditingEntry(null)}
+          onOpenTransfer={handleOpenTransfer}
         />
+      )}
+
+      {transferModalOpen && (
+        <TransferFundsModal accounts={bankAccounts} onSave={handleTransfer} onCancel={() => setTransferModalOpen(false)} />
       )}
     </div>
   )

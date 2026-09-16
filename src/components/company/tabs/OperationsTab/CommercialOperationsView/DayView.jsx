@@ -1,7 +1,24 @@
+import { useState } from 'react'
 import { IconEdit } from '@tabler/icons-react'
+import DeleteSeriesModal from '../../../../shared/DeleteSeriesModal/DeleteSeriesModal'
 import { CATEGORIES } from './categories'
 
-function DayView({ dayEntries, onDeleteEntry, onEditEntry }) {
+function DayView({ dayEntries, seriesCounts, onDeleteEntry, onEditEntry }) {
+  const [pendingSeriesDelete, setPendingSeriesDelete] = useState(null)
+
+  const handleRemoveClick = (entry, entryLabel) => {
+    const siblingCount = entry.series_id ? seriesCounts?.get(entry.series_id) || 0 : 0
+    // A series_id shared by only this one row (its siblings already deleted
+    // some other way) isn't a series worth offering a choice for — just the
+    // plain single-entry confirm below.
+    if (siblingCount > 1) {
+      setPendingSeriesDelete({ entry, entryLabel, siblingCount })
+      return
+    }
+    if (!window.confirm(`Delete "${entryLabel}"? This can't be undone.`)) return
+    onDeleteEntry(entry.id, { deleteSeries: false })
+  }
+
   return (
     <div className="commercial-ops-day">
       {CATEGORIES.map((category) => {
@@ -42,10 +59,7 @@ function DayView({ dayEntries, onDeleteEntry, onEditEntry }) {
                         type="button"
                         className="commercial-ops-day__remove"
                         title="Remove this entry"
-                        onClick={() => {
-                          if (!window.confirm(`Delete "${entryLabel}"? This can't be undone.`)) return
-                          onDeleteEntry(entry.id)
-                        }}
+                        onClick={() => handleRemoveClick(entry, entryLabel)}
                       >
                         ×
                       </button>
@@ -57,6 +71,22 @@ function DayView({ dayEntries, onDeleteEntry, onEditEntry }) {
           </div>
         )
       })}
+
+      {pendingSeriesDelete && (
+        <DeleteSeriesModal
+          entryLabel={pendingSeriesDelete.entryLabel}
+          siblingCount={pendingSeriesDelete.siblingCount}
+          onCancel={() => setPendingSeriesDelete(null)}
+          onDeleteOne={() => {
+            onDeleteEntry(pendingSeriesDelete.entry.id, { deleteSeries: false })
+            setPendingSeriesDelete(null)
+          }}
+          onDeleteAll={() => {
+            onDeleteEntry(pendingSeriesDelete.entry.id, { deleteSeries: true })
+            setPendingSeriesDelete(null)
+          }}
+        />
+      )}
     </div>
   )
 }

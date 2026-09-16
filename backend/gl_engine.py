@@ -9,8 +9,9 @@ rules below don't cover) is a no-op — nothing breaks, it's just not on the
 ledger yet.
 """
 
+import json
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from . import models
 
@@ -223,37 +224,62 @@ def unpost_commercial_operation_entry(db, entry_id):
     db.commit()
 
 
-def _operations_start_date(db):
+def _operations_start_date(db, company_id=None):
     """Year 1, Day 1 — the moment operations begin, right after the
     pre-operational period (which now lives entirely in Start-up Investment,
     not on this calendar at all). Year 1 is the *first* operational year, so
     in simulation mode this is the fictitious epoch itself, day zero — same
-    convention as isoDateToSimDate/simDateToIsoDate on the frontend. Real mode
-    anchors on the persisted real_start_date (see Payroll Schedule's
-    automatic-entry generation, which needs this same anchor for Year 2+),
-    falling back to today if it was never set."""
+    convention as isoDateToSimDate/simDateToIsoDate on the frontend.
+
+    Real mode anchors on the persisted real_start_date by default (see
+    Payroll Schedule's automatic-entry generation, which needs this same
+    anchor for Year 2+) — unless Development Phases are enabled, in which
+    case the given company's own assigned phase (Company.phase_number,
+    defaulting to phase 1) supplies the anchor instead, so each phase's
+    companies get their own "Year 1 Day 1" rather than sharing one portfolio-
+    wide date. Falls back to today if no anchor is available either way."""
     settings = db.query(models.PortfolioSettings).filter_by(id='singleton').first()
     calendar_mode = settings.calendar_mode if settings else 'real'
     if calendar_mode == 'simulation':
         return FICTITIOUS_EPOCH.isoformat()
+
+    if settings and settings.phases_enabled and company_id:
+        company = db.query(models.Company).filter_by(id=company_id).first()
+        phase_number = (company.phase_number if company and company.phase_number else None) or 1
+        try:
+            phases = json.loads(settings.phases_json or '[]')
+        except (TypeError, ValueError):
+            phases = []
+        phase = next((entry for entry in phases if entry.get('phase_number') == phase_number), None)
+        if phase and phase.get('start_date'):
+            return phase['start_date']
+
     return (settings.real_start_date if settings and settings.real_start_date else None) or date.today().isoformat()
 
 
 def sync_opening_balance(db, company_id):
     """(Re)posts the opening-cash journal entry from the company's Total
     Start-up Working Capital — the cash sitting in the bank the moment
-    operations begin. Called after every Start-up Investment plan/record
-    change; deletes and re-derives the single synthetic entry each time so it
-    can never drift out of sync with the working-capital total."""
-    existing_ids = [
+    operations begin — and, if the company has a Main bank account, (re)posts
+    a matching opening-balance transaction there too, so that account's own
+    balance (and the Bank Ledger built from it) starts from the same figure
+    the books already assume, instead of the two silently disagreeing.
+    Called after every Start-up Investment plan/record change and after a
+    Main bank account is created; deletes and re-derives both each time so
+    neither can drift out of sync with the working-capital total."""
+    existing_journal_ids = [
         row.id
         for row in db.query(models.JournalEntry)
         .filter_by(company_id=company_id, source_type=OPENING_BALANCE_SOURCE_TYPE, source_id=company_id)
         .all()
     ]
-    if existing_ids:
-        db.query(models.JournalLine).filter(models.JournalLine.journal_entry_id.in_(existing_ids)).delete(synchronize_session=False)
-        db.query(models.JournalEntry).filter(models.JournalEntry.id.in_(existing_ids)).delete(synchronize_session=False)
+    if existing_journal_ids:
+        db.query(models.JournalLine).filter(models.JournalLine.journal_entry_id.in_(existing_journal_ids)).delete(synchronize_session=False)
+        db.query(models.JournalEntry).filter(models.JournalEntry.id.in_(existing_journal_ids)).delete(synchronize_session=False)
+
+    db.query(models.BankTransaction).filter_by(source_type=OPENING_BALANCE_SOURCE_TYPE, source_id=company_id).delete(
+        synchronize_session=False
+    )
 
     working_capital_records = (
         db.query(models.StartupInvestmentRecord).filter_by(company_id=company_id, category='working_capital').all()
@@ -261,16 +287,35 @@ def sync_opening_balance(db, company_id):
     total = sum(record.total_amount for record in working_capital_records)
 
     if total > 0:
+        opening_date = _operations_start_date(db, company_id)
+        memo = 'Opening cash - Total Start-up Working Capital'
+
         accounts = ensure_default_accounts(db, company_id)
         _make_journal_entry(
             db,
             company_id,
-            _operations_start_date(db),
-            'Opening cash - Total Start-up Working Capital',
+            opening_date,
+            memo,
             company_id,
             [('1000', total, 0), ('3000', 0, total)],
             accounts,
             source_type=OPENING_BALANCE_SOURCE_TYPE,
         )
+
+        main_account = db.query(models.BankAccount).filter_by(company_id=company_id, account_type='main').first()
+        if main_account:
+            db.add(
+                models.BankTransaction(
+                    id=str(uuid.uuid4()),
+                    bank_account_id=main_account.id,
+                    entry_date=opening_date,
+                    description=memo,
+                    credit=total,
+                    debit=0.0,
+                    source_type=OPENING_BALANCE_SOURCE_TYPE,
+                    source_id=company_id,
+                    created_at=datetime.utcnow().isoformat(),
+                )
+            )
 
     db.commit()

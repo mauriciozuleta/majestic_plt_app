@@ -27,6 +27,7 @@ export function useAddCompanyForm() {
   const [accentFrom, setAccentFrom] = useState('#35D399')
   const [accentTo, setAccentTo] = useState('#0EA5E9')
   const [previewUrl, setPreviewUrl] = useState('')
+  const [phaseNumber, setPhaseNumber] = useState(1)
   const [error, setError] = useState('')
 
   const resetForm = useCallback((initialCompany) => {
@@ -41,6 +42,7 @@ export function useAddCompanyForm() {
     setAccentFrom(initialCompany?.accentFrom || '#35D399')
     setAccentTo(initialCompany?.accentTo || '#0EA5E9')
     setPreviewUrl(initialCompany?.logo || '')
+    setPhaseNumber(initialCompany?.phaseNumber || 1)
     setError('')
 
     if (inputRef.current) {
@@ -77,6 +79,7 @@ export function useAddCompanyForm() {
       currencyName,
       accentFrom,
       accentTo,
+      phaseNumber,
       companies,
     })
   }
@@ -100,6 +103,8 @@ export function useAddCompanyForm() {
     setCurrencyName,
     previewUrl,
     setPreviewUrl,
+    phaseNumber,
+    setPhaseNumber,
     error,
     inputRef,
     resetForm,

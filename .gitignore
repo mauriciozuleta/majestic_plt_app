@@ -30,6 +30,14 @@ backend/payroll_templates/
 backend/country_profiles/
 backend/competitiveness_analyses/
 
+# AI-generated investor-facing risk plans (generated on demand)
+backend/risk_plans/
+
+# Company logo uploads are NOT gitignored, unlike the generated/regeneratable
+# content above — these are irreplaceable user uploads (see persist_logo in
+# routers/companies.py), same reasoning as majestic_plt.db itself being
+# tracked: there's no "just build it again" for a logo someone else uploaded.
+
 # Graphify knowledge-graph cache (regenerate with `graphify update .`)
 graphify-out/
 

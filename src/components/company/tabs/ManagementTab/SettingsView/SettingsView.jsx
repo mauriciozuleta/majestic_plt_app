@@ -4,6 +4,7 @@ import { IconX } from '@tabler/icons-react'
 import RoadmapDateInput from '../RoadmapView/RoadmapDateInput'
 import PayrollLevelsModal from './PayrollLevelsModal'
 import AccountingHealthCheckCard from './AccountingHealthCheckCard'
+import DevelopmentPhasesPanel from './DevelopmentPhasesPanel'
 import USPayrollTaxPanel from './USPayrollTaxPanel'
 import PayrollSchedulePanel from './PayrollSchedulePanel'
 import USBenefitsPanel from './USBenefitsPanel'
@@ -498,6 +499,8 @@ function SettingsView() {
           <div className={`settings-view__message settings-view__message--${messageType}`}>{message}</div>
         ) : null}
       </div>
+
+      <DevelopmentPhasesPanel calendarMode={calendarMode} />
 
       <div className="settings-view__card">
         <div className="settings-view__section-heading">
