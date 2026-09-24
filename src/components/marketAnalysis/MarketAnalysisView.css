@@ -1,0 +1,521 @@
+.market-analysis {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.market-analysis__header h3 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--text-primary);
+}
+
+.market-analysis__header p,
+.market-analysis__hint {
+  margin: 0.3rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+/* Page-level tabs (Country Information / TAM / SAM / SOM) — same "browser
+   tab" look as RiskAnalysisView's .tab-bar/.tab, reimplemented under this
+   page's own class names rather than reusing those bare global ones, so
+   the two features' styles can't collide or drift into each other. */
+.market-analysis__tab-bar {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.market-analysis__tab {
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: inherit;
+  position: relative;
+  top: 1px;
+}
+
+.market-analysis__tab.is-active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--bg-card);
+  font-weight: 600;
+}
+
+.market-analysis__tab-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0 12px 12px 12px;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+/* Market Size's own TAM/SAM/SOM tabs, nested one level inside the page-level
+   panel above — same look, smaller scale, no outer border since the page
+   panel already provides one. */
+.market-analysis__tab-bar--nested {
+  margin-bottom: -1px;
+}
+
+.market-analysis__tab-panel--nested {
+  border: none;
+  border-radius: 0 10px 10px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.9rem 1rem;
+}
+
+/* Available Categories: the static HS chapter catalog, browsed by
+   collapsing/expanding one section (I–XXI) at a time, or filtered straight
+   to matching chapters via the search box above. */
+.available-categories {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.available-categories__search {
+  display: grid;
+  gap: 0.3rem;
+  max-width: 22rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.available-categories__search input {
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card, #111f31);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.available-categories__sections {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.available-categories__section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.available-categories__section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.available-categories__section-head:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.available-categories__chevron {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.available-categories__chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.available-categories__section-title {
+  font-weight: 700;
+}
+
+.available-categories__section-meta {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* The "N products in M countries" summary — same green already used for a
+   matched chapter/heading/subheading, so a section with real coverage reads
+   as "has data" at a glance before it's even expanded. */
+.available-categories__section-summary {
+  color: #35d399;
+  font-weight: 600;
+}
+
+.available-categories__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.available-categories__table th {
+  padding: 0.4rem 0.8rem;
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.available-categories__table td {
+  padding: 0.45rem 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+.available-categories__code {
+  min-width: 4rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* The chevron + code text live in an inner inline element so the
+   hierarchy shift is a margin on THIS element, never a padding fight with
+   the td's own fixed-width/padding rules (a class-only selector like
+   .available-categories__code--indent-1 loses specificity to the
+   ".available-categories__table td" rule when both target the same td,
+   so padding-left on the cell itself was silently overridden before). A
+   light left border doubles as a tree guide, making the nesting readable
+   at a glance even before reading the indentation depth. */
+.available-categories__code-inner {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Nested heading (4-digit)/subheading (6-digit) rows under a matched
+   chapter — only the codes actually in use, indented under their parent,
+   each independently collapsible (chapter -> headings -> subheadings). */
+.available-categories__code-inner.available-categories__code--indent-1 {
+  margin-left: 1.4rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.14);
+}
+
+.available-categories__code-inner.available-categories__code--indent-2 {
+  margin-left: 2.8rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.14);
+}
+
+.available-categories__row--heading td,
+.available-categories__row--subheading td {
+  background: rgba(255, 255, 255, 0.015);
+  font-size: 0.78rem;
+}
+
+.available-categories__row-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  margin-right: 0.35rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+
+/* Matched chapter/heading/subheading rows — same green already used for a
+   "done" state elsewhere in this view (.market-analysis__pill.is-done). */
+.available-categories__row.is-matched .available-categories__code,
+.available-categories__row.is-matched td:nth-child(2) {
+  color: #35d399;
+}
+
+.available-categories__codes-cell {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* A country code at the leaf level it actually applies to — clickable,
+   jumps to that product in that country's own product list (see
+   AvailableCategoriesPanel's onCountryCodeClick). Styled as a plain
+   underline-on-hover so a dense row of codes still reads as text first,
+   link second. */
+.available-categories__code-link {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+}
+
+.available-categories__code-link:hover,
+.available-categories__code-link:focus-visible {
+  text-decoration-color: currentColor;
+  color: #6ee7b7;
+}
+
+/* Every region shares one table, one header and one horizontal scrollbar —
+   a fixed layout (driven by the colgroup below) is what keeps every pill
+   column exactly the same width, region to region, regardless of what's in
+   any given cell ("View" vs "×2" vs "—"). */
+.market-analysis__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.market-analysis__table {
+  width: 100%;
+  min-width: 94rem;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.market-analysis__col-country {
+  width: 13rem;
+}
+
+.market-analysis__col-company {
+  width: 11rem;
+}
+
+/* Wide enough that "Country Competitiveness" / "Product Competitiveness"
+   need at most two words per line — see the header rule below, which lets
+   these (and only these) wrap instead of ellipsis-truncating. */
+.market-analysis__col-pill {
+  width: 10rem;
+}
+
+.market-analysis__table th,
+.market-analysis__table td {
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The header is written once and stays put while the (potentially long)
+   list of regions scrolls past underneath it. */
+.market-analysis__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.market-analysis__table thead tr:first-child th {
+  top: 0;
+  border-bottom-color: transparent;
+  padding-bottom: 0.2rem;
+}
+
+.market-analysis__table thead tr:last-child th {
+  top: 1.85rem;
+}
+
+.market-analysis__group-head {
+  text-align: center;
+  border-left: 1px solid var(--border-strong);
+}
+
+/* Column headers get their own labels rather than truncated ones — they
+   wrap onto a second line (still uppercase, still centered) instead of
+   ellipsis-cutting, which is only acceptable for actual data cells.
+   Selector needs to out-specify ".market-analysis__table th" above (which
+   sets nowrap/ellipsis for every header and data cell alike), not just
+   match it — a bare ".market-analysis__pill-head" class loses that fight. */
+.market-analysis__table th.market-analysis__pill-head {
+  text-align: center;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.2;
+  vertical-align: middle;
+  border-left: 1px solid var(--border);
+}
+
+/* One background per top-level category, so every column under it reads as
+   part of the same group at a glance. */
+.market-analysis__group-head--overview {
+  background: #142a4a;
+  color: #93c5fd;
+}
+
+.market-analysis__group-head--product {
+  background: #2a1f42;
+  color: #d8b4fe;
+}
+
+.market-analysis__group-head--trade {
+  background: #402c10;
+  color: #fbbf24;
+}
+
+/* Each individual column also gets its own shade within its group's family
+   — a specific, findable color per column, not just per group. */
+.market-analysis__pill-head--profile {
+  background: #16324f;
+  color: #bfdbfe;
+}
+
+.market-analysis__pill-head--product {
+  background: #2c1f47;
+  color: #e9d5ff;
+}
+
+.market-analysis__pill-head--comtrade-import {
+  background: #4a3814;
+  color: #fde68a;
+}
+
+.market-analysis__pill-head--comtrade-export {
+  background: #402c10;
+  color: #fcd34d;
+}
+
+.market-analysis__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.market-analysis__table tbody tr.is-selected {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+/* One divider row per region, inside the same table as its countries — a
+   colspan banner, not a separate card, so the columns below it always line
+   up with the shared header. */
+.market-analysis__region-row td {
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0.5rem 0.7rem;
+}
+
+.market-analysis__region-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.market-analysis__region-count {
+  margin-left: 0.75rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.market-analysis__empty-row {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  white-space: normal;
+}
+
+.market-analysis__country-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.market-analysis__country-link:hover {
+  text-decoration: underline;
+}
+
+.market-analysis__company {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.market-analysis__pill-cell {
+  text-align: center;
+}
+
+.market-analysis__pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.market-analysis__pill.is-done {
+  border-color: rgba(53, 211, 153, 0.45);
+  background: rgba(53, 211, 153, 0.14);
+  color: #35d399;
+}
+
+.market-analysis__pill.is-pending {
+  color: var(--text-dim, #64748b);
+}
+
+.market-analysis__pill.is-pending:hover {
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.market-analysis__detail {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+  overflow-x: auto;
+  scroll-margin-top: 1rem;
+}
+
+.market-analysis__detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.9rem;
+}
+
+.market-analysis__detail-head h4 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.market-analysis__detail-head span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* The "which analysis?" picker when a country has more than one
+   Competitiveness Analysis — reuses the report viewer overlay's chrome. */
+@media (max-width: 720px) {
+  .market-analysis__region-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+}

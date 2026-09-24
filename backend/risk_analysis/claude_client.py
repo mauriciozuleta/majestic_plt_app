@@ -40,18 +40,22 @@ def _build_prompt(company_name, category_name, risks):
         )
     risks_text = '\n'.join(risk_blocks)
 
-    return f"""You are writing a short section of an investor-facing risk report for {company_name}, covering \
-its "{category_name}" risk category. The risks below have already been assessed internally and confirmed as \
-well-managed — every one of them has real mitigation mechanisms in place. Your job is to explain this clearly \
-to someone outside the company (an investor, a lender, a board member) who has no internal context.
+    return f"""You are a member of the {company_name} team, writing a short section of our own investor-facing \
+risk report, covering our "{category_name}" risk category. The risks below have already been assessed \
+internally and confirmed as well-managed — every one of them has real mitigation mechanisms in place. Your job \
+is to explain this clearly to someone outside the company (an investor, a lender, a board member) who has no \
+internal context.
+
+Voice: write in the first person plural — "we", "our", "us" — as {company_name} itself, never "the company" or \
+"{company_name} has" in the third person (for example "we manage this by...", "our mitigation includes...").
 
 For each risk, in plain business language (no internal jargon, no reference to internal scoring scales or \
 letter grades):
-1. Explain what the risk is and how it could affect the company if left unmanaged.
-2. Explain how the mechanisms already in place compensate for it, and why that's credible.
+1. Explain what the risk is and how it could affect us if left unmanaged.
+2. Explain how the mechanisms we already have in place compensate for it, and why that's credible.
 
 Be specific and grounded in the details given — do not invent facts beyond what's provided, but you may explain \
-their business implications in plain terms. Keep an confident, factual tone; this is meant to build trust, not \
+their business implications in plain terms. Keep a confident, factual tone; this is meant to build trust, not \
 oversell.
 
 Write a Markdown document titled "# {category_name} Risk Management — {company_name}" with one "## " subsection \

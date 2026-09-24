@@ -401,8 +401,9 @@ function AddEntryModal({
                 <select value={description} onChange={(event) => setDescription(event.target.value)}>
                   <option value="">-- Select an expense category --</option>
                   {expenseCategories.map((item) => (
-                    <option key={item.id} value={item.name}>
+                    <option key={item.id} value={item.name} disabled={item.percent_of_enabled}>
                       {item.name}
+                      {item.percent_of_enabled ? ' (computed automatically)' : ''}
                     </option>
                   ))}
                 </select>

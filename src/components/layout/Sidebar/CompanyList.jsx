@@ -1,7 +1,7 @@
 import './CompanyList.css'
 import { useState } from 'react'
 import { IconEdit, IconGripVertical } from '@tabler/icons-react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../../../store/useAppStore'
 import { getLastCompanyPath } from '../../../utils/lastCompanyPath'
 
@@ -11,7 +11,6 @@ function CompanyList({ onEditCompany }) {
   const setActiveCompanyId = useAppStore((state) => state.setActiveCompanyId)
   const reorderCompanies = useAppStore((state) => state.reorderCompanies)
   const navigate = useNavigate()
-  const location = useLocation()
   // Only the grab handle can start a drag — the row itself stays a plain
   // click target. armedCompanyId is set on the handle's mousedown (before
   // the browser's own drag gesture begins) and is what the item's own
@@ -45,23 +44,14 @@ function CompanyList({ onEditCompany }) {
     setDragOverCompanyId(null)
   }
 
-  // Switching companies should land on whatever tab the user was already
-  // looking at (e.g. Financial > Expenses stays Financial > Expenses for
-  // the newly selected company) instead of always resetting to
-  // Management > Roadmap — only fall back to that default when the current
-  // page isn't inside a company workspace at all (e.g. Dashboard, Settings).
+  // Each company remembers its OWN last-visited tab (see lastCompanyPath.js,
+  // written by CompanyWorkspace on every navigation) — switching from
+  // FRESH24 ▸ Payroll to another company lands on that company's own last
+  // tab, not on Payroll. A company that's never been opened falls back to
+  // Management ▸ Roadmap.
   const buildTargetPath = (companyId) => {
-    const segments = location.pathname.split('/').filter(Boolean)
-    const companyIndex = segments.indexOf('company')
-    if (companyIndex === -1 || segments.length <= companyIndex + 1) {
-      // Not currently inside any company's workspace (e.g. coming from
-      // Home or Settings) — land back on this company's own last-visited
-      // tab rather than always resetting to Management ▸ Roadmap.
-      const lastPath = getLastCompanyPath(companyId)
-      return `/company/${companyId}${lastPath ? `/${lastPath}` : '/management/roadmap'}`
-    }
-    const rest = segments.slice(companyIndex + 2)
-    return `/company/${companyId}${rest.length ? `/${rest.join('/')}` : '/management/roadmap'}`
+    const lastPath = getLastCompanyPath(companyId)
+    return `/company/${companyId}${lastPath ? `/${lastPath}` : '/management/roadmap'}`
   }
 
   return (

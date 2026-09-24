@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
 import { CANONICAL_CATEGORIES, mergeSources } from './priceComparisonData'
 import {
+  confirmTranslationSuggestion,
   fetchCorabastosPrices,
   fetchLaMayoristaPrices,
   fetchPriceComparisonSnapshot,
   fetchTranslationOverrides,
+  fetchTranslationSuggestions,
+  rejectTranslationSuggestion,
+  requestTranslationSuggestions,
   saveTranslationOverride,
 } from './priceComparisonFetchers'
 import { normalizeProductName, translateProductName } from './productTranslations'
@@ -19,7 +22,6 @@ import {
   explainColombiaConversion,
 } from './unitConversion'
 import { fetchExchangeRate } from '../../../../../services/exchangeRate'
-import { fetchCommercialCountries } from '../../../../../services/commercialStructure'
 import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
 import { fetchWeightResearch, researchMissingWeights } from '../../../../../services/weightResearch'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
@@ -129,10 +131,17 @@ function SourceStatus({ label, sync }) {
   )
 }
 
-function ColombiaProductAnalysisView() {
-  const { companyId } = useParams()
+// `highlightHsCode` (from Available Categories' country-code links, via
+// MarketAnalysisPanel) filters straight down to the product(s) whose own
+// reference code (see productPortfolio.js — "CO"+hs_code) falls under this
+// HS code, regardless of the category chip currently selected. The parent
+// remounts this view (new key) on every new click, so a plain useState
+// seeded from the prop is enough — no effect needed to react to it changing.
+function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
   const [activeCategory, setActiveCategory] = useState('all')
   const [productCodes, setProductCodes] = useState(new Map())
+  const [highlightCleared, setHighlightCleared] = useState(false)
+  const highlightActive = Boolean(highlightHsCode) && !highlightCleared
   const [researchedWeights, setResearchedWeights] = useState(new Map())
   const [researchingWeights, setResearchingWeights] = useState(false)
   const [customOverrides, setCustomOverrides] = useState(new Map())
@@ -149,6 +158,9 @@ function ColombiaProductAnalysisView() {
   const [openTranslationKeys, setOpenTranslationKeys] = useState(() => new Set())
   const [pendingTranslations, setPendingTranslations] = useState({})
   const [savingTranslations, setSavingTranslations] = useState(false)
+  const [translationSuggestions, setTranslationSuggestions] = useState(new Map())
+  const [suggestingTranslations, setSuggestingTranslations] = useState(false)
+  const [resolvingSuggestionKey, setResolvingSuggestionKey] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -232,6 +244,21 @@ function ColombiaProductAnalysisView() {
 
   useEffect(() => {
     let cancelled = false
+    fetchTranslationSuggestions()
+      .then((data) => {
+        if (cancelled) return
+        setTranslationSuggestions(new Map(data.results.map((row) => [row.product_key, row])))
+      })
+      .catch(() => {
+        // Non-fatal: rows just show the plain "translation needed" chip without an AI suggestion.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     fetchWeightResearch()
       .then((data) => {
         if (cancelled) return
@@ -248,11 +275,7 @@ function ColombiaProductAnalysisView() {
   useEffect(() => {
     if (!companyId) return undefined
     let cancelled = false
-    fetchCommercialCountries(companyId)
-      .then((countries) => {
-        const countryCodeByName = new Map(countries.map((c) => [c.name.toLowerCase(), c.country_code]))
-        return buildProductCodeIndex(countryCodeByName)
-      })
+    buildProductCodeIndex()
       .then((index) => {
         if (!cancelled) setProductCodes(index)
       })
@@ -276,10 +299,19 @@ function ColombiaProductAnalysisView() {
     const scoped = activeCategory === 'all' ? products : products.filter((product) => product.category === activeCategory)
     // Sorted by the same (translated, English) name the portfolio codes are
     // alphabetized by, so codes read in ascending order down the table.
-    return [...scoped].sort((a, b) =>
+    const sorted = [...scoped].sort((a, b) =>
       translateProductName(a.nameEs, translationOverrides).text.localeCompare(translateProductName(b.nameEs, translationOverrides).text),
     )
-  }, [products, activeCategory, translationOverrides])
+    if (!highlightActive) return sorted
+    // A code is "CO" + the real HS code (see productPortfolio.js) — strip
+    // the 2-letter country prefix and match the rest against the clicked
+    // HS code as a prefix, since a 6-digit highlight should still match a
+    // longer real tariff code that starts with it.
+    return sorted.filter((product) => {
+      const code = productCodes.get(translateProductName(product.nameEs, translationOverrides).text.toLowerCase())
+      return code && code.slice(2).startsWith(highlightHsCode)
+    })
+  }, [products, activeCategory, translationOverrides, highlightActive, highlightHsCode, productCodes])
 
   const stats = useMemo(
     () => ({
@@ -415,6 +447,73 @@ function ColombiaProductAnalysisView() {
       window.alert(`Could not clear the custom value(s): ${error.message}`)
     } finally {
       setSavingOverride(false)
+    }
+  }
+
+  // Every currently-loaded product whose name misses both Tier 1 (static
+  // dictionary) and Tier 2 (fuzzy match) — see productTranslations.js —
+  // and doesn't already have a pending suggestion or a confirmed override,
+  // deduped by translation key since the same untranslated name can recur
+  // across many rows/sizes.
+  const missingTranslationItems = useMemo(() => {
+    const itemsByKey = new Map()
+    products.forEach((product) => {
+      const key = normalizeProductName(product.nameEs)
+      if (translationSuggestions.has(key)) return
+      const translation = translateProductName(product.nameEs, translationOverrides)
+      if (!translation.isTranslated && !itemsByKey.has(key)) {
+        itemsByKey.set(key, { product_key: key, name_es: product.nameEs })
+      }
+    })
+    return Array.from(itemsByKey.values())
+  }, [products, translationOverrides, translationSuggestions])
+
+  const handleRequestTranslationSuggestions = async () => {
+    if (suggestingTranslations || !missingTranslationItems.length) return
+    setSuggestingTranslations(true)
+    try {
+      const data = await requestTranslationSuggestions(missingTranslationItems)
+      setTranslationSuggestions(new Map(data.results.map((row) => [row.product_key, row])))
+    } catch (error) {
+      window.alert(`AI translation suggestions failed: ${error.message}`)
+    } finally {
+      setSuggestingTranslations(false)
+    }
+  }
+
+  const handleConfirmSuggestion = async (key) => {
+    if (resolvingSuggestionKey) return
+    setResolvingSuggestionKey(key)
+    try {
+      const suggestion = translationSuggestions.get(key)
+      await confirmTranslationSuggestion(key)
+      setTranslationOverrides((prev) => ({ ...prev, [key]: suggestion.suggestion_en }))
+      setTranslationSuggestions((prev) => {
+        const next = new Map(prev)
+        next.delete(key)
+        return next
+      })
+    } catch (error) {
+      window.alert(`Could not confirm this translation: ${error.message}`)
+    } finally {
+      setResolvingSuggestionKey(null)
+    }
+  }
+
+  const handleRejectSuggestion = async (key) => {
+    if (resolvingSuggestionKey) return
+    setResolvingSuggestionKey(key)
+    try {
+      await rejectTranslationSuggestion(key)
+      setTranslationSuggestions((prev) => {
+        const next = new Map(prev)
+        next.delete(key)
+        return next
+      })
+    } catch (error) {
+      window.alert(`Could not reject this suggestion: ${error.message}`)
+    } finally {
+      setResolvingSuggestionKey(null)
     }
   }
 
@@ -561,6 +660,17 @@ function ColombiaProductAnalysisView() {
               {researchingWeights ? 'Researching…' : `Research Missing Weights (${missingWeightItems.length})`}
             </button>
           )}
+          {missingTranslationItems.length > 0 && (
+            <button
+              type="button"
+              className="price-comparison__research-btn"
+              onClick={handleRequestTranslationSuggestions}
+              disabled={suggestingTranslations}
+              title="Try a local translation model, then a web search, for product names the dictionary doesn't cover — every suggestion needs your review before it's used"
+            >
+              {suggestingTranslations ? 'Suggesting…' : `Suggest Translations (${missingTranslationItems.length})`}
+            </button>
+          )}
           <button type="button" className="price-comparison__update-btn" onClick={handleUpdate} disabled={updating}>
             {updating ? 'Updating…' : 'Update'}
           </button>
@@ -584,6 +694,31 @@ function ColombiaProductAnalysisView() {
               Live conversion unavailable{rateSync.error ? `: ${rateSync.error}` : ''} — showing {LOCAL_CURRENCY} only.
             </span>
           )}
+        </div>
+      )}
+
+      {highlightActive && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            border: '1px solid rgba(53, 211, 153, 0.35)',
+            background: 'rgba(53, 211, 153, 0.1)',
+            color: '#6ee7b7',
+            fontSize: '0.82rem',
+          }}
+        >
+          Showing products classified under HS code {highlightHsCode} (from Available Categories).
+          <button
+            type="button"
+            onClick={() => setHighlightCleared(true)}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            Clear filter
+          </button>
         </div>
       )}
 
@@ -661,6 +796,8 @@ function ColombiaProductAnalysisView() {
                   const translation = translateProductName(product.nameEs, translationOverrides)
                   const translationKey = normalizeProductName(product.nameEs)
                   const isEditingTranslation = openTranslationKeys.has(translationKey)
+                  const suggestion = translationSuggestions.get(translationKey)
+                  const isResolvingSuggestion = resolvingSuggestionKey === translationKey
                   const code = productCodes.get(translation.text.toLowerCase())
                   const sourceEntries = resolveEntries(product, buildSourceEntries(product), researchedWeights, customOverrides)
                   const referenceEntry = pickReferenceEntry(sourceEntries)
@@ -673,7 +810,7 @@ function ColombiaProductAnalysisView() {
                       <td>
                         <div className="price-comparison__product-name">
                           {translation.text}
-                          {!translation.isTranslated && !isEditingTranslation && (
+                          {!translation.isTranslated && !isEditingTranslation && !suggestion && (
                             <button
                               type="button"
                               className="price-comparison__translation-needed"
@@ -683,6 +820,44 @@ function ColombiaProductAnalysisView() {
                             </button>
                           )}
                         </div>
+                        {!translation.isTranslated && !isEditingTranslation && suggestion && (
+                          <div
+                            className="price-comparison__suggestion"
+                            title={
+                              suggestion.tier === 4
+                                ? 'Web-search fallback — lower confidence than the local translation model. Verify before confirming.'
+                                : 'Local translation model — verify before confirming.'
+                            }
+                          >
+                            <span className="price-comparison__suggestion-text">{suggestion.suggestion_en}</span>
+                            <span className="price-comparison__suggestion-badge">
+                              AI suggestion (tier {suggestion.tier}) — needs review
+                            </span>
+                            <button
+                              type="button"
+                              className="price-comparison__suggestion-confirm"
+                              onClick={() => handleConfirmSuggestion(translationKey)}
+                              disabled={isResolvingSuggestion}
+                            >
+                              {isResolvingSuggestion ? '…' : 'Confirm'}
+                            </button>
+                            <button
+                              type="button"
+                              className="price-comparison__suggestion-reject"
+                              onClick={() => handleRejectSuggestion(translationKey)}
+                              disabled={isResolvingSuggestion}
+                            >
+                              Reject
+                            </button>
+                            <button
+                              type="button"
+                              className="price-comparison__translation-needed"
+                              onClick={() => handleStartTranslationEdit(translationKey)}
+                            >
+                              edit manually
+                            </button>
+                          </div>
+                        )}
                         {isEditingTranslation && (
                           <div className="price-comparison__translation-editor">
                             <input

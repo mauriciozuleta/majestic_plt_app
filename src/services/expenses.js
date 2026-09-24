@@ -37,11 +37,11 @@ export async function deleteExpenseCategory(categoryId) {
   return response.json()
 }
 
-export async function renameExpenseCategory(categoryId, name) {
+export async function renameExpenseCategory(categoryId, name, percentOfEnabled = false, percentOfMetric = null) {
   const response = await fetch(`${API_BASE}/expense-categories/${categoryId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, percent_of_enabled: percentOfEnabled, percent_of_metric: percentOfMetric }),
   })
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
@@ -50,21 +50,21 @@ export async function renameExpenseCategory(categoryId, name) {
   return response.json()
 }
 
-export async function fetchExpenseCategoryExclusions() {
-  const response = await fetch(`${API_BASE}/expense-category-country-exclusions`)
-  if (!response.ok) throw new Error('Failed to load expense country settings')
+export async function fetchExpenseCategoryCompanySettings() {
+  const response = await fetch(`${API_BASE}/expense-category-company-settings`)
+  if (!response.ok) throw new Error('Failed to load expense company settings')
   return response.json()
 }
 
-export async function setExpenseCategoryApplicability(categoryId, countryId, applicable) {
-  const response = await fetch(`${API_BASE}/expense-category-country-exclusions`, {
+export async function setExpenseCategoryCompanySetting(categoryId, companyId, excluded, percentValue) {
+  const response = await fetch(`${API_BASE}/expense-category-company-settings`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ category_id: categoryId, country_id: countryId, applicable }),
+    body: JSON.stringify({ category_id: categoryId, company_id: companyId, excluded, percent_value: percentValue }),
   })
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
-    throw new Error(payload?.detail || 'Failed to update expense country setting')
+    throw new Error(payload?.detail || 'Failed to update expense company setting')
   }
   return response.ok
 }

@@ -4,7 +4,6 @@ import { useAppStore } from '../../../../store/useAppStore'
 import { fetchStartupInvestmentPlan, fetchStartupInvestmentRecords } from '../../../../services/startupInvestment'
 import {
   fetchAllCompetitivenessAnalyses,
-  fetchCommercialCountries,
   fetchCompetitivenessAnalysis,
   fetchCountryProfile,
   fetchProfiledCountries,
@@ -14,6 +13,8 @@ import { buildStartupInvestmentPdfSpec } from '../FinancialTab/startupInvestment
 import { exportCountryProfileToPdf } from '../OperationsTab/countryProfileExport'
 import { buildProductPortfolio } from '../../../../services/productPortfolio'
 import ExportPdfButton from '../../../shared/PdfExport/ExportPdfButton'
+import KnowledgeBaseSections from './KnowledgeBaseSections'
+import UploadDocumentModal from './UploadDocumentModal'
 import './DocumentationTab.css'
 
 function MarkdownBody({ markdown }) {
@@ -125,7 +126,7 @@ function CountryProfilesCategory({ companyId }) {
   if (status === 'loading') return <p className="documentation__hint">Loading…</p>
   if (status === 'error') return <p className="documentation__hint documentation__hint--error">Could not load country profiles.</p>
   if (countries.length === 0) {
-    return <p className="documentation__hint">No Country Commercial Profiles have been built yet (Operations → Market Analysis).</p>
+    return <p className="documentation__hint">No Country Commercial Profiles have been built yet (Market Analysis).</p>
   }
 
   return (
@@ -226,7 +227,7 @@ function CompetitivenessAnalysesCategory({ companyId }) {
   if (analyses.length === 0) {
     return (
       <p className="documentation__hint">
-        No Country Competitiveness Analyses have been run yet (Operations → Market Analysis → Country Competitiveness Analysis).
+        No Country Competitiveness Analyses have been run yet (Market Analysis → Country Competitiveness Analysis).
       </p>
     )
   }
@@ -281,11 +282,7 @@ function ProductPortfolioCategory({ companyId }) {
   useEffect(() => {
     let cancelled = false
     setStatus('loading')
-    fetchCommercialCountries(companyId)
-      .then((countries) => {
-        const countryCodeByName = new Map(countries.map((c) => [c.name.toLowerCase(), c.country_code]))
-        return buildProductPortfolio(countryCodeByName)
-      })
+    buildProductPortfolio()
       .then((portfolio) => {
         if (cancelled) return
         setRows(portfolio)
@@ -313,7 +310,7 @@ function ProductPortfolioCategory({ companyId }) {
   if (rows.length === 0) {
     return (
       <p className="documentation__hint">
-        No product portfolio data yet — click Update on a country's Product Analysis tab first (Operations → Market Analysis).
+        No product portfolio data yet — click Update on a country's Product Analysis tab first (Market Analysis).
       </p>
     )
   }
@@ -366,11 +363,20 @@ function ProductPortfolioCategory({ companyId }) {
 
 function DocumentationTab() {
   const { companyId } = useParams()
+  const [showUpload, setShowUpload] = useState(false)
+  // Bumped after an upload/delete/index so the two document cards reload.
+  const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0)
+  const refreshDocuments = () => setDocumentsRefreshKey((key) => key + 1)
 
   return (
     <div className="panel-surface documentation">
-      <h3>Documentation</h3>
-      <p className="documentation__intro">Generated reports and analyses, organized by category.</p>
+      <div className="documentation__header">
+        <h3>Documentation</h3>
+        <button type="button" className="documentation__link-btn" onClick={() => setShowUpload(true)}>
+          Upload
+        </button>
+      </div>
+      <p className="documentation__intro">Generated reports, analyses and uploaded documents, organized by category.</p>
 
       <section className="documentation__category">
         <h4>General Portfolio Directory</h4>
@@ -391,6 +397,12 @@ function DocumentationTab() {
         <h4>Country Competitiveness Analyses</h4>
         <CompetitivenessAnalysesCategory companyId={companyId} />
       </section>
+
+      <KnowledgeBaseSections refreshKey={documentsRefreshKey} onChanged={refreshDocuments} />
+
+      {showUpload && (
+        <UploadDocumentModal onClose={() => setShowUpload(false)} onUploaded={refreshDocuments} />
+      )}
     </div>
   )
 }

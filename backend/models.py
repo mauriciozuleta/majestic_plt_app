@@ -187,6 +187,23 @@ class CountryReferenceCatalog(Base):
     currency = Column(String, nullable=False)
     currency_code = Column(String, nullable=False)
     region = Column(String, nullable=False, index=True)
+    # Global Trade Data source discovery (see backend/trade_sources/) — the
+    # ONE-TIME result of "does Comtrade cover this country, and if not,
+    # which fallback source does" decided at the moment this country is
+    # first added to Commercial Structure (routers/commercial_structure.py's
+    # create_country), not re-decided on every Global Trade Data view.
+    # trade_data_source: 'comtrade' | 'tci_statistics_authority' |
+    #   'cbs_netherlands' | 'us_census_fred' | 'none_found' | None (never
+    #   discovered — e.g. this country has never been added to Commercial
+    #   Structure, or discovery hasn't finished yet).
+    trade_data_source = Column(String, nullable=True)
+    # trade_data_coverage: 'total' | 'bilateral' | 'unavailable' | None
+    trade_data_coverage = Column(String, nullable=True)
+    # Human-readable caveat shown wherever this country's Global Trade Data
+    # is rendered — e.g. "US trade only - not this territory's total trade
+    # with the world" for a 'bilateral' source. None for 'total' coverage.
+    trade_data_coverage_note = Column(String, nullable=True)
+    trade_data_source_checked_at = Column(String, nullable=True)
 
 
 class CommercialBranch(Base):
@@ -301,6 +318,15 @@ class ExpenseCategory(Base):
     id = Column(String, primary_key=True, index=True)
     sort_order = Column(Integer, default=0)
     name = Column(String, nullable=False)
+    # When set, this category's monthly value is never typed in manually (see
+    # ExpenseCategoryCompanySetting.percent_value for each company's own
+    # rate) — it's computed as a percentage of a portfolio-independent
+    # metric. 'gross_revenue' or 'net_profit' — see gl_engine-adjacent
+    # comments in ExpensesView.jsx for exactly how each is computed and why
+    # 'net_profit' has to exclude every percent-of-profit category (including
+    # itself) from its own base to avoid a circular calculation.
+    percent_of_enabled = Column(Boolean, nullable=False, default=False)
+    percent_of_metric = Column(String, nullable=True)
 
 
 class ExpenseEntry(Base):
@@ -314,16 +340,24 @@ class ExpenseEntry(Base):
     hardcoded_json = Column(String, nullable=False, default='[false,false,false,false,false,false,false,false,false,false,false,false]')
 
 
-class ExpenseCategoryCountryExclusion(Base):
-    """An explicit opt-out: this expense category does NOT apply to this
-    country. Absence of a row means "applies" — so a newly added category or
-    country is applicable everywhere by default with no backfill needed."""
-    __tablename__ = 'expense_category_country_exclusions'
-    __table_args__ = (UniqueConstraint('category_id', 'country_id', name='uq_expense_category_country'),)
+class ExpenseCategoryCompanySetting(Base):
+    """Per (category, company): whether this category applies to that
+    company at all, and — for a percent-of-X category — that company's own
+    percentage rate (two companies can run the same category at different
+    rates, e.g. Marketing at 2% for one and 3% for another). Replaces the
+    older country-based exclusion table now that every company can be
+    addressed directly, without going through a commercial-structure country
+    row it may not even have one of. Absence of a row means "applies, no
+    percent value set" — same default-permissive convention the old table
+    used."""
+    __tablename__ = 'expense_category_company_settings'
+    __table_args__ = (UniqueConstraint('category_id', 'company_id', name='uq_expense_category_company'),)
 
     id = Column(String, primary_key=True, index=True)
     category_id = Column(String, ForeignKey('expense_categories.id'), nullable=False, index=True)
-    country_id = Column(String, ForeignKey('commercial_countries.id'), nullable=False, index=True)
+    company_id = Column(String, nullable=False, index=True)
+    excluded = Column(Boolean, nullable=False, default=False)
+    percent_value = Column(Float, nullable=True)
 
 
 class StartupInvestmentPlan(Base):
@@ -468,6 +502,26 @@ class ProductTranslationOverride(Base):
     translation_en = Column(String, nullable=False)
 
 
+class ProductTranslationSuggestion(Base):
+    """An AI-derived English translation for a Colombia price-comparison
+    product name that both the static dictionary (productTranslations.js)
+    and confirmed overrides (ProductTranslationOverride, above) missed —
+    produced by the local translation model or, failing that, a web search
+    (see backend/translation/resolve.py); never Claude. Always unverified:
+    a human either confirms it (promoted into ProductTranslationOverride,
+    this row deleted) or rejects it (this row deleted, the product goes
+    back to needing a manual translation). Global, not per-company,
+    matching ProductTranslationOverride."""
+    __tablename__ = 'product_translation_suggestions'
+
+    product_key = Column(String, primary_key=True, index=True)
+    name_es = Column(String, nullable=False)
+    suggestion_en = Column(String, nullable=False)
+    tier = Column(Integer, nullable=False)  # 3 = local model, 4 = web search
+    confidence = Column(String, nullable=True)
+    created_at = Column(String, nullable=False)
+
+
 class ProductWeightResearch(Base):
     """AI-researched net weight (in kg) for a product/pack whose price the
     scrapers can't convert to $/kg from the source data alone (e.g. a USA
@@ -488,6 +542,22 @@ class ProductWeightResearch(Base):
     note = Column(String, nullable=True)
     sources_json = Column(String, nullable=False, default='[]')
     researched_at = Column(String, nullable=False)
+
+
+class ProductHsCode(Base):
+    """The real UN Comtrade HS code assigned to one of our own wholesale
+    product names (see backend/comtrade/product_classification.py) — what
+    the General Portfolio Directory's product code is built from
+    ("CO" + this + sequence, e.g. onions from Colombia -> "CO070310").
+    Global, not per-company — a product's HS classification is a fact about
+    the product, not about who's selling it. Classified once, kept forever:
+    hs_code/description are null for a product that couldn't be confidently
+    classified (still cached, so it isn't retried every time)."""
+    __tablename__ = 'product_hs_codes'
+
+    product_key = Column(String, primary_key=True, index=True)
+    hs_code = Column(String, nullable=True)
+    description = Column(String, nullable=True)
 
 
 class ProductCustomOverride(Base):
@@ -593,3 +663,72 @@ class RiskMechanism(Base):
     capacity = Column(String, nullable=False, default='M')
     cost = Column(String, nullable=False, default='M')
     sort_order = Column(Integer, default=0)
+
+
+class KnowledgeDocument(Base):
+    """A file in the portfolio's Documentation: either just uploaded (stored for
+    people to download, in_knowledge_base False) or also indexed for
+    retrieval (in_knowledge_base True, with a .rag.json next to it — see
+    knowledge_base/rag.py). source 'report' rows are the app's own
+    generated reports (country profiles, competitiveness analyses, risk
+    plans) mirrored into the knowledge base automatically; report_key
+    identifies which report a row mirrors so a re-sync updates it instead
+    of duplicating it."""
+    __tablename__ = 'knowledge_documents'
+
+    id = Column(String, primary_key=True, index=True)
+    # Only set for source 'report' (which company the report was built
+    # for) — the knowledge base itself is one shared library, not per company.
+    related_company_id = Column(String, index=True, nullable=True)
+    name = Column(String, nullable=False)
+    original_filename = Column(String, nullable=False)
+    stored_name = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False, default=0)
+    uploaded_at = Column(String, nullable=False)
+    source = Column(String, nullable=False, default='upload')  # 'upload' | 'report'
+    report_key = Column(String, nullable=True, index=True)
+    content_hash = Column(String, nullable=True)
+    in_knowledge_base = Column(Boolean, nullable=False, default=False)
+    chunk_count = Column(Integer, nullable=False, default=0)
+
+
+class ProductSource(Base):
+    """A product-price source added by the user in Settings, on top of the
+    built-in Colombia/USA pipelines (which live in code). Its products are
+    stored as a snapshot under the key `custom_<id>` (see snapshot_store) —
+    read from the site at `url` when there is one, or loaded from an
+    uploaded file when the site couldn't be analysed or there's no site."""
+    __tablename__ = 'product_sources'
+
+    id = Column(String, primary_key=True, index=True)
+    country_name = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    url = Column(String, nullable=True)
+    currency = Column(String, nullable=True)  # applied to products that don't state their own
+    # 'wholesaler' | 'retail' — the price level this source's products are
+    # quoted at, shown as a label next to the source in Country Product
+    # Portfolio, see routers/product_sources.py and MarketAnalysisPanel.jsx.
+    # Defaults to 'wholesaler' so every source added before this field
+    # existed keeps behaving exactly as it always did.
+    analysis_type = Column(String, nullable=False, default='wholesaler')
+    # 'ok' | 'needs_file' (site couldn't be read; waiting for an upload) | 'empty' (no url, no file yet)
+    status = Column(String, nullable=False, default='empty')
+    status_message = Column(String, nullable=True)
+    origin = Column(String, nullable=True)  # 'site' | 'file' — where the current products came from
+    product_count = Column(Integer, nullable=False, default=0)
+    last_loaded_at = Column(String, nullable=True)
+    created_at = Column(String, nullable=False)
+
+
+class BuiltInProductSourceOverride(Base):
+    """The Wholesaler/Retail label for a code-defined built-in source (La
+    Mayorista, Corabastos, the USDA feeds — see BUILT_IN_SOURCES in
+    routers/product_sources.py). Built-ins aren't ProductSource rows, so
+    there's nowhere on them to persist this — this table exists purely to
+    give them the same analysis_type ProductSource.analysis_type has,
+    keyed by the same id BUILT_IN_SOURCES itself uses (e.g. 'la_mayorista').
+    Absent means 'wholesaler', same default as ProductSource."""
+    __tablename__ = 'built_in_source_overrides'
+
+    source_id = Column(String, primary_key=True)
+    analysis_type = Column(String, nullable=False, default='wholesaler')

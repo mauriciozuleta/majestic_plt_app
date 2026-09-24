@@ -38,7 +38,7 @@ const tabConfig = {
   },
   operations: {
     label: 'Operations',
-    subTabs: ['commercial-operations', 'market-analysis'],
+    subTabs: ['commercial-operations'],
   },
   management: {
     label: 'Management',
@@ -54,10 +54,6 @@ const tabConfig = {
   },
   drivers: {
     label: 'Drivers',
-    subTabs: [],
-  },
-  documentation: {
-    label: 'Documentation',
     subTabs: [],
   },
 }
@@ -138,9 +134,7 @@ function CompanyWorkspace() {
                         ? `/company/${companyId}/financial/revenue-streams`
                         : key === 'simulator'
                           ? `/company/${companyId}/simulator`
-                          : key === 'drivers'
-                            ? `/company/${companyId}/drivers`
-                            : `/company/${companyId}/documentation`
+                          : `/company/${companyId}/drivers`
               }
               className={({ isActive }) =>
                 `company-workspace__tab ${isActive || activeTab === key ? 'is-active' : ''} ${

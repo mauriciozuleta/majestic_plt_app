@@ -1,13 +1,27 @@
 import { Handle, Position } from '@xyflow/react'
-import { IconTrash } from '@tabler/icons-react'
+import { IconEdit, IconTrash } from '@tabler/icons-react'
 import './StructureNode.css'
 
 function StructureNode({ data, selected }) {
-  const canDelete = (data.kind === 'country' || data.kind === 'branch') && typeof data.onDelete === 'function'
+  const canDelete = data.kind !== 'company' && typeof data.onDelete === 'function'
+  const canEdit = data.kind !== 'company' && typeof data.onEdit === 'function'
 
   return (
     <div className={`structure-node is-${data.kind} ${selected ? 'is-selected' : ''}`}>
       <Handle type="target" position={Position.Top} className="structure-node__handle" />
+      {canEdit && (
+        <button
+          type="button"
+          className="structure-node__edit"
+          title={`Edit this ${data.kind}`}
+          onClick={(event) => {
+            event.stopPropagation()
+            data.onEdit()
+          }}
+        >
+          <IconEdit size={13} stroke={1.8} />
+        </button>
+      )}
       {canDelete && (
         <button
           type="button"

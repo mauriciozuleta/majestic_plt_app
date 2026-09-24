@@ -32,6 +32,58 @@
   background: rgba(251, 191, 36, 0.22);
 }
 
+.price-comparison__suggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+}
+
+.price-comparison__suggestion-text {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.price-comparison__suggestion-badge {
+  display: inline-block;
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+  color: #c4b5fd;
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  background: rgba(139, 92, 246, 0.15);
+  border-radius: 999px;
+  padding: 0.03rem 0.4rem;
+}
+
+.price-comparison__suggestion-confirm,
+.price-comparison__suggestion-reject {
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.68rem;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+}
+
+.price-comparison__suggestion-confirm {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #6ee7b7;
+}
+
+.price-comparison__suggestion-reject {
+  color: var(--text-muted);
+}
+
+.price-comparison__suggestion-confirm:disabled,
+.price-comparison__suggestion-reject:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .price-comparison__translation-editor {
   display: flex;
   align-items: center;

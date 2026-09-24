@@ -3,12 +3,13 @@ import uuid
 from io import StringIO
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models
+from ..trade_sources import discovery
 
 router = APIRouter()
 
@@ -175,8 +176,60 @@ def list_regions(company_id: str, db: Session = Depends(get_db)):
     return db.query(models.CommercialRegion).filter_by(company_id=company_id).all()
 
 
+@router.get('/commercial-regions/assignments')
+def list_region_assignments(db: Session = Depends(get_db)):
+    """Which company each region name is assigned to — a region belongs to
+    exactly one company, so the editor uses this to grey out regions
+    another company already holds."""
+    return [{'name': row.name, 'company_id': row.company_id} for row in db.query(models.CommercialRegion).all()]
+
+
+@router.get('/market-analysis/regions')
+def market_analysis_regions(db: Session = Depends(get_db)):
+    """Every region in the portfolio with its active countries (the ones set
+    up in Commercial Structure), for the Market Analysis module. A region
+    belongs to exactly one company, so each country carries that company —
+    it's whose commercial profile and analyses the country's reports are."""
+    companies = {company.id: company.name for company in db.query(models.Company).all()}
+    countries_by_region: dict[str, list[models.CommercialCountry]] = {}
+    for country in db.query(models.CommercialCountry).all():
+        countries_by_region.setdefault(country.region_id, []).append(country)
+
+    grouped: dict[str, list[dict]] = {}
+    for region in db.query(models.CommercialRegion).all():
+        entries = grouped.setdefault(region.name, [])
+        for country in countries_by_region.get(region.id, []):
+            entries.append(
+                {
+                    'id': country.id,
+                    'name': country.name,
+                    'country_code': country.country_code,
+                    'company_id': country.company_id,
+                    'company_name': companies.get(country.company_id, ''),
+                }
+            )
+    return [
+        {'region': name, 'countries': sorted(entries, key=lambda item: item['name'])}
+        for name, entries in sorted(grouped.items())
+    ]
+
+
 @router.post('/companies/{company_id}/commercial-regions', response_model=CommercialRegionOut)
 def create_region(company_id: str, payload: CommercialRegionCreate, db: Session = Depends(get_db)):
+    existing = (
+        db.query(models.CommercialRegion)
+        .filter(models.CommercialRegion.name == payload.name)
+        .first()
+    )
+    if existing:
+        if existing.company_id == company_id:
+            raise HTTPException(status_code=400, detail=f'"{payload.name}" is already assigned to this company.')
+        owner = db.query(models.Company).filter_by(id=existing.company_id).first()
+        raise HTTPException(
+            status_code=400,
+            detail=f'"{payload.name}" is already assigned to {owner.name if owner else "another company"} — a region can only belong to one company.',
+        )
+
     region = models.CommercialRegion(
         id=str(uuid.uuid4()),
         company_id=company_id,
@@ -203,13 +256,31 @@ def update_region(company_id: str, region_id: str, payload: CommercialRegionUpda
     return region
 
 
+@router.delete('/companies/{company_id}/commercial-regions/{region_id}', status_code=204)
+def delete_region(company_id: str, region_id: str, db: Session = Depends(get_db)):
+    region = db.query(models.CommercialRegion).filter_by(id=region_id, company_id=company_id).first()
+    if not region:
+        raise HTTPException(status_code=404, detail='Region not found')
+
+    # Same reasoning as delete_country: nothing under a deleted region is
+    # left orphaned, so its countries and their branches go with it.
+    country_ids = [row.id for row in db.query(models.CommercialCountry).filter_by(region_id=region_id, company_id=company_id).all()]
+    if country_ids:
+        db.query(models.CommercialBranch).filter(
+            models.CommercialBranch.country_id.in_(country_ids), models.CommercialBranch.company_id == company_id
+        ).delete(synchronize_session=False)
+        db.query(models.CommercialCountry).filter(models.CommercialCountry.id.in_(country_ids)).delete(synchronize_session=False)
+    db.delete(region)
+    db.commit()
+
+
 @router.get('/companies/{company_id}/commercial-countries', response_model=list[CommercialCountryOut])
 def list_countries(company_id: str, db: Session = Depends(get_db)):
     return db.query(models.CommercialCountry).filter_by(company_id=company_id).all()
 
 
 @router.post('/companies/{company_id}/commercial-countries', response_model=CommercialCountryOut)
-def create_country(company_id: str, payload: CommercialCountryCreate, db: Session = Depends(get_db)):
+def create_country(company_id: str, payload: CommercialCountryCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     region = db.query(models.CommercialRegion).filter_by(id=payload.region_id, company_id=company_id).first()
     if not region:
         raise HTTPException(status_code=404, detail='Region not found')
@@ -239,6 +310,18 @@ def create_country(company_id: str, payload: CommercialCountryCreate, db: Sessio
     db.add(country)
     db.commit()
     db.refresh(country)
+
+    # Global Trade Data source discovery (trade_sources/discovery.py) — a
+    # per-REAL-country decision (CountryReferenceCatalog, not this
+    # per-company row), so it only runs once regardless of how many
+    # companies add the same physical country. Skipped entirely when no
+    # reference_country was resolved (nothing to key it on — same
+    # tolerance the rest of this function already has for an unmatched
+    # country), and skipped when discovery has already run for it (reused,
+    # not re-triggered) — only an unset trade_data_source runs it here.
+    if reference_country and not reference_country.trade_data_source:
+        discovery.trigger(background_tasks, db, reference_country.country_code, reference_country.name)
+
     return country
 
 

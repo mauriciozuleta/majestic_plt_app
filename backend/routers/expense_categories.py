@@ -55,7 +55,7 @@ def delete_expense_category(category_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f'"{category.name}" is computed automatically and cannot be deleted.')
 
     db.query(models.ExpenseEntry).filter_by(category_id=category_id).delete(synchronize_session=False)
-    db.query(models.ExpenseCategoryCountryExclusion).filter_by(category_id=category_id).delete(synchronize_session=False)
+    db.query(models.ExpenseCategoryCompanySetting).filter_by(category_id=category_id).delete(synchronize_session=False)
     db.delete(category)
     db.commit()
     return {'ok': True}
@@ -74,52 +74,53 @@ def rename_expense_category(category_id: str, payload: schemas.ExpenseCategoryUp
         raise HTTPException(status_code=400, detail=f'"{category.name}" is computed automatically and cannot be renamed.')
     if new_name in PROTECTED_CATEGORY_NAMES:
         raise HTTPException(status_code=400, detail=f'"{new_name}" is a reserved name.')
+    if payload.percent_of_enabled and payload.percent_of_metric not in ('gross_revenue', 'net_profit'):
+        raise HTTPException(status_code=400, detail="percent_of_metric must be 'gross_revenue' or 'net_profit'.")
 
     category.name = new_name
+    category.percent_of_enabled = payload.percent_of_enabled
+    category.percent_of_metric = payload.percent_of_metric if payload.percent_of_enabled else None
     db.commit()
     db.refresh(category)
     return category
 
 
-@router.get('/expense-category-country-exclusions', response_model=list[schemas.ExpenseCategoryApplicabilityOut])
-def list_expense_category_country_exclusions(db: Session = Depends(get_db)):
-    return db.query(models.ExpenseCategoryCountryExclusion).all()
+@router.get('/expense-category-company-settings', response_model=list[schemas.ExpenseCategoryCompanySettingOut])
+def list_expense_category_company_settings(db: Session = Depends(get_db)):
+    return db.query(models.ExpenseCategoryCompanySetting).all()
 
 
-@router.put('/expense-category-country-exclusions', response_model=schemas.ExpenseCategoryApplicabilityOut | None)
-def set_expense_category_country_applicability(
-    payload: schemas.ExpenseCategoryApplicabilityUpdate, db: Session = Depends(get_db),
+@router.put('/expense-category-company-settings', response_model=schemas.ExpenseCategoryCompanySettingOut)
+def set_expense_category_company_setting(
+    payload: schemas.ExpenseCategoryCompanySettingUpdate, db: Session = Depends(get_db),
 ):
     category = db.query(models.ExpenseCategory).filter_by(id=payload.category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail='Expense category not found')
-    country = db.query(models.CommercialCountry).filter_by(id=payload.country_id).first()
-    if not country:
-        raise HTTPException(status_code=404, detail='Country not found')
 
-    exclusion = db.query(models.ExpenseCategoryCountryExclusion).filter_by(
-        category_id=payload.category_id, country_id=payload.country_id,
+    setting = db.query(models.ExpenseCategoryCompanySetting).filter_by(
+        category_id=payload.category_id, company_id=payload.company_id,
     ).first()
-
-    if payload.applicable:
-        if exclusion:
-            db.delete(exclusion)
-            db.commit()
-        return None
-
-    if not exclusion:
-        exclusion = models.ExpenseCategoryCountryExclusion(
-            id=str(uuid.uuid4()), category_id=payload.category_id, country_id=payload.country_id,
+    if not setting:
+        setting = models.ExpenseCategoryCompanySetting(
+            id=str(uuid.uuid4()), category_id=payload.category_id, company_id=payload.company_id,
         )
-        db.add(exclusion)
-        db.commit()
-        db.refresh(exclusion)
-    return exclusion
+        db.add(setting)
+
+    setting.excluded = payload.excluded
+    setting.percent_value = payload.percent_value
+    db.commit()
+    db.refresh(setting)
+    return setting
 
 
 @router.get('/companies/{company_id}/expenses', response_model=list[schemas.ExpenseEntryOut])
 def list_expenses(company_id: str, year: int = 1, db: Session = Depends(get_db)):
     categories = db.query(models.ExpenseCategory).order_by(models.ExpenseCategory.sort_order).all()
+    company_settings = {
+        setting.category_id: setting
+        for setting in db.query(models.ExpenseCategoryCompanySetting).filter_by(company_id=company_id).all()
+    }
     rows = []
     for category in categories:
         entry = db.query(models.ExpenseEntry).filter_by(
@@ -127,6 +128,7 @@ def list_expenses(company_id: str, year: int = 1, db: Session = Depends(get_db))
         ).first()
         months = json.loads(entry.months_json) if entry else [0.0] * 12
         hardcoded = json.loads(entry.hardcoded_json) if entry and entry.hardcoded_json else [False] * 12
+        setting = company_settings.get(category.id)
         rows.append(
             schemas.ExpenseEntryOut(
                 category_id=category.id,
@@ -136,6 +138,10 @@ def list_expenses(company_id: str, year: int = 1, db: Session = Depends(get_db))
                 months=months,
                 hardcoded=hardcoded,
                 editable=category.name != PAYROLL_CATEGORY_NAME,
+                excluded=setting.excluded if setting else False,
+                percent_of_enabled=category.percent_of_enabled,
+                percent_of_metric=category.percent_of_metric,
+                percent_value=setting.percent_value if setting else None,
             )
         )
     return rows

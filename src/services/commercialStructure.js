@@ -37,8 +37,30 @@ export async function createCommercialRegion(companyId, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  if (!response.ok) throw new Error('Failed to create region')
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null)
+    throw new Error(detail?.detail || 'Failed to create region')
+  }
   return response.json()
+}
+
+export async function fetchRegionAssignments() {
+  const response = await fetch(`${API_BASE}/commercial-regions/assignments`)
+  if (!response.ok) throw new Error('Failed to load region assignments')
+  return response.json()
+}
+
+// Every region with its active countries, across all companies — the Market
+// Analysis module's index. [{ region, countries: [{ id, name, country_code, company_id, company_name }] }]
+export async function fetchMarketAnalysisRegions() {
+  const response = await fetch(`${API_BASE}/market-analysis/regions`)
+  if (!response.ok) throw new Error('Failed to load market analysis regions')
+  return response.json()
+}
+
+export async function deleteCommercialRegion(companyId, regionId) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/commercial-regions/${regionId}`, { method: 'DELETE' })
+  if (!response.ok) throw new Error('Failed to delete region')
 }
 
 export async function updateCommercialRegion(companyId, regionId, payload) {

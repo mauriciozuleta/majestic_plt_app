@@ -1,9 +1,12 @@
 import './Sidebar.css'
 import {
   IconChartDots,
+  IconFiles,
   IconHome,
   IconLayoutDashboard,
+  IconMapSearch,
   IconSettings,
+  IconShip,
   IconSitemap,
   IconPlus,
   IconWorld,
@@ -55,7 +58,10 @@ function Sidebar() {
         <SidebarNavItem icon={IconSitemap} label="Corporate structure" to="/corporate-structure" />
         <SidebarNavItem icon={IconLayoutDashboard} label="Control dashboard" to="/dashboard" />
         <SidebarNavItem icon={IconWorld} label="Commercial Structure" to="/commercial-structure" />
+        <SidebarNavItem icon={IconMapSearch} label="Market Analysis" to="/market-analysis" />
+        <SidebarNavItem icon={IconShip} label="Global Trade Data" to="/global-trade-data" />
         <SidebarNavItem icon={IconChartDots} label="Simulations" to="/simulations" />
+        <SidebarNavItem icon={IconFiles} label="Documentation" to="/documentation" />
 
         <div className="sidebar-shell__divider" />
 
@@ -67,15 +73,17 @@ function Sidebar() {
         </button>
 
         <div className="sidebar-shell__company-list-label">Companies</div>
-        <CompanyList onEditCompany={setEditingCompany} />
+        <div className="sidebar-shell__companies">
+          <CompanyList onEditCompany={setEditingCompany} />
+        </div>
 
-        <div className="sidebar-shell__spacer" />
+        <div className="sidebar-shell__bottom">
+          <div className="sidebar-shell__divider" />
 
-        <div className="sidebar-shell__divider" />
-
-        <SidebarNavItem icon={IconSettings} label="Settings" to="/settings" />
-        <UserRow />
-        <Chatbox />
+          <SidebarNavItem icon={IconSettings} label="Settings" to="/settings" />
+          <UserRow />
+          <Chatbox />
+        </div>
       </div>
 
       <AddCompanyModal

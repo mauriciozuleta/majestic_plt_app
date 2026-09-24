@@ -50,14 +50,15 @@ def _raise_if_truncated(data):
 
 
 def _build_prompt(country_name):
-    return f"""You are a trade consultant briefing a client who runs a food/agricultural products \
-import-export business (wholesale produce, meat, poultry, eggs, grains, seafood) on {country_name} as \
-a sourcing/selling market. Use web search to research current, real information — do not rely on \
+    return f"""We run a food/agricultural products import-export business (wholesale produce, meat, poultry, \
+eggs, grains, seafood). You are a member of our own team, writing our internal briefing on {country_name} as a \
+sourcing/selling market for us. Use web search to research current, real information — do not rely on \
 memory alone for anything tariff/tax/regulation-related, since this needs to be accurate as of today.
 
-Write in a friendly, consultative tone — like a knowledgeable advisor briefing a client, not a dry \
-legal or customs filing. Be conversational and clear while staying concrete and factual; explain why \
-something matters to the client's business, not just what the rule is.
+Voice: write in the first person plural — "we", "our", "us" — as the company itself, never about "the client" \
+or "the company" in the third person (for example "what this means for us", "our other main market", "if we \
+want to export there"). Keep a friendly, conversational tone, clear and concrete rather than a dry legal or \
+customs filing, and explain why each point matters to our business, not just what the rule is.
 
 Write a Markdown document titled "# {country_name} — Commercial Import/Export Profile" with EXACTLY \
 this section order:
@@ -85,8 +86,8 @@ VAT/sales tax or other taxes applied to imported food products, and any exemptio
 agricultural goods.
 
 ## Free Trade Agreements
-Trade agreements {country_name} has with major partners (especially the USA, since that's this \
-client's other main market) that affect tariffs or market access for food/agricultural products — \
+Trade agreements {country_name} has with major partners (especially the USA, since that's our \
+other main market) that affect tariffs or market access for food/agricultural products — \
 what's covered, what isn't, and what it actually means for a supplier trying to use it.
 
 ## Seasonal Import Restrictions & Bans
@@ -104,10 +105,10 @@ categories above.
 ## Frequently Imported & Exported Products
 A short, practical analysis of what {country_name} typically imports and exports in the food/ \
 agricultural space, and what that pattern suggests about where the real opportunities or competitive \
-pressure are for this client.
+pressure are for us.
 
 ## Other Market Context
-Anything else that helps the client understand this market — currency/repatriation rules, general \
+Anything else that helps us understand this market — currency/repatriation rules, general \
 economic conditions affecting food demand, notable recent policy shifts, logistics/infrastructure \
 notes, or anything else materially relevant that doesn't fit the sections above.
 
@@ -128,7 +129,7 @@ itself, starting with the title line.
 """
 
 
-def build_country_commercial_profile(country_name):
+def build_country_commercial_profile(country_name, extra_prompt=''):
     api_key = _get_api_key()
     if not api_key:
         raise RuntimeError('No Claude API key configured (set claude_api_key in the backend .env file)')
@@ -137,7 +138,7 @@ def build_country_commercial_profile(country_name):
         'model': MODEL,
         'max_tokens': MAX_TOKENS,
         'tools': [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': MAX_SEARCHES}],
-        'messages': [{'role': 'user', 'content': _build_prompt(country_name)}],
+        'messages': [{'role': 'user', 'content': _build_prompt(country_name) + extra_prompt}],
     }
     headers = {
         'x-api-key': api_key,
@@ -230,15 +231,19 @@ def _build_competitiveness_prompt(source_country_name, category_summary, target_
         f"(examples: {', '.join(row['sample_products'][:5])})"
         for row in category_summary
     )
-    return f"""You are a trade consultant assessing whether {source_country_name}-sourced food/agricultural \
-products would be competitive if sold into {target_country_name}. Write in the same friendly, consultative \
-tone as a client briefing — clear and concrete, not a dry filing.
+    return f"""We run a food/agricultural import-export business. You are a member of our own team, writing our \
+internal assessment of whether the {source_country_name}-sourced food/agricultural products we handle would be \
+competitive if we sold them into {target_country_name}.
 
-Here is {source_country_name}'s current wholesale product portfolio, summarized by category:
+Voice: write in the first person plural — "we", "our", "us" — as the company itself, never about "the client" \
+or "the company" in the third person (for example "our {source_country_name} products", "we would be priced \
+out", "we could compete"). Keep a friendly, conversational tone, clear and concrete rather than a dry filing.
+
+Here is our current {source_country_name} wholesale product portfolio, summarized by category:
 {summary_lines}
 
-Here is {target_country_name}'s commercial import/export profile (tariffs, taxes, FTAs, protected products, \
-seasonal restrictions) you already researched:
+Here is our own commercial import/export profile of {target_country_name} (tariffs, taxes, FTAs, protected \
+products, seasonal restrictions), which we already researched:
 ---
 {target_profile}
 ---
@@ -274,7 +279,7 @@ source — do not invent figures.
 """
 
 
-def build_competitiveness_analysis(source_country_name, category_summary, target_country_name, target_profile):
+def build_competitiveness_analysis(source_country_name, category_summary, target_country_name, target_profile, extra_prompt=''):
     api_key = _get_api_key()
     if not api_key:
         raise RuntimeError('No Claude API key configured (set claude_api_key in the backend .env file)')
@@ -286,7 +291,7 @@ def build_competitiveness_analysis(source_country_name, category_summary, target
         'messages': [
             {
                 'role': 'user',
-                'content': _build_competitiveness_prompt(source_country_name, category_summary, target_country_name, target_profile),
+                'content': _build_competitiveness_prompt(source_country_name, category_summary, target_country_name, target_profile) + extra_prompt,
             }
         ],
     }

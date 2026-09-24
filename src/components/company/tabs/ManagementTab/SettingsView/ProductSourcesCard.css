@@ -1,0 +1,162 @@
+.product-sources__form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.25));
+  border-radius: 12px;
+}
+
+.product-sources__form label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+}
+
+.product-sources__form input {
+  min-width: 0;
+}
+
+.product-sources__form-wide {
+  grid-column: 1 / -1;
+}
+
+.product-sources__direction {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.product-sources__direction-label {
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+}
+
+.product-sources__checkbox {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.product-sources__direction--inline {
+  gap: 0.6rem;
+}
+
+.product-sources__direction--inline .product-sources__checkbox {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+}
+
+.product-sources__form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.product-sources__group {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.product-sources__group h5 {
+  margin: 0.4rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, #64748b);
+}
+
+.product-sources__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.2));
+  border-radius: 12px;
+}
+
+.product-sources__main {
+  min-width: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.product-sources__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.product-sources__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+}
+
+.product-sources__meta a {
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+
+.product-sources__badge,
+.product-sources__status {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.3));
+}
+
+.product-sources__status--ok {
+  color: #35d399;
+  border-color: rgba(53, 211, 153, 0.45);
+}
+
+.product-sources__status--warn {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.product-sources__note,
+.product-sources__hint {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+}
+
+.product-sources__note--warn {
+  color: #f59e0b;
+}
+
+.product-sources__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.product-sources__danger {
+  color: #f87171;
+}
+
+@media (max-width: 720px) {
+  .product-sources__form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-sources__row {
+    flex-direction: column;
+  }
+
+  .product-sources__actions {
+    justify-content: flex-start;
+  }
+}

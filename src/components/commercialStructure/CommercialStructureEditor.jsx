@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAppStore } from '../../store/useAppStore'
 import {
   createCommercialBranch,
   createCommercialCountry,
   createCommercialRegion,
   deleteCommercialBranch,
   deleteCommercialCountry,
+  deleteCommercialRegion,
+  fetchRegionAssignments,
   fetchCommercialBranches,
   fetchCommercialCountries,
   fetchCommercialRegions,
@@ -19,7 +22,6 @@ import CommercialStructureChart from './CommercialStructureChart/CommercialStruc
 
 const emptyForm = {
   regionName: '',
-  regionManager: '',
   regionUser: '',
   countryName: '',
   countryCode: '',
@@ -60,6 +62,18 @@ function CommercialStructureEditor({ companyId, companyName }) {
   const [selectedBranchId, setSelectedBranchId] = useState('')
   const [airportModal, setAirportModal] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  // "Same as regional manager": the region is assigned to the selected
+  // company, so that company IS the regional manager - when it also handles
+  // the country directly (e.g. FRESH24, based in Miami, running the US local
+  // branches), the subsidiary is that same company and no second name has
+  // to be typed in (stored in the same manager_name field).
+  const [sameAsParent, setSameAsParent] = useState(false)
+  // A region belongs to exactly one company - name -> owning company id, so
+  // the dropdown can grey out regions another company already holds (the
+  // backend enforces the same rule; this just keeps it from being offered).
+  const [regionAssignments, setRegionAssignments] = useState([])
+  const companies = useAppStore((state) => state.companies)
+  const formRef = useRef(null)
 
   const loadStructure = async () => {
     if (!companyId) return
@@ -77,6 +91,19 @@ function CommercialStructureEditor({ companyId, companyName }) {
     if (!selectedRegionName && nextRegions[0]) {
       setSelectedRegionName(nextRegions[0].name)
     }
+  }
+
+  const loadRegionAssignments = () => fetchRegionAssignments().then(setRegionAssignments).catch(() => undefined)
+
+  useEffect(() => {
+    loadRegionAssignments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId])
+
+  const regionOwnerFor = (regionName) => {
+    const assignment = regionAssignments.find((item) => item.name === regionName && item.company_id !== companyId)
+    if (!assignment) return null
+    return companies.find((company) => company.id === assignment.company_id)?.name ?? 'another company'
   }
 
   useEffect(() => {
@@ -143,6 +170,7 @@ function CommercialStructureEditor({ companyId, companyName }) {
     if (kind === 'region') {
       setSelectedRegionName(record.name)
       setSelectedCountryCode('')
+      setSelectedBranchId('')
       return
     }
 
@@ -150,6 +178,7 @@ function CommercialStructureEditor({ companyId, companyName }) {
       const region = regions.find((item) => item.id === record.region_id)
       if (region) setSelectedRegionName(region.name)
       setSelectedCountryCode(record.country_code || '')
+      setSelectedBranchId('')
       return
     }
 
@@ -162,16 +191,37 @@ function CommercialStructureEditor({ companyId, companyName }) {
     setSelectedBranchId(record.id)
   }
 
+  // Edit icon on a node: select it (which loads its values into the form
+  // above and scrolls there) - a branch opens its own edit dialog instead.
+  const handleChartNodeEdit = (kind, record) => {
+    handleChartNodeSelect(kind, record)
+    if (kind === 'branch') {
+      setAirportModal({ mode: 'edit', branch: record })
+      return
+    }
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const handleChartNodeDelete = async (kind, record) => {
     const confirmed = window.confirm(
-      kind === 'country'
-        ? `Delete "${record.name}" and all of its branches? This can't be undone.`
-        : `Delete branch "${record.name}"? This can't be undone.`,
+      kind === 'region'
+        ? `Delete region "${record.name}" and all of its countries and branches? This can't be undone.`
+        : kind === 'country'
+          ? `Delete "${record.name}" and all of its branches? This can't be undone.`
+          : `Delete branch "${record.name}"? This can't be undone.`,
     )
     if (!confirmed) return
 
     try {
-      if (kind === 'country') {
+      if (kind === 'region') {
+        await deleteCommercialRegion(companyId, record.id)
+        if (record.id === selectedRegion?.id) {
+          setSelectedRegionName('')
+          setSelectedCountryCode('')
+          setSelectedBranchId('')
+        }
+        await loadRegionAssignments()
+      } else if (kind === 'country') {
         await deleteCommercialCountry(companyId, record.id)
         if (record.id === savedCountry?.id) {
           setSelectedCountryCode('')
@@ -193,7 +243,6 @@ function CommercialStructureEditor({ companyId, companyName }) {
     setForm((previous) => ({
       ...previous,
       regionName: selectedRegionName,
-      regionManager: selectedRegion?.manager_name ?? '',
       regionUser: selectedRegion?.user_name ?? '',
     }))
   }, [selectedRegionName, selectedRegion])
@@ -250,24 +299,33 @@ function CommercialStructureEditor({ companyId, companyName }) {
       countryManager: savedCountry?.manager_name ?? '',
       countryUser: savedCountry?.user_name ?? '',
     }))
-  }, [savedCountry])
+    setSameAsParent(Boolean(savedCountry?.manager_name) && savedCountry.manager_name === companyName)
+  }, [savedCountry, companyName])
+
+  const handleSameAsParentChange = (checked) => {
+    setSameAsParent(checked)
+    setForm((previous) => ({ ...previous, countryManager: checked ? companyName || '' : '' }))
+  }
 
   const handleSaveRegion = async () => {
     if (!companyId || !selectedRegionName.trim()) return
 
-    if (selectedRegion) {
-      await updateCommercialRegion(companyId, selectedRegion.id, {
-        manager_name: form.regionManager || null,
-        user_name: form.regionUser || null,
-      })
-    } else {
-      await createCommercialRegion(companyId, {
-        name: selectedRegionName,
-        manager_name: form.regionManager || null,
-        user_name: form.regionUser || null,
-      })
+    try {
+      if (selectedRegion) {
+        await updateCommercialRegion(companyId, selectedRegion.id, {
+          manager_name: selectedRegion.manager_name ?? null,
+          user_name: form.regionUser || null,
+        })
+      } else {
+        await createCommercialRegion(companyId, {
+          name: selectedRegionName,
+          user_name: form.regionUser || null,
+        })
+      }
+      await Promise.all([loadStructure(), loadRegionAssignments()])
+    } catch (error) {
+      window.alert(error.message || 'Failed to save region')
     }
-    await loadStructure()
   }
 
   const handleSaveCountry = async () => {
@@ -286,7 +344,6 @@ function CommercialStructureEditor({ companyId, companyName }) {
     if (!targetRegionId) {
       const createdRegion = await createCommercialRegion(companyId, {
         name: selectedRegionName,
-        manager_name: form.regionManager || null,
         user_name: form.regionUser || null,
       })
       targetRegionId = createdRegion.id
@@ -315,8 +372,9 @@ function CommercialStructureEditor({ companyId, companyName }) {
     if (airportModal?.mode === 'edit' && airportModal.branch) {
       await updateCommercialBranch(companyId, airportModal.branch.id, payload)
     } else {
-      const created = await createCommercialBranch(companyId, { ...payload, country_id: savedCountry.id })
-      setSelectedBranchId(created.id)
+      // Stay on "-- Select --" after adding, so the button keeps reading
+      // "Add Branch" for the next one instead of flipping to "Edit Branch".
+      await createCommercialBranch(companyId, { ...payload, country_id: savedCountry.id })
     }
     setAirportModal(null)
     await loadStructure()
@@ -336,11 +394,11 @@ function CommercialStructureEditor({ companyId, companyName }) {
   return (
     <div className="panel-surface" style={{ padding: '16px 0', boxSizing: 'border-box' }}>
       <div style={{ padding: '0 8px', width: '100%' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '22px' }}>
+        <div ref={formRef} style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '22px' }}>
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(180px, 240px) minmax(0, 1fr) minmax(0, 1fr) auto',
+              gridTemplateColumns: 'minmax(180px, 240px) minmax(0, 1fr) auto',
               gap: '18px',
               alignItems: 'end',
             }}
@@ -365,35 +423,20 @@ function CommercialStructureEditor({ companyId, companyName }) {
                 }}
               >
                 <option value="">-- Select --</option>
-                {referenceRegions.map((regionName) => (
-                  <option key={regionName} value={regionName}>
-                    {regionName}
-                  </option>
-                ))}
+                {referenceRegions.map((regionName) => {
+                  const owner = regionOwnerFor(regionName)
+                  return (
+                    <option key={regionName} value={regionName} disabled={Boolean(owner)}>
+                      {regionName}
+                      {owner ? ` (assigned to ${owner})` : ''}
+                    </option>
+                  )
+                })}
               </select>
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Regional Branch</label>
-              <input
-                type="text"
-                value={form.regionManager}
-                onChange={(event) => handleInputChange('regionManager', event.target.value)}
-                placeholder="Enter branch name"
-                style={{
-                  width: '100%',
-                  background: '#111f31',
-                  color: '#eaf3ff',
-                  border: '1px solid #3b82f6',
-                  borderRadius: '8px',
-                  padding: '10px 12px',
-                  fontSize: '15px',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Region Branch director</label>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Region director</label>
               <input
                 type="text"
                 value={form.regionUser}
@@ -412,7 +455,7 @@ function CommercialStructureEditor({ companyId, companyName }) {
             </div>
 
             <button type="button" style={buttonStyle} onClick={handleSaveRegion} disabled={!selectedRegionName.trim()}>
-              {selectedRegion ? 'Edit Region Branch' : 'Add Regional Branch'}
+              {selectedRegion ? 'Update region' : 'Assign region'}
             </button>
           </div>
 
@@ -425,7 +468,7 @@ function CommercialStructureEditor({ companyId, companyName }) {
             }}
           >
             <div>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Select Country</label>
+              <div style={{ minHeight: '48px', marginBottom: '8px' }}><label style={{ display: 'block', color: '#cfe0f8', fontWeight: 600, whiteSpace: 'nowrap' }}>Activate country</label></div>
               <select
                 value={selectedCountryCode}
                 onChange={(event) => {
@@ -455,13 +498,38 @@ function CommercialStructureEditor({ companyId, companyName }) {
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country Branch</label>
+              <div style={{ minHeight: '48px', marginBottom: '8px' }}>
+                <label style={{ display: 'block', color: '#cfe0f8', fontWeight: 600, whiteSpace: 'nowrap' }}>Country subsidiary</label>
+                <label
+                  title={companyName ? `${companyName} runs this region, so it also handles this country's local branches` : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '4px',
+                    color: '#cfe0f8',
+                    fontSize: '13px',
+                    whiteSpace: 'nowrap',
+                    cursor: selectedRegion ? 'pointer' : 'not-allowed',
+                    opacity: selectedRegion ? 1 : 0.5,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={sameAsParent}
+                    onChange={(event) => handleSameAsParentChange(event.target.checked)}
+                    disabled={!selectedRegion}
+                    style={{ margin: 0 }}
+                  />
+                  Same as regional manager
+                </label>
+              </div>
               <input
                 type="text"
                 value={form.countryManager}
                 onChange={(event) => handleInputChange('countryManager', event.target.value)}
-                placeholder="Enter branch name"
-                disabled={!selectedRegion}
+                placeholder="Enter subsidiary name"
+                disabled={!selectedRegion || sameAsParent}
                 style={{
                   width: '100%',
                   background: '#111f31',
@@ -476,7 +544,7 @@ function CommercialStructureEditor({ companyId, companyName }) {
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#cfe0f8', fontWeight: 600 }}>Country Branch director</label>
+              <div style={{ minHeight: '48px', marginBottom: '8px' }}><label style={{ display: 'block', color: '#cfe0f8', fontWeight: 600, whiteSpace: 'nowrap' }}>Country subsidiary director</label></div>
               <input
                 type="text"
                 value={form.countryUser}
@@ -502,7 +570,7 @@ function CommercialStructureEditor({ companyId, companyName }) {
               onClick={handleSaveCountry}
               disabled={!selectedRegion || !form.countryName.trim()}
             >
-              {savedCountry ? 'Edit Country Branch' : 'Add Country Branch'}
+              {savedCountry ? 'Update subsidiary' : 'Create subsidiary'}
             </button>
           </div>
 
@@ -591,7 +659,7 @@ function CommercialStructureEditor({ companyId, companyName }) {
               onClick={() => setAirportModal(selectedBranch ? { mode: 'edit', branch: selectedBranch } : { mode: 'create' })}
               disabled={!savedCountry}
             >
-              {selectedBranch ? 'Edit Airport' : 'Add Airport'}
+              {selectedBranch ? 'Edit Branch' : 'Add Branch'}
             </button>
           </div>
         </div>
@@ -639,6 +707,7 @@ function CommercialStructureEditor({ companyId, companyName }) {
               selectedBranchId={selectedBranchId}
               onSelectNode={handleChartNodeSelect}
               onDeleteNode={handleChartNodeDelete}
+              onEditNode={handleChartNodeEdit}
             />
           </div>
         </div>

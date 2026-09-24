@@ -206,6 +206,8 @@ class ExpenseCategoryOut(BaseModel):
     id: str
     sort_order: int
     name: str
+    percent_of_enabled: bool = False
+    percent_of_metric: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -219,6 +221,10 @@ class ExpenseEntryOut(BaseModel):
     months: list[float]
     hardcoded: list[bool]
     editable: bool
+    excluded: bool = False
+    percent_of_enabled: bool = False
+    percent_of_metric: Optional[str] = None
+    percent_value: Optional[float] = None
 
 
 class ExpenseEntryUpdate(BaseModel):
@@ -232,20 +238,25 @@ class ExpenseCategoryCreate(BaseModel):
 
 class ExpenseCategoryUpdate(BaseModel):
     name: str
+    percent_of_enabled: bool = False
+    percent_of_metric: Optional[str] = None
 
 
-class ExpenseCategoryApplicabilityOut(BaseModel):
+class ExpenseCategoryCompanySettingOut(BaseModel):
     category_id: str
-    country_id: str
+    company_id: str
+    excluded: bool
+    percent_value: Optional[float] = None
 
     class Config:
         from_attributes = True
 
 
-class ExpenseCategoryApplicabilityUpdate(BaseModel):
+class ExpenseCategoryCompanySettingUpdate(BaseModel):
     category_id: str
-    country_id: str
-    applicable: bool
+    company_id: str
+    excluded: bool = False
+    percent_value: Optional[float] = None
 
 
 class CommercialOperationEntryCreate(BaseModel):

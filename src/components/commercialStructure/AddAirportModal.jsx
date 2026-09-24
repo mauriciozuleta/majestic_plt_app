@@ -130,7 +130,7 @@ function AddAirportModal({ mode = 'create', initialBranch = null, countryName = 
   return (
     <div className="add-airport-modal__overlay">
       <div className="add-airport-modal">
-        <h3>{mode === 'edit' ? 'Edit Airport' : 'Add Airport'}</h3>
+        <h3>{mode === 'edit' ? 'Edit Branch' : 'Add Branch'}</h3>
         <form className="add-airport-modal__form" onSubmit={handleSubmit}>
           <section className="add-airport-modal__section">
             <h4>Basic Information</h4>
@@ -202,7 +202,7 @@ function AddAirportModal({ mode = 'create', initialBranch = null, countryName = 
               Cancel
             </button>
             <button type="submit" disabled={saving || lookingUp}>
-              {saving ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Add Airport'}
+              {saving ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Add Branch'}
             </button>
           </div>
         </form>

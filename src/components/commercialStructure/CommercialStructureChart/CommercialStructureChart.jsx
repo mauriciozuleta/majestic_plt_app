@@ -7,7 +7,7 @@ import './CommercialStructureChart.css'
 
 const nodeTypes = { structureNode: StructureNode }
 
-function buildGraph(companyName, regions, countries, branches, selection, onDeleteNode) {
+function buildGraph(companyName, regions, countries, branches, selection, onDeleteNode, onEditNode) {
   const rawNodes = []
   const edges = []
 
@@ -30,6 +30,8 @@ function buildGraph(companyName, regions, countries, branches, selection, onDele
         label: region.name,
         manager: region.manager_name,
         user: region.user_name,
+        onDelete: onDeleteNode ? () => onDeleteNode('region', region) : undefined,
+        onEdit: onEditNode ? () => onEditNode('region', region) : undefined,
       },
       selected: region.id === selection.regionId,
       position: { x: 0, y: 0 },
@@ -48,6 +50,7 @@ function buildGraph(companyName, regions, countries, branches, selection, onDele
         manager: country.manager_name,
         user: country.user_name,
         onDelete: onDeleteNode ? () => onDeleteNode('country', country) : undefined,
+        onEdit: onEditNode ? () => onEditNode('country', country) : undefined,
       },
       selected: country.id === selection.countryId,
       position: { x: 0, y: 0 },
@@ -68,6 +71,7 @@ function buildGraph(companyName, regions, countries, branches, selection, onDele
         manager: branch.manager_name,
         user: branch.user_name,
         onDelete: onDeleteNode ? () => onDeleteNode('branch', branch) : undefined,
+        onEdit: onEditNode ? () => onEditNode('branch', branch) : undefined,
       },
       selected: branch.id === selection.branchId,
       position: { x: 0, y: 0 },
@@ -97,6 +101,7 @@ function CommercialStructureChart({
   selectedBranchId,
   onSelectNode,
   onDeleteNode,
+  onEditNode,
 }) {
   const [showMiniMap, setShowMiniMap] = useState(false)
 
@@ -106,8 +111,8 @@ function CommercialStructureChart({
   )
 
   const graph = useMemo(
-    () => buildGraph(companyName, regions, countries, branches, selection, onDeleteNode),
-    [companyName, regions, countries, branches, selection, onDeleteNode],
+    () => buildGraph(companyName, regions, countries, branches, selection, onDeleteNode, onEditNode),
+    [companyName, regions, countries, branches, selection, onDeleteNode, onEditNode],
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)

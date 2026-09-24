@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useAppStore } from '../../../../store/useAppStore'
-import { fetchExpenseCategoryExclusions, fetchExpenses } from '../../../../services/expenses'
+import { fetchExpenses } from '../../../../services/expenses'
 import { fetchPayroll } from '../../../../services/payroll'
 import { fetchSettings } from '../../../../services/settings'
 import { fetchExchangeRate } from '../../../../services/exchangeRate'
-import { fetchCommercialCountries } from '../../../../services/commercialStructure'
 import { fetchCommercialOperationEntries } from '../../../../services/commercialOperations'
 import { US_BENEFITS, computeFullEmployerCost } from '../../../../services/usBenefits'
 import { isUsaLocation } from '../../../../services/usPayrollTax'
@@ -81,9 +79,19 @@ function computeEmployeeBenefitsMonthlyCost(payrollRows, year, calendarMode, ena
   return totals
 }
 
+// A row's real monthly values: a computed row (Payroll/Payroll Tax/Employee
+// Benefits/percent-of-X) uses its computed array instead of entry.months,
+// and any month with a real Commercial Operations entry wins over either of
+// those — same ops-over-computed-over-manual precedence used everywhere
+// else in this view.
+function getEffectiveMonths(entry, computedMonthsByCategory, opsMonthlyByCategoryName) {
+  const baseMonths = computedMonthsByCategory[entry.name] || entry.months
+  const opsForCategory = opsMonthlyByCategoryName[entry.name]
+  return baseMonths.map((value, index) => (opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : Number(value) || 0))
+}
+
 function ExpensesView() {
   const { companyId } = useParams()
-  const companies = useAppStore((state) => state.companies)
   const [calendarMode, setCalendarMode] = useState('real')
   const [projectionYears, setProjectionYears] = useState(5)
   const [enabledBenefitKeys, setEnabledBenefitKeys] = useState([])
@@ -92,6 +100,8 @@ function ExpensesView() {
   const [entries, setEntries] = useState([])
   const [payrollRows, setPayrollRows] = useState([])
   const [opsExpenseEntries, setOpsExpenseEntries] = useState([])
+  const [opsRevenueEntries, setOpsRevenueEntries] = useState([])
+  const [opsCosEntries, setOpsCosEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [yearSummaryRows, setYearSummaryRows] = useState([])
@@ -99,66 +109,6 @@ function ExpensesView() {
   const [realStartDate, setRealStartDate] = useState('')
   const [colombiaCopPerUsd, setColombiaCopPerUsd] = useState(COP_PER_USD_FALLBACK)
   const [stMaartenAngPerUsd, setStMaartenAngPerUsd] = useState(ANG_PER_USD_FALLBACK)
-  const [excludedCategoryIds, setExcludedCategoryIds] = useState(() => new Set())
-
-  // A category is hidden from this company's Expenses if it's been
-  // unchecked (Settings > Expenses settings) for every commercial-structure
-  // country row whose country code matches THIS company's own home country
-  // (Company.country_code) — regardless of which company actually owns
-  // that row in the commercial structure. That's necessary because, after
-  // splitting payroll into per-country companies, a subsidiary (e.g.
-  // FRESH24-Colombia) has no commercial-structure rows of its own; the
-  // "Colombia" row a user unchecks in Settings still lives under the
-  // parent (FRESH24), so matching by row ownership would never apply the
-  // setting to the subsidiary at all. A company whose country has no
-  // matching row anywhere has nothing to compare against, so nothing gets
-  // hidden for it.
-  useEffect(() => {
-    if (!companyId || companies.length === 0) return undefined
-    const currentCompany = companies.find((company) => company.id === companyId)
-    const targetCountryCode = (currentCompany?.countryCode || '').trim().toUpperCase()
-    if (!targetCountryCode) {
-      setExcludedCategoryIds(new Set())
-      return undefined
-    }
-
-    let cancelled = false
-
-    Promise.all([
-      fetchExpenseCategoryExclusions(),
-      Promise.all(companies.map((company) => fetchCommercialCountries(company.id).catch(() => []))),
-    ])
-      .then(([exclusions, perCompanyCountries]) => {
-        if (cancelled) return
-        const matchingCountries = perCompanyCountries
-          .flat()
-          .filter((country) => (country.country_code || '').trim().toUpperCase() === targetCountryCode)
-        if (matchingCountries.length === 0) {
-          setExcludedCategoryIds(new Set())
-          return
-        }
-        const countryIds = new Set(matchingCountries.map((country) => country.id))
-        const excludedByCategoryId = new Map()
-        exclusions.forEach(({ category_id: categoryId, country_id: countryId }) => {
-          if (!countryIds.has(countryId)) return
-          if (!excludedByCategoryId.has(categoryId)) excludedByCategoryId.set(categoryId, new Set())
-          excludedByCategoryId.get(categoryId).add(countryId)
-        })
-        const fullyExcluded = new Set(
-          Array.from(excludedByCategoryId.entries())
-            .filter(([, excludedCountryIds]) => excludedCountryIds.size >= countryIds.size)
-            .map(([categoryId]) => categoryId),
-        )
-        setExcludedCategoryIds(fullyExcluded)
-      })
-      .catch(() => {
-        if (!cancelled) setExcludedCategoryIds(new Set())
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [companyId, companies])
 
   useEffect(() => {
     let cancelled = false
@@ -203,15 +153,59 @@ function ExpensesView() {
     let cancelled = false
     fetchCommercialOperationEntries(companyId)
       .then((allEntries) => {
-        if (!cancelled) setOpsExpenseEntries(allEntries.filter((entry) => entry.category === 'expenses'))
+        if (cancelled) return
+        setOpsExpenseEntries(allEntries.filter((entry) => entry.category === 'expenses'))
+        setOpsRevenueEntries(allEntries.filter((entry) => entry.category === 'revenue'))
+        setOpsCosEntries(allEntries.filter((entry) => entry.category === 'cos'))
       })
       .catch(() => {
-        if (!cancelled) setOpsExpenseEntries([])
+        if (!cancelled) {
+          setOpsExpenseEntries([])
+          setOpsRevenueEntries([])
+          setOpsCosEntries([])
+        }
       })
     return () => {
       cancelled = true
     }
   }, [companyId])
+
+  // Sums every entry's amount into a {year: [12 monthly totals]} map — used
+  // for Revenue/COGS totals, which (unlike expense categories) don't need
+  // to be split out by name the way opsByYearAndCategory below is.
+  const bucketOpsEntriesByYear = useCallback(
+    (opsEntries, filterFn) => {
+      const map = {}
+      if (calendarMode === 'real' && !realStartDate) return map
+      opsEntries.forEach((entry) => {
+        if (filterFn && !filterFn(entry)) return
+        let yearMonth
+        try {
+          yearMonth =
+            calendarMode === 'simulation' ? isoDateToSimDate(entry.entry_date) : isoDateToAnchoredYearMonth(realStartDate, entry.entry_date)
+        } catch {
+          return
+        }
+        if (!map[yearMonth.year]) map[yearMonth.year] = new Array(12).fill(0)
+        map[yearMonth.year][yearMonth.month - 1] += entry.amount
+      })
+      return map
+    },
+    [calendarMode, realStartDate],
+  )
+
+  // Gross Revenue is every revenue entry at face value; Net Revenue
+  // subtracts discount entries (is_discount) from that same total — see
+  // gl_engine.py's revenue_code choice ('4900' contra-revenue vs '4000')
+  // for the same distinction on the accounting side. "Net Profit" (the
+  // other %-of-X base) is derived further below, from Net Revenue minus
+  // COGS minus every non-percent expense — never from Gross Revenue.
+  const grossRevenueByYear = useMemo(() => bucketOpsEntriesByYear(opsRevenueEntries), [bucketOpsEntriesByYear, opsRevenueEntries])
+  const discountByYear = useMemo(
+    () => bucketOpsEntriesByYear(opsRevenueEntries, (entry) => entry.is_discount),
+    [bucketOpsEntriesByYear, opsRevenueEntries],
+  )
+  const cogsByYear = useMemo(() => bucketOpsEntriesByYear(opsCosEntries), [bucketOpsEntriesByYear, opsCosEntries])
 
   // Per projection year and category name, which months have an actual
   // Commercial Operations expense posted, and their summed amount.
@@ -284,17 +278,20 @@ function ExpensesView() {
         if (cancelled) return
 
         const rows = (allYearsExpenses[0] || [])
-          .filter((entry) => !excludedCategoryIds.has(entry.category_id))
+          .filter((entry) => !entry.excluded)
           .map((entry) => ({
             label: entry.name,
             categoryId: entry.category_id,
             totalsByYear: new Array(years.length).fill(0),
+            percentOfEnabled: entry.percent_of_enabled,
+            percentOfMetric: entry.percent_of_metric,
+            percentValue: entry.percent_value,
           }))
         const rowByCategoryId = new Map(rows.map((row) => [row.categoryId, row]))
 
         allYearsExpenses.forEach((yearEntries, yearIndex) => {
           yearEntries.forEach((entry) => {
-            if (COMPUTED_CATEGORY_NAMES.has(entry.name)) return
+            if (COMPUTED_CATEGORY_NAMES.has(entry.name) || entry.percent_of_enabled) return
             const row = rowByCategoryId.get(entry.category_id)
             if (!row) return
             const opsForCategory = opsByYearAndCategory[years[yearIndex]]?.[entry.name]
@@ -348,6 +345,30 @@ function ExpensesView() {
           })
         }
 
+        // Percent-of-X rows: computed per year from that year's Gross/Net
+        // Revenue, COGS, and every fixed (non-percent) row's own yearly
+        // total — the same "Net Profit before percent expenses" logic the
+        // monthly view uses above, just summed across the year's 12 months
+        // instead of computed month-by-month.
+        years.forEach((year, yearIndex) => {
+          const grossRevenueTotal = (grossRevenueByYear[year] || new Array(12).fill(0)).reduce((sum, value) => sum + value, 0)
+          const discountTotal = (discountByYear[year] || new Array(12).fill(0)).reduce((sum, value) => sum + value, 0)
+          const cogsTotal = (cogsByYear[year] || new Array(12).fill(0)).reduce((sum, value) => sum + value, 0)
+          const netRevenueTotal = grossRevenueTotal - discountTotal
+          const fixedExpensesTotal = rows
+            .filter((row) => !row.percentOfEnabled)
+            .reduce((sum, row) => sum + row.totalsByYear[yearIndex], 0)
+          const netProfitBeforePercentTotal = netRevenueTotal - cogsTotal - fixedExpensesTotal
+
+          rows
+            .filter((row) => row.percentOfEnabled)
+            .forEach((row) => {
+              const rate = (row.percentValue || 0) / 100
+              const base = row.percentOfMetric === 'gross_revenue' ? grossRevenueTotal : netProfitBeforePercentTotal
+              row.totalsByYear[yearIndex] = base * rate
+            })
+        })
+
         setYearSummaryRows(rows)
       })
       .finally(() => {
@@ -357,7 +378,17 @@ function ExpensesView() {
     return () => {
       cancelled = true
     }
-  }, [viewMode, companyId, projectionYears, calendarMode, enabledBenefitKeys, excludedCategoryIds, opsByYearAndCategory])
+  }, [
+    viewMode,
+    companyId,
+    projectionYears,
+    calendarMode,
+    enabledBenefitKeys,
+    opsByYearAndCategory,
+    grossRevenueByYear,
+    discountByYear,
+    cogsByYear,
+  ])
 
   const payrollMonthly = useMemo(
     () => computePayrollMonthlyCost(payrollRows, selectedYear, calendarMode),
@@ -401,6 +432,45 @@ function ExpensesView() {
     [EMPLOYEE_BENEFITS_CATEGORY_NAME]: employeeBenefitsMonthly,
   }
 
+  // A percent-of-X category's own monthly value never comes from entry.months
+  // (nothing is ever typed into it) or from an ops entry (it's disabled in
+  // Add Expense's dropdown) — it's `percent_value`% of either Gross Revenue
+  // or "Net Profit before percent expenses", computed below and then folded
+  // into computedMonthsByCategory just like Payroll/etc. are, so every row
+  // downstream (grand total, Year Summary) treats it identically to any
+  // other computed row.
+  const grossRevenueMonthly = grossRevenueByYear[selectedYear] || new Array(12).fill(0)
+  const discountMonthly = discountByYear[selectedYear] || new Array(12).fill(0)
+  const cogsMonthly = cogsByYear[selectedYear] || new Array(12).fill(0)
+  const netRevenueMonthly = grossRevenueMonthly.map((value, index) => value - discountMonthly[index])
+
+  const visibleEntries = entries.filter((entry) => !entry.excluded)
+  const percentEntries = visibleEntries.filter((entry) => entry.percent_of_enabled)
+  const fixedEntries = visibleEntries.filter((entry) => !entry.percent_of_enabled)
+
+  // "Net Profit before percent expenses" = Net Revenue - COGS - every fixed
+  // (non-percent) expense, INCLUDING Payroll/Payroll Tax/Employee Benefits.
+  // Percent categories are deliberately excluded from this base — Net
+  // Profit already subtracts every expense, so a category that's itself a
+  // percentage of Net Profit can't be part of that subtraction without the
+  // calculation depending on its own result.
+  const fixedExpensesMonthly = new Array(12).fill(0)
+  fixedEntries.forEach((entry) => {
+    const months = getEffectiveMonths(entry, computedMonthsByCategory, opsMonthlyByCategoryName)
+    months.forEach((value, index) => {
+      fixedExpensesMonthly[index] += value
+    })
+  })
+  const netProfitBeforePercentMonthly = netRevenueMonthly.map(
+    (value, index) => value - cogsMonthly[index] - fixedExpensesMonthly[index],
+  )
+
+  percentEntries.forEach((entry) => {
+    const rate = (entry.percent_value || 0) / 100
+    const base = entry.percent_of_metric === 'gross_revenue' ? grossRevenueMonthly : netProfitBeforePercentMonthly
+    computedMonthsByCategory[entry.name] = base.map((value) => value * rate)
+  })
+
   // The blended rate actually driving each computed row this year — shown
   // inline so the row isn't a black box. Payroll tax varies per position
   // (the Additional Medicare surcharge only kicks in over $200,000), so
@@ -426,15 +496,11 @@ function ExpensesView() {
   const colombiaPayrollTotal = colombiaPayrollMonthly.reduce((sum, value) => sum + value, 0)
   const stMaartenPayrollTotal = stMaartenPayrollMonthly.reduce((sum, value) => sum + value, 0)
 
-  const visibleEntries = entries.filter((entry) => !excludedCategoryIds.has(entry.category_id))
-
   const grandTotal = new Array(12).fill(0)
   visibleEntries.forEach((entry) => {
-    const months = computedMonthsByCategory[entry.name] || entry.months
-    const opsForCategory = opsMonthlyByCategoryName[entry.name]
+    const months = getEffectiveMonths(entry, computedMonthsByCategory, opsMonthlyByCategoryName)
     months.forEach((value, index) => {
-      const opsValue = opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : null
-      grandTotal[index] += opsValue !== null ? opsValue : Number(value) || 0
+      grandTotal[index] += value
     })
   })
 
@@ -505,7 +571,8 @@ function ExpensesView() {
                 const isPayroll = entry.name === PAYROLL_CATEGORY_NAME
                 const isPayrollTaxes = entry.name === PAYROLL_TAXES_CATEGORY_NAME
                 const isEmployeeBenefits = entry.name === EMPLOYEE_BENEFITS_CATEGORY_NAME
-                const isComputed = isPayroll || isPayrollTaxes || isEmployeeBenefits
+                const isPercentOf = entry.percent_of_enabled
+                const isPayrollDriven = isPayroll || isPayrollTaxes || isEmployeeBenefits
                 const displayMonths = computedMonthsByCategory[entry.name] || entry.months
                 // Ops-sourced totals (Payroll Schedule's auto-generated
                 // entries, or a manually-added one with a matching
@@ -519,6 +586,7 @@ function ExpensesView() {
                     sum + (opsForCategory?.hasEntry[index] ? opsForCategory.totals[index] : Number(value) || 0),
                   0,
                 )
+                const percentMetricLabel = entry.percent_of_metric === 'gross_revenue' ? 'Gross Revenue' : 'Net Profit'
                 const categoryTitle = isPayroll
                   ? 'Imported from Payroll.'
                   : isPayrollTaxes
@@ -531,11 +599,34 @@ function ExpensesView() {
                                 .join(', ') + ' — see Settings > Tax Structure > United States > Benefits'
                             : 'No benefits enabled — see Settings > Tax Structure > United States > Benefits'
                         }`
-                      : undefined
+                      : isPercentOf
+                        ? entry.percent_value
+                          ? `${entry.percent_value}% of ${percentMetricLabel} — see Settings > Expenses settings`
+                          : `% of ${percentMetricLabel} — no rate set for this company yet, see Settings > Expenses settings`
+                        : undefined
+
+                const rowClassName = isPayrollDriven
+                  ? 'expenses-view__row--imported'
+                  : isPercentOf
+                    ? 'expenses-view__row--percent'
+                    : ''
+                // The sticky name cell gets a solid (non-transparent) fill
+                // instead of the row's subtle tint — a row-level trait
+                // (payroll-driven vs. percent-of) should be obvious at a
+                // glance scanning down that one column, not just visible as
+                // a faint wash once you're already looking at the row.
+                // Ops-sourced isn't included here: it's a per-month cell
+                // trait, not a whole-category one, so it stays as the
+                // existing per-cell teal instead of coloring the name too.
+                const nameClassName = isPayrollDriven
+                  ? 'expenses-view__name--imported'
+                  : isPercentOf
+                    ? 'expenses-view__name--percent'
+                    : ''
 
                 return (
-                  <tr key={entry.category_id} className={isComputed ? 'expenses-view__row--imported' : ''}>
-                    <td className="sticky-col" title={categoryTitle}>
+                  <tr key={entry.category_id} className={rowClassName}>
+                    <td className={`sticky-col ${nameClassName}`} title={categoryTitle}>
                       {entry.name}
                     </td>
                     {displayMonths.map((value, index) =>
@@ -591,6 +682,23 @@ function ExpensesView() {
             </tfoot>
           </table>
         </div>
+      )}
+
+      {viewMode === 'monthly' && !loading && (
+        <ul className="expenses-view__legend">
+          <li>
+            <span className="expenses-view__legend-swatch expenses-view__legend-swatch--imported" />
+            Country-specific, computed from Payroll — Payroll, Payroll Tax Expense, Employee Benefits.
+          </li>
+          <li>
+            <span className="expenses-view__legend-swatch expenses-view__legend-swatch--percent" />
+            A percentage of Gross Revenue or Net Profit — set in Settings &gt; Expenses settings, never typed in directly.
+          </li>
+          <li>
+            <span className="expenses-view__legend-swatch expenses-view__legend-swatch--ops" />
+            From Commercial Operations — an actual Add Expense entry exists for that month.
+          </li>
+        </ul>
       )}
     </div>
   )

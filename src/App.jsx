@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import './App.css'
 import Header from './components/layout/Header/Header'
 import Sidebar from './components/layout/Sidebar/Sidebar'
@@ -7,6 +7,8 @@ import Footer from './components/layout/Footer/Footer'
 import HomeView from './components/home/HomeView'
 import ControlDashboardView from './components/dashboard/ControlDashboardView'
 import CommercialStructureView from './components/commercialStructure/CommercialStructureView'
+import MarketAnalysisView from './components/marketAnalysis/MarketAnalysisView'
+import GlobalTradeDataView from './components/globalTradeData/GlobalTradeDataView'
 import SimulationsView, { SimulationsIndexRedirect } from './components/simulations/SimulationsView'
 import SimParametersView from './components/simulations/SimParametersView'
 import CompanyWorkspace, { CompanyIndexRedirect } from './components/company/CompanyWorkspace/CompanyWorkspace'
@@ -17,12 +19,20 @@ import OperationsTab from './components/company/tabs/OperationsTab/OperationsTab
 import SimulatorTab from './components/company/tabs/SimulatorTab/SimulatorTab'
 import DriversTab from './components/company/tabs/DriversTab/DriversTab'
 import DocumentationTab from './components/company/tabs/DocumentationTab/DocumentationTab'
+import DocumentationView, { DocumentationIndexRedirect } from './components/documentation/DocumentationView'
 import SettingsView from './components/company/tabs/ManagementTab/SettingsView/SettingsView'
 import AccountingAuditView from './components/accountingAudit/AccountingAuditView'
 import CorporateStructureView from './components/corporateStructure/CorporateStructureView'
 import { addCompany as createCompany, fetchCompanies } from './services/companies'
 import { getCurrentUser } from './services/user'
 import { useAppStore } from './store/useAppStore'
+
+// Documentation moved to the sidebar; old company-tab links and remembered
+// last-tab paths still resolve.
+function DocumentationRedirect() {
+  const { companyId } = useParams()
+  return <Navigate to={`/documentation/${companyId}`} replace />
+}
 
 function Layout() {
   return (
@@ -39,10 +49,17 @@ function Layout() {
               <Route path="/corporate-structure" element={<CorporateStructureView />} />
               <Route path="/dashboard" element={<ControlDashboardView />} />
               <Route path="/commercial-structure" element={<CommercialStructureView />} />
+              <Route path="/market-analysis" element={<MarketAnalysisView />} />
+              <Route path="/market-analysis/:countryId" element={<MarketAnalysisView />} />
+              <Route path="/global-trade-data" element={<GlobalTradeDataView />} />
               <Route path="/simulations" element={<SimulationsView />}>
                 <Route index element={<SimulationsIndexRedirect />} />
                 <Route path=":companyId" element={<Navigate to="parameters" replace />} />
                 <Route path=":companyId/:sub" element={<SimParametersView />} />
+              </Route>
+              <Route path="/documentation" element={<DocumentationView />}>
+                <Route index element={<DocumentationIndexRedirect />} />
+                <Route path=":companyId" element={<DocumentationTab />} />
               </Route>
               <Route path="/settings" element={<SettingsView />} />
               <Route path="/accounting-audit" element={<AccountingAuditView />} />
@@ -52,11 +69,12 @@ function Layout() {
                 <Route path="management/:sub" element={<ManagementTab />} />
                 <Route path="financial/:sub" element={<FinancialTab />} />
                 <Route path="financial/:sub/:section" element={<FinancialTab />} />
+                <Route path="operations/market-analysis" element={<Navigate to="/market-analysis" replace />} />
                 <Route path="operations/:sub" element={<OperationsTab />} />
                 <Route path="operations" element={<Navigate to="commercial-operations" replace />} />
                 <Route path="simulator" element={<SimulatorTab />} />
                 <Route path="drivers" element={<DriversTab />} />
-                <Route path="documentation" element={<DocumentationTab />} />
+                <Route path="documentation" element={<DocumentationRedirect />} />
                 <Route index element={<CompanyIndexRedirect />} />
               </Route>
 

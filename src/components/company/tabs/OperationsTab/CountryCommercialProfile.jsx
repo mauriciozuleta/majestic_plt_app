@@ -72,7 +72,7 @@ function QuickFactsDashboard({ quickFacts }) {
   )
 }
 
-function CountryCommercialProfile({ companyId, country }) {
+function CountryCommercialProfile({ companyId, country, onBuilt }) {
   const params = useParams()
   const resolvedCompanyId = companyId ?? params.companyId
   const companies = useAppStore((state) => state.companies)
@@ -125,6 +125,10 @@ function CountryCommercialProfile({ companyId, country }) {
     })
       .then((data) => {
         setState({ status: 'ready', content: data.content, generatedAt: data.generated_at, quickFacts: data.quick_facts ?? [], error: null })
+        // Lets a container (the Market Analysis table) refresh its "has a
+        // profile" status without polling — it only needs to know the
+        // instant a build actually finishes.
+        onBuilt?.()
       })
       .catch((error) => {
         setState((prev) => ({ ...prev, status: prev.content ? 'ready' : 'error', error: error.message }))

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
 import { USA_SOURCES, fetchUsaSourceProducts, fetchUsaSourcingSnapshot } from './usaSourcingFetchers'
 import { exportUsaSourcingToCsv, exportUsaSourcingToPdf } from './usaSourcingExport'
 import { formatPriceLine } from './priceFormat'
@@ -11,7 +10,6 @@ import {
   usaRowSignature,
   usaWeightResearchItem,
 } from './unitConversion'
-import { fetchCommercialCountries } from '../../../../../services/commercialStructure'
 import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
 import { fetchWeightResearch, researchMissingWeights } from '../../../../../services/weightResearch'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
@@ -64,10 +62,17 @@ function SourceStatus({ label, sync }) {
   )
 }
 
-function USASourcingView() {
-  const { companyId } = useParams()
+// `highlightHsCode` (from Available Categories' country-code links, via
+// MarketAnalysisPanel) filters straight down to the product(s) whose own
+// reference code (see productPortfolio.js — "US"+hs_code) falls under this
+// HS code, regardless of the category chip currently selected. The parent
+// remounts this view (new key) on every new click, so a plain useState
+// seeded from the prop is enough — no effect needed to react to it changing.
+function USASourcingView({ companyId, highlightHsCode = null }) {
   const [activeCategory, setActiveCategory] = useState('all')
   const [productsBySource, setProductsBySource] = useState(() => Object.fromEntries(USA_SOURCES.map((s) => [s.key, []])))
+  const [highlightCleared, setHighlightCleared] = useState(false)
+  const highlightActive = Boolean(highlightHsCode) && !highlightCleared
   const [syncBySource, setSyncBySource] = useState(() => Object.fromEntries(USA_SOURCES.map((s) => [s.key, INITIAL_SYNC_STATE])))
   const [updating, setUpdating] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
@@ -142,11 +147,7 @@ function USASourcingView() {
   useEffect(() => {
     if (!companyId) return undefined
     let cancelled = false
-    fetchCommercialCountries(companyId)
-      .then((countries) => {
-        const countryCodeByName = new Map(countries.map((c) => [c.name.toLowerCase(), c.country_code]))
-        return buildProductCodeIndex(countryCodeByName)
-      })
+    buildProductCodeIndex()
       .then((index) => {
         if (!cancelled) setProductCodes(index)
       })
@@ -175,8 +176,17 @@ function USASourcingView() {
 
   const filtered = useMemo(() => {
     const scoped = activeCategory === 'all' ? products : products.filter((product) => product.category === activeCategory)
-    return [...scoped].sort((a, b) => a.product_en.localeCompare(b.product_en))
-  }, [products, activeCategory])
+    const sorted = [...scoped].sort((a, b) => a.product_en.localeCompare(b.product_en))
+    if (!highlightActive) return sorted
+    // A code is "US" + the real HS code (see productPortfolio.js) — strip
+    // the 2-letter country prefix and match the rest against the clicked
+    // HS code as a prefix (a 6-digit highlight still matches a longer real
+    // tariff code that starts with it).
+    return sorted.filter((product) => {
+      const code = productCodes.get(product.product_en.toLowerCase())
+      return code && code.slice(2).startsWith(highlightHsCode)
+    })
+  }, [products, activeCategory, highlightActive, highlightHsCode, productCodes])
 
   const isSeafoodSelected = activeCategory === 'Seafood (Gulf, domestic landings)'
 
@@ -380,6 +390,31 @@ function USASourcingView() {
           <SourceStatus key={s.key} label={s.label} sync={syncBySource[s.key]} />
         ))}
       </div>
+
+      {highlightActive && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            border: '1px solid rgba(53, 211, 153, 0.35)',
+            background: 'rgba(53, 211, 153, 0.1)',
+            color: '#6ee7b7',
+            fontSize: '0.82rem',
+          }}
+        >
+          Showing products classified under HS code {highlightHsCode} (from Available Categories).
+          <button
+            type="button"
+            onClick={() => setHighlightCleared(true)}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {neverLoaded ? (
         <div className="usa-sourcing__status">No prices loaded yet. Click Update to fetch current USDA AMS reports.</div>

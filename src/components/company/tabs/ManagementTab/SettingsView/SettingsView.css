@@ -369,6 +369,54 @@
   cursor: pointer;
 }
 
+.settings-view__expense-percent-col {
+  min-width: 9rem;
+}
+
+.settings-view__expense-percent-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.settings-view__expense-percent-toggle input[type='checkbox'] {
+  width: 1.05rem;
+  height: 1.05rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-view__expense-percent-toggle select {
+  padding: 0.3rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-panel, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  font: inherit;
+  font-size: 0.76rem;
+}
+
+.settings-view__expense-percent-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: 0.4rem;
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+}
+
+.settings-view__expense-percent-input input[type='number'] {
+  width: 3.2rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: var(--bg-panel, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  font: inherit;
+  font-size: 0.76rem;
+}
+
 .settings-view__expense-action-col {
   position: sticky;
   right: 0;

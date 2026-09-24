@@ -32,6 +32,53 @@ export function normalizeProductName(nameEs) {
     .trim()
 }
 
+// Tier 2 of the translation fallback chain (see backend/translation/resolve.py
+// for tiers 3-4): a name that misses the dictionary outright is often just a
+// typo/variant/grade-suffix of a name the dictionary already has (e.g.
+// "Tomate Chonto Extra" vs. "Tomate Chonto") — a plain Levenshtein similarity
+// ratio against every known key (the static dictionary plus confirmed
+// overrides) catches most of those for free, no model or network call
+// needed. Above FUZZY_MATCH_THRESHOLD a match is used directly, same as an
+// exact hit; below it, the caller falls through to asking for an AI
+// suggestion (tiers 3-4) instead.
+const FUZZY_MATCH_THRESHOLD = 0.85
+
+function levenshteinDistance(a, b) {
+  const rows = a.length + 1
+  const cols = b.length + 1
+  const dp = Array.from({ length: rows }, () => new Array(cols).fill(0))
+  for (let i = 0; i < rows; i += 1) dp[i][0] = i
+  for (let j = 0; j < cols; j += 1) dp[0][j] = j
+  for (let i = 1; i < rows; i += 1) {
+    for (let j = 1; j < cols; j += 1) {
+      dp[i][j] =
+        a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1])
+    }
+  }
+  return dp[rows - 1][cols - 1]
+}
+
+function similarityRatio(a, b) {
+  const maxLen = Math.max(a.length, b.length)
+  if (maxLen === 0) return 1
+  return 1 - levenshteinDistance(a, b) / maxLen
+}
+
+// Best dictionary/override key fuzzy-matching `key`, or null if nothing
+// clears FUZZY_MATCH_THRESHOLD.
+function findFuzzyKey(key, knownKeys) {
+  let bestKey = null
+  let bestRatio = FUZZY_MATCH_THRESHOLD
+  for (const candidateKey of knownKeys) {
+    const ratio = similarityRatio(key, candidateKey)
+    if (ratio >= bestRatio) {
+      bestRatio = ratio
+      bestKey = candidateKey
+    }
+  }
+  return bestKey
+}
+
 export const PRODUCT_TRANSLATIONS = {
   // Hortalizas / Vegetables
   acelga: 'Swiss Chard',
@@ -334,6 +381,14 @@ export const PRODUCT_TRANSLATIONS = {
 // letting a user correct a wrong static entry too.
 export function translateProductName(nameEs, overrides = {}) {
   const key = normalizeProductName(nameEs)
-  const translated = overrides[key] || PRODUCT_TRANSLATIONS[key]
-  return translated ? { text: translated, isTranslated: true } : { text: nameEs, isTranslated: false }
+  const direct = overrides[key] || PRODUCT_TRANSLATIONS[key]
+  if (direct) return { text: direct, isTranslated: true }
+
+  const fuzzyKey = findFuzzyKey(key, Object.keys(PRODUCT_TRANSLATIONS).concat(Object.keys(overrides)))
+  if (fuzzyKey) {
+    const fuzzyTranslation = overrides[fuzzyKey] || PRODUCT_TRANSLATIONS[fuzzyKey]
+    return { text: fuzzyTranslation, isTranslated: true }
+  }
+
+  return { text: nameEs, isTranslated: false }
 }

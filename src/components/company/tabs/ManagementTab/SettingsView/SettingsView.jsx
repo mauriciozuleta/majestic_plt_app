@@ -4,6 +4,7 @@ import { IconX } from '@tabler/icons-react'
 import RoadmapDateInput from '../RoadmapView/RoadmapDateInput'
 import PayrollLevelsModal from './PayrollLevelsModal'
 import AccountingHealthCheckCard from './AccountingHealthCheckCard'
+import ProductSourcesCard from './ProductSourcesCard'
 import DevelopmentPhasesPanel from './DevelopmentPhasesPanel'
 import USPayrollTaxPanel from './USPayrollTaxPanel'
 import PayrollSchedulePanel from './PayrollSchedulePanel'
@@ -18,9 +19,9 @@ import {
   createExpenseCategory,
   deleteExpenseCategory,
   fetchExpenseCategories,
-  fetchExpenseCategoryExclusions,
+  fetchExpenseCategoryCompanySettings,
   renameExpenseCategory,
-  setExpenseCategoryApplicability,
+  setExpenseCategoryCompanySetting,
 } from '../../../../../services/expenses'
 import { fetchSettings, updateCalendarMode, updateEnabledBenefits, updateTimeProjection } from '../../../../../services/settings'
 import { useAppStore } from '../../../../../store/useAppStore'
@@ -30,6 +31,16 @@ import './SettingsView.css'
 // Expenses tab by exact name match — renaming them here would break that
 // overlay, so they're shown read-only.
 const PROTECTED_EXPENSE_CATEGORY_NAMES = new Set(['Payroll', 'Payroll Tax Expense', 'Employee Benefits'])
+
+// "Net Profit" here specifically means Net Profit computed BEFORE any
+// percent-of-X category (including itself) — see ExpensesView.jsx's own
+// comment on this for why: Net Profit already subtracts every expense, so a
+// category that's itself a percentage of Net Profit can't be included in
+// that subtraction without becoming circular.
+const PERCENT_OF_METRICS = [
+  { key: 'gross_revenue', label: 'Gross Revenue' },
+  { key: 'net_profit', label: 'Net Profit' },
+]
 
 // Not wired up yet — these are placeholder pills for a future tax/macro
 // module, listed under each country in the commercial structure.
@@ -93,8 +104,15 @@ function SettingsView() {
   const [expenseCategories, setExpenseCategories] = useState([])
   const [expenseCategoriesStatus, setExpenseCategoriesStatus] = useState('loading')
   const [expenseNameDrafts, setExpenseNameDrafts] = useState({})
-  const [expenseExclusionKeys, setExpenseExclusionKeys] = useState(() => new Set())
-  const [originalExpenseExclusionKeys, setOriginalExpenseExclusionKeys] = useState(() => new Set())
+  // Keyed by `${categoryId}::${companyId}` -> { excluded, percentValue }.
+  // originalCompanySettingDrafts is a snapshot of what's actually saved, so
+  // "Save changes" only ever writes the (category, company) pairs that
+  // actually changed instead of rewriting everything every time.
+  const [companySettingDrafts, setCompanySettingDrafts] = useState({})
+  const [originalCompanySettingDrafts, setOriginalCompanySettingDrafts] = useState({})
+  // Keyed by categoryId -> { enabled, metric } — the row-level "% of"
+  // checkbox + metric dropdown, staged the same way expenseNameDrafts is.
+  const [expensePercentDrafts, setExpensePercentDrafts] = useState({})
   const [pendingNewExpenseCategories, setPendingNewExpenseCategories] = useState([])
   const [pendingDeletedExpenseCategoryIds, setPendingDeletedExpenseCategoryIds] = useState(() => new Set())
   const [isAddingExpenseCategory, setIsAddingExpenseCategory] = useState(false)
@@ -182,13 +200,17 @@ function SettingsView() {
     let cancelled = false
     setExpenseCategoriesStatus('loading')
 
-    Promise.all([fetchExpenseCategories(), fetchExpenseCategoryExclusions()])
-      .then(([categories, exclusions]) => {
+    Promise.all([fetchExpenseCategories(), fetchExpenseCategoryCompanySettings()])
+      .then(([categories, companySettings]) => {
         if (cancelled) return
-        const exclusionKeys = new Set(exclusions.map((row) => `${row.category_id}::${row.country_id}`))
+        const settingsMap = {}
+        companySettings.forEach((row) => {
+          settingsMap[`${row.category_id}::${row.company_id}`] = { excluded: row.excluded, percentValue: row.percent_value ?? null }
+        })
         setExpenseCategories(categories)
-        setExpenseExclusionKeys(exclusionKeys)
-        setOriginalExpenseExclusionKeys(exclusionKeys)
+        setCompanySettingDrafts(settingsMap)
+        setOriginalCompanySettingDrafts(settingsMap)
+        setExpensePercentDrafts({})
         setExpenseCategoriesStatus('ready')
       })
       .catch((error) => {
@@ -210,11 +232,28 @@ function SettingsView() {
     () => [
       ...expenseCategories
         .filter((category) => !pendingDeletedExpenseCategoryIds.has(category.id))
-        .map((category) => ({ id: category.id, name: category.name, isNew: false })),
-      ...pendingNewExpenseCategories.map((pending) => ({ id: pending.tempId, name: pending.name, isNew: true })),
+        .map((category) => ({
+          id: category.id,
+          name: category.name,
+          isNew: false,
+          percentOfEnabled: category.percent_of_enabled,
+          percentOfMetric: category.percent_of_metric,
+        })),
+      ...pendingNewExpenseCategories.map((pending) => ({
+        id: pending.tempId,
+        name: pending.name,
+        isNew: true,
+        percentOfEnabled: false,
+        percentOfMetric: null,
+      })),
     ],
     [expenseCategories, pendingDeletedExpenseCategoryIds, pendingNewExpenseCategories],
   )
+
+  const percentDraftFor = (row) => expensePercentDrafts[row.id] ?? { enabled: row.percentOfEnabled, metric: row.percentOfMetric ?? 'gross_revenue' }
+
+  const companySettingDraftFor = (categoryId, companyId) =>
+    companySettingDrafts[`${categoryId}::${companyId}`] ?? { excluded: false, percentValue: null }
 
   const expenseSettingsDirty = useMemo(() => {
     if (pendingNewExpenseCategories.length > 0 || pendingDeletedExpenseCategoryIds.size > 0) return true
@@ -226,12 +265,30 @@ function SettingsView() {
     })
     if (renamed) return true
 
-    if (expenseExclusionKeys.size !== originalExpenseExclusionKeys.size) return true
-    for (const key of expenseExclusionKeys) {
-      if (!originalExpenseExclusionKeys.has(key)) return true
+    const percentChanged = expenseCategories.some((category) => {
+      if (pendingDeletedExpenseCategoryIds.has(category.id)) return false
+      const draft = expensePercentDrafts[category.id]
+      if (!draft) return false
+      return draft.enabled !== category.percent_of_enabled || (draft.enabled && draft.metric !== category.percent_of_metric)
+    })
+    if (percentChanged) return true
+
+    const allKeys = new Set([...Object.keys(companySettingDrafts), ...Object.keys(originalCompanySettingDrafts)])
+    for (const key of allKeys) {
+      const draft = companySettingDrafts[key] ?? { excluded: false, percentValue: null }
+      const original = originalCompanySettingDrafts[key] ?? { excluded: false, percentValue: null }
+      if (draft.excluded !== original.excluded || draft.percentValue !== original.percentValue) return true
     }
     return false
-  }, [expenseCategories, expenseNameDrafts, expenseExclusionKeys, originalExpenseExclusionKeys, pendingNewExpenseCategories, pendingDeletedExpenseCategoryIds])
+  }, [
+    expenseCategories,
+    expenseNameDrafts,
+    expensePercentDrafts,
+    companySettingDrafts,
+    originalCompanySettingDrafts,
+    pendingNewExpenseCategories,
+    pendingDeletedExpenseCategoryIds,
+  ])
 
   const handleExpenseNameDraftChange = (rowId, value) => {
     setExpenseNameDrafts((prev) => ({ ...prev, [rowId]: value }))
@@ -242,14 +299,40 @@ function SettingsView() {
     setExpenseNameDrafts((prev) => ({ ...prev, [row.id]: draft || row.name }))
   }
 
-  const handleToggleExpenseApplicability = (categoryId, countryId, wasChecked) => {
-    const key = `${categoryId}::${countryId}`
-    setExpenseExclusionKeys((prev) => {
-      const next = new Set(prev)
-      if (wasChecked) next.add(key)
-      else next.delete(key)
-      return next
-    })
+  // wasChecked is the checkbox's state BEFORE this click (not the new one)
+  // — since a click always flips it, "was checked" is exactly the new
+  // excluded value. Pass the already-negated new-checked value here instead
+  // and this silently becomes a no-op (excluded keeps resolving back to
+  // whatever it already was).
+  const handleToggleExpenseApplicability = (categoryId, companyId, wasChecked) => {
+    const key = `${categoryId}::${companyId}`
+    setCompanySettingDrafts((prev) => ({
+      ...prev,
+      [key]: { ...companySettingDraftFor(categoryId, companyId), excluded: wasChecked },
+    }))
+  }
+
+  const handleChangeCompanyPercentValue = (categoryId, companyId, rawValue) => {
+    const key = `${categoryId}::${companyId}`
+    const percentValue = rawValue === '' ? null : Number(rawValue)
+    setCompanySettingDrafts((prev) => ({
+      ...prev,
+      [key]: { ...companySettingDraftFor(categoryId, companyId), percentValue },
+    }))
+  }
+
+  const handleTogglePercentOf = (row, enabled) => {
+    setExpensePercentDrafts((prev) => ({
+      ...prev,
+      [row.id]: { ...percentDraftFor(row), enabled },
+    }))
+  }
+
+  const handleChangePercentMetric = (row, metric) => {
+    setExpensePercentDrafts((prev) => ({
+      ...prev,
+      [row.id]: { ...percentDraftFor(row), metric },
+    }))
   }
 
   const handleAddExpenseCategoryClick = () => {
@@ -301,6 +384,10 @@ function SettingsView() {
         const name = (expenseNameDrafts[pending.tempId] ?? pending.name).trim() || pending.name
         const created = await createExpenseCategory(name)
         tempIdToRealId[pending.tempId] = created.id
+        const percentDraft = expensePercentDrafts[pending.tempId]
+        if (percentDraft?.enabled) {
+          await renameExpenseCategory(created.id, name, true, percentDraft.metric)
+        }
       }
 
       for (const categoryId of pendingDeletedExpenseCategoryIds) {
@@ -309,9 +396,13 @@ function SettingsView() {
 
       for (const category of expenseCategories) {
         if (pendingDeletedExpenseCategoryIds.has(category.id)) continue
-        const draft = (expenseNameDrafts[category.id] ?? category.name).trim()
-        if (draft && draft !== category.name) {
-          await renameExpenseCategory(category.id, draft)
+        const draftName = (expenseNameDrafts[category.id] ?? category.name).trim()
+        const percentDraft = percentDraftFor({ id: category.id, percentOfEnabled: category.percent_of_enabled, percentOfMetric: category.percent_of_metric })
+        const nameChanged = draftName && draftName !== category.name
+        const percentChanged =
+          percentDraft.enabled !== category.percent_of_enabled || (percentDraft.enabled && percentDraft.metric !== category.percent_of_metric)
+        if (nameChanged || percentChanged) {
+          await renameExpenseCategory(category.id, draftName || category.name, percentDraft.enabled, percentDraft.enabled ? percentDraft.metric : null)
         }
       }
 
@@ -323,20 +414,26 @@ function SettingsView() {
 
       for (const categoryId of survivingCategoryIds) {
         const draftId = realIdToDraftId.get(categoryId) ?? categoryId
-        for (const country of taxCountries) {
-          const draftExcluded = expenseExclusionKeys.has(`${draftId}::${country.id}`)
-          const originalExcluded = originalExpenseExclusionKeys.has(`${categoryId}::${country.id}`)
-          if (draftExcluded !== originalExcluded) {
-            await setExpenseCategoryApplicability(categoryId, country.id, !draftExcluded)
+        for (const company of companies) {
+          const key = `${draftId}::${company.id}`
+          const draft = companySettingDrafts[key]
+          const original = originalCompanySettingDrafts[`${categoryId}::${company.id}`] ?? { excluded: false, percentValue: null }
+          if (!draft) continue
+          if (draft.excluded !== original.excluded || draft.percentValue !== original.percentValue) {
+            await setExpenseCategoryCompanySetting(categoryId, company.id, draft.excluded, draft.percentValue)
           }
         }
       }
 
-      const [categories, exclusions] = await Promise.all([fetchExpenseCategories(), fetchExpenseCategoryExclusions()])
-      const freshExclusionKeys = new Set(exclusions.map((row) => `${row.category_id}::${row.country_id}`))
+      const [categories, companySettings] = await Promise.all([fetchExpenseCategories(), fetchExpenseCategoryCompanySettings()])
+      const freshSettingsMap = {}
+      companySettings.forEach((row) => {
+        freshSettingsMap[`${row.category_id}::${row.company_id}`] = { excluded: row.excluded, percentValue: row.percent_value ?? null }
+      })
       setExpenseCategories(categories)
-      setExpenseExclusionKeys(freshExclusionKeys)
-      setOriginalExpenseExclusionKeys(freshExclusionKeys)
+      setCompanySettingDrafts(freshSettingsMap)
+      setOriginalCompanySettingDrafts(freshSettingsMap)
+      setExpensePercentDrafts({})
       setExpenseNameDrafts({})
       setPendingNewExpenseCategories([])
       setPendingDeletedExpenseCategoryIds(new Set())
@@ -514,6 +611,8 @@ function SettingsView() {
 
       <AccountingHealthCheckCard />
 
+      <ProductSourcesCard />
+
       <div className="settings-view__card">
         <button
           type="button"
@@ -524,7 +623,7 @@ function SettingsView() {
           <span className={`settings-view__tax-chevron ${isExpensesCardExpanded ? 'is-expanded' : ''}`}>▸</span>
           <div className="settings-view__section-heading">
             <h4>Expenses settings</h4>
-            <p>Rename expense categories and choose which countries each one applies to. All countries are checked by default.</p>
+            <p>Rename expense categories and choose which companies each one applies to. All companies are checked by default.</p>
           </div>
         </button>
 
@@ -562,23 +661,17 @@ function SettingsView() {
               <div className="settings-view__status">Loading expense categories...</div>
             ) : expenseRows.length === 0 ? (
               <div className="settings-view__status">No expense categories found.</div>
-            ) : taxCountries.length === 0 ? (
-              <div className="settings-view__status">
-                No countries in the commercial structure yet — add one under Operations → Commercial Structure first.
-              </div>
+            ) : companies.length === 0 ? (
+              <div className="settings-view__status">No companies in the corporate structure yet.</div>
             ) : (
               <div className="settings-view__expense-table-wrap">
                 <table className="settings-view__expense-table">
                   <thead>
                     <tr>
                       <th className="settings-view__expense-name-col">Expense</th>
-                      {taxCountries.map((country) => (
-                        <th key={country.id}>
-                          {country.name}
-                          {companies.length > 1 && (
-                            <span className="settings-view__tax-company-tag">{country.companyName}</span>
-                          )}
-                        </th>
+                      <th className="settings-view__expense-percent-col">% of</th>
+                      {companies.map((company) => (
+                        <th key={company.id}>{company.name}</th>
                       ))}
                       <th className="settings-view__expense-action-col" aria-hidden="true" />
                     </tr>
@@ -587,9 +680,14 @@ function SettingsView() {
                     {expenseRows.map((row) => {
                       const isProtected = PROTECTED_EXPENSE_CATEGORY_NAMES.has(row.name)
                       const draft = expenseNameDrafts[row.id] ?? row.name
+                      const percentDraft = percentDraftFor(row)
+                      const percentMetricLabel = PERCENT_OF_METRICS.find((item) => item.key === percentDraft.metric)?.label
+                      const nameTitle = percentDraft.enabled
+                        ? `Computed automatically — a percentage of ${percentMetricLabel} for each company below, instead of a fixed amount.`
+                        : undefined
                       return (
                         <tr key={row.id}>
-                          <td className="settings-view__expense-name-col">
+                          <td className="settings-view__expense-name-col" title={nameTitle}>
                             {isProtected ? (
                               <span
                                 className="settings-view__expense-name-locked"
@@ -609,16 +707,55 @@ function SettingsView() {
                               />
                             )}
                           </td>
-                          {taxCountries.map((country) => {
-                            const checked = !expenseExclusionKeys.has(`${row.id}::${country.id}`)
+                          <td className="settings-view__expense-percent-col">
+                            {isProtected ? null : (
+                              <label className="settings-view__expense-percent-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={percentDraft.enabled}
+                                  onChange={(event) => handleTogglePercentOf(row, event.target.checked)}
+                                  aria-label={`${row.name} is a percentage of a metric, instead of a fixed amount`}
+                                />
+                                {percentDraft.enabled && (
+                                  <select
+                                    value={percentDraft.metric}
+                                    onChange={(event) => handleChangePercentMetric(row, event.target.value)}
+                                    aria-label={`${row.name} percentage base`}
+                                  >
+                                    {PERCENT_OF_METRICS.map((metric) => (
+                                      <option key={metric.key} value={metric.key}>
+                                        {metric.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </label>
+                            )}
+                          </td>
+                          {companies.map((company) => {
+                            const setting = companySettingDraftFor(row.id, company.id)
+                            const checked = !setting.excluded
                             return (
-                              <td key={country.id} className="settings-view__expense-check-col">
+                              <td key={company.id} className="settings-view__expense-check-col">
                                 <input
                                   type="checkbox"
                                   checked={checked}
-                                  onChange={() => handleToggleExpenseApplicability(row.id, country.id, checked)}
-                                  aria-label={`${row.name} applies to ${country.name}`}
+                                  onChange={() => handleToggleExpenseApplicability(row.id, company.id, checked)}
+                                  aria-label={`${row.name} applies to ${company.name}`}
                                 />
+                                {percentDraft.enabled && checked && (
+                                  <span className="settings-view__expense-percent-input">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.1"
+                                      value={setting.percentValue ?? ''}
+                                      onChange={(event) => handleChangeCompanyPercentValue(row.id, company.id, event.target.value)}
+                                      aria-label={`${row.name} percentage for ${company.name}`}
+                                    />
+                                    %
+                                  </span>
+                                )}
                               </td>
                             )
                           })}

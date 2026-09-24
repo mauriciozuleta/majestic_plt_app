@@ -43,3 +43,17 @@ graphify-out/
 
 # Local secrets (API keys, etc.) — never committed
 .env
+
+# Knowledge-base retrieval indexes (rebuilt automatically from the stored files)
+backend/documents/**/*.rag.json
+
+# local embedding model (copied from prelim_training_tool; ~23 MB)
+backend/knowledge_base/models/
+
+# UN Comtrade's own HS classification reference, fetched once and cached
+# (see backend/comtrade/classification.py) — ~2MB, regenerated automatically
+backend/comtrade/hs_reference_cache.json
+
+# UN Comtrade's own reporter-country reference, fetched once and cached
+# (see backend/comtrade/countries.py) — regenerated automatically
+backend/comtrade/reporters_cache.json

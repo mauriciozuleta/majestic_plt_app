@@ -20,16 +20,21 @@ from .routers import (
     commercial_structure,
     companies,
     competitiveness,
+    comtrade,
     country_profile,
     currency,
     expense_categories,
     general_ledger,
+    assistant,
+    knowledge_base,
     org_chart,
     payroll,
     payroll_levels,
     payroll_schedule_settings,
     payroll_template,
     price_comparison,
+    product_classification,
+    product_sources,
     product_overrides,
     revenue_streams,
     risk_analysis,
@@ -231,6 +236,12 @@ def _ensure_schema_migrations():
                     )
 
         if 'expense_categories' in inspector.get_table_names():
+            expense_category_columns = {column['name'] for column in inspector.get_columns('expense_categories')}
+            if 'percent_of_enabled' not in expense_category_columns:
+                connection.execute(text('ALTER TABLE expense_categories ADD COLUMN percent_of_enabled BOOLEAN DEFAULT 0'))
+            if 'percent_of_metric' not in expense_category_columns:
+                connection.execute(text('ALTER TABLE expense_categories ADD COLUMN percent_of_metric VARCHAR'))
+
             expense_category_count = connection.execute(text('SELECT COUNT(*) FROM expense_categories')).scalar() or 0
             if expense_category_count == 0:
                 default_expense_categories = [
@@ -284,6 +295,44 @@ def _ensure_schema_migrations():
                     )
                 )
 
+        # One-time migration: expense-category applicability moves from being
+        # keyed by a commercial-structure country to being keyed directly by
+        # company, so it no longer silently misses a subsidiary that has no
+        # commercial-structure row of its own. A country-based exclusion
+        # applied to every company that owned that country row, so it
+        # backfills as one row per distinct owning company. The table is
+        # dropped at the end, which is also what makes this a true one-time
+        # migration — the `if` above stops matching on every later startup.
+        if 'expense_category_country_exclusions' in inspector.get_table_names():
+            legacy_exclusions = connection.execute(
+                text(
+                    """
+                    SELECT DISTINCT e.category_id, c.company_id
+                    FROM expense_category_country_exclusions e
+                    JOIN commercial_countries c ON c.id = e.country_id
+                    """
+                )
+            ).fetchall()
+            for category_id, company_id in legacy_exclusions:
+                existing = connection.execute(
+                    text(
+                        'SELECT id FROM expense_category_company_settings WHERE category_id = :category_id AND company_id = :company_id'
+                    ),
+                    {'category_id': category_id, 'company_id': company_id},
+                ).first()
+                if existing:
+                    continue
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO expense_category_company_settings (id, category_id, company_id, excluded, percent_value)
+                        VALUES (:id, :category_id, :company_id, 1, NULL)
+                        """
+                    ),
+                    {'id': str(uuid.uuid4()), 'category_id': category_id, 'company_id': company_id},
+                )
+            connection.execute(text('DROP TABLE expense_category_country_exclusions'))
+
         if 'commercial_operation_entries' in inspector.get_table_names():
             commercial_op_columns = {column['name'] for column in inspector.get_columns('commercial_operation_entries')}
             if 'entry_type' not in commercial_op_columns:
@@ -332,6 +381,23 @@ def _ensure_schema_migrations():
             if 'currency_code' not in commercial_country_columns:
                 connection.execute(text('ALTER TABLE commercial_countries ADD COLUMN currency_code VARCHAR'))
 
+        if 'product_sources' in inspector.get_table_names():
+            product_source_columns = {column['name'] for column in inspector.get_columns('product_sources')}
+            if 'currency' not in product_source_columns:
+                connection.execute(text('ALTER TABLE product_sources ADD COLUMN currency VARCHAR'))
+            if 'analysis_type' not in product_source_columns:
+                connection.execute(text("ALTER TABLE product_sources ADD COLUMN analysis_type VARCHAR DEFAULT 'wholesaler'"))
+            # analysis_type was originally 'export'/'import' (Export Analysis /
+            # Import Analysis tabs); those tabs are gone, replaced by a single
+            # Wholesaler/Retail label — rewrites any value saved under the old
+            # names. A no-op once every row's already been converted.
+            connection.execute(text("UPDATE product_sources SET analysis_type = 'wholesaler' WHERE analysis_type = 'export'"))
+            connection.execute(text("UPDATE product_sources SET analysis_type = 'retail' WHERE analysis_type = 'import'"))
+
+        if 'built_in_source_overrides' in inspector.get_table_names():
+            connection.execute(text("UPDATE built_in_source_overrides SET analysis_type = 'wholesaler' WHERE analysis_type = 'export'"))
+            connection.execute(text("UPDATE built_in_source_overrides SET analysis_type = 'retail' WHERE analysis_type = 'import'"))
+
         if 'commercial_branches' in inspector.get_table_names():
             commercial_branch_columns = {column['name'] for column in inspector.get_columns('commercial_branches')}
             branch_float_columns = [
@@ -353,6 +419,16 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE commercial_branches ADD COLUMN other_desc VARCHAR'))
 
         if 'country_reference_catalog' in inspector.get_table_names():
+            country_reference_columns = {column['name'] for column in inspector.get_columns('country_reference_catalog')}
+            if 'trade_data_source' not in country_reference_columns:
+                connection.execute(text('ALTER TABLE country_reference_catalog ADD COLUMN trade_data_source VARCHAR'))
+            if 'trade_data_coverage' not in country_reference_columns:
+                connection.execute(text('ALTER TABLE country_reference_catalog ADD COLUMN trade_data_coverage VARCHAR'))
+            if 'trade_data_coverage_note' not in country_reference_columns:
+                connection.execute(text('ALTER TABLE country_reference_catalog ADD COLUMN trade_data_coverage_note VARCHAR'))
+            if 'trade_data_source_checked_at' not in country_reference_columns:
+                connection.execute(text('ALTER TABLE country_reference_catalog ADD COLUMN trade_data_source_checked_at VARCHAR'))
+
             country_rows: list[tuple[str, str, str, str, str]] = []
             if os.path.exists(EXTERNAL_COUNTRY_DB):
                 source_db = sqlite3.connect(EXTERNAL_COUNTRY_DB)
@@ -429,6 +505,10 @@ app.include_router(org_chart.router)
 app.include_router(payroll.router)
 app.include_router(payroll_levels.router)
 app.include_router(expense_categories.router)
+app.include_router(knowledge_base.router)
+app.include_router(assistant.router)
+app.include_router(product_sources.router)
+app.include_router(product_classification.router)
 app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)
 app.include_router(commercial_operations.router)
@@ -447,6 +527,7 @@ app.include_router(bank_accounts.router)
 app.include_router(payroll_schedule_settings.router)
 app.include_router(accounting_audit.router)
 app.include_router(risk_analysis.router)
+app.include_router(comtrade.router)
 
 
 @app.on_event('startup')

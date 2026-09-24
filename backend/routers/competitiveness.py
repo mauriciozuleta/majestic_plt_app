@@ -18,6 +18,7 @@ from .. import models
 from ..background_jobs import clear_building, get_error, is_building, mark_building, mark_error
 from ..country_profile.claude_client import build_competitiveness_analysis, extract_quick_facts
 from ..database import get_db
+from ..knowledge_base.context import business_context, context_prompt_section
 from .country_profile import PROFILES_DIR
 
 router = APIRouter()
@@ -92,11 +93,15 @@ def get_competitiveness_analysis(
     }
 
 
-def _run_competitiveness_build(path: Path, source_country_name: str, category_summary: list, target_name: str, target_profile: str):
+def _run_competitiveness_build(
+    path: Path, source_country_name: str, category_summary: list, target_name: str, target_profile: str,
+    extra_prompt: str = '', document_names: tuple = (),
+):
     try:
-        body = build_competitiveness_analysis(source_country_name, category_summary, target_name, target_profile)
+        body = build_competitiveness_analysis(source_country_name, category_summary, target_name, target_profile, extra_prompt)
         generated_at = datetime.now(timezone.utc)
-        header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.\n\n'
+        based_on = f' Based on our documents: {", ".join(document_names)}.' if document_names else ''
+        header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.{based_on}\n\n'
         path.write_text(header + body, encoding='utf-8')
     except Exception as exc:
         mark_error(path, str(exc))
@@ -130,5 +135,9 @@ def build_competitiveness(
 
     target_profile = profile_path.read_text(encoding='utf-8')
     mark_building(path)
-    background_tasks.add_task(_run_competitiveness_build, path, source_country_name, category_summary, target.name, target_profile)
+    context, document_names = business_context(db, f'{target.name} {source_country_name}')
+    background_tasks.add_task(
+        _run_competitiveness_build, path, source_country_name, category_summary, target.name, target_profile,
+        context_prompt_section(context), tuple(document_names),
+    )
     return {'status': 'started'}

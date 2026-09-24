@@ -19,6 +19,7 @@ from .. import models
 from ..background_jobs import clear_building, get_error, is_building, mark_building, mark_error
 from ..country_profile.claude_client import build_country_commercial_profile, extract_quick_facts
 from ..database import get_db
+from ..knowledge_base.context import business_context, context_prompt_section
 
 router = APIRouter()
 
@@ -73,12 +74,13 @@ def get_country_profile(company_id: str, country_id: str, db: Session = Depends(
     }
 
 
-def _run_profile_build(country_id: str, country_name: str):
+def _run_profile_build(country_id: str, country_name: str, extra_prompt: str = '', document_names: tuple = ()):
     path = _profile_path(country_id)
     try:
-        body = build_country_commercial_profile(country_name)
+        body = build_country_commercial_profile(country_name, extra_prompt)
         generated_at = datetime.now(timezone.utc)
-        header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.\n\n'
+        based_on = f' Based on our documents: {", ".join(document_names)}.' if document_names else ''
+        header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.{based_on}\n\n'
         path.write_text(header + body, encoding='utf-8')
     except Exception as exc:
         mark_error(path, str(exc))
@@ -96,6 +98,9 @@ def build_country_profile(company_id: str, country_id: str, background_tasks: Ba
     if is_building(path):
         return {'status': 'already_building'}
 
+    # The knowledge base's uploaded documents (a business plan, say) are
+    # the basis the profile is written for — see knowledge_base/context.py.
+    context, document_names = business_context(db, country.name)
     mark_building(path)
-    background_tasks.add_task(_run_profile_build, country_id, country.name)
+    background_tasks.add_task(_run_profile_build, country_id, country.name, context_prompt_section(context), tuple(document_names))
     return {'status': 'started'}
