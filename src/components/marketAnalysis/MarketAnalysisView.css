@@ -266,6 +266,340 @@
   color: #6ee7b7;
 }
 
+/* SAM ▸ Overview: one card per region, each listing its qualifying
+   categories (region-level Comtrade chapter totals) with an expandable
+   per-country breakdown — same collapsible-row language as Available
+   Categories (reuses its .available-categories__row-toggle/__chevron
+   classes directly) but laid out as cards, one per region, instead of one
+   shared table. */
+.sam-overview {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.sam-overview__cards {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.sam-overview__card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sam-overview__card-title {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.sam-overview__card-count {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.sam-overview__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.sam-overview__table td {
+  padding: 0.45rem 0.8rem;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.sam-overview__toggle-cell {
+  width: 1.6rem;
+}
+
+.sam-overview__code {
+  width: 3rem;
+  font-variant-numeric: tabular-nums;
+  color: #35d399;
+  white-space: nowrap;
+}
+
+.sam-overview__name {
+  color: #35d399;
+}
+
+.sam-overview__value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sam-overview__row--country td {
+  background: rgba(255, 255, 255, 0.015);
+  font-size: 0.78rem;
+}
+
+.sam-overview__country-name {
+  margin-left: 1.4rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-secondary);
+}
+
+.sam-overview__country-year {
+  margin-left: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+/* The bilateral-coverage badge — same bold amber treatment as Global Trade
+   Data's own .global-trade__bilateral-banner-tag (GlobalTradeDataView.css),
+   reused here rather than invented fresh, on both a category total line
+   (any contributing country was bilateral) and each bilateral country's own
+   breakdown line, so a mixed-source total is never shown with the same
+   confidence as an all-Comtrade one. */
+.market-analysis__bilateral-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #1a1200;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* SAM Overview's opt-in estimation layer — the "Include estimated values
+   (modeled)" checkbox and its four distinct visual states: confirmed (no
+   badge at all, the plain figure), bilateral-partial (amber, above),
+   estimated/normal-confidence (blue) and estimated/low-confidence (rose,
+   genuinely different from normal-confidence, not just a tooltip — see
+   MARKET_SIZING_METHODOLOGY.md for the R² threshold that decides which one a given
+   estimate gets). */
+.sam-overview__estimate-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: fit-content;
+}
+
+.sam-overview__estimate-control input {
+  accent-color: #a78bfa;
+}
+
+.market-analysis__estimated-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #3b82f6;
+  color: #eff6ff;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  cursor: default;
+}
+
+.market-analysis__estimated-badge--low-confidence {
+  background: #ef4444;
+  color: #2a0a0a;
+  outline: 1px dashed #2a0a0a;
+  outline-offset: -2px;
+}
+
+/* Category-row dual total — "Confirmed: $X" stacked over
+   "Confirmed + Estimated: $Y", never on one line as a single blended
+   figure. Only used once the toggle is on and this category actually has
+   an estimate to report (see SamPanel.jsx's CategoryValueCell); the
+   toggle-off / no-estimate-yet path keeps the original single-line cell
+   untouched. */
+.sam-overview__dual-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  white-space: normal;
+}
+
+.sam-overview__estimate-guardrail {
+  font-size: 0.72rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* An estimated country's own row — same indentation/left-rule language as
+   a confirmed country row (.sam-overview__row--country), but on a faint
+   blue tint instead of the neutral one, so it reads as a different kind of
+   row before a viewer even reaches its badge. */
+.sam-overview__row--estimated td {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.sam-overview__estimate-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sam-overview__row--estimate-detail td {
+  background: rgba(59, 130, 246, 0.03);
+  padding: 0.5rem 0.8rem 0.6rem 2.4rem;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.sam-overview__row--estimate-detail td > div + div {
+  margin-top: 0.25rem;
+}
+
+/* TAM ▸ Overview: one card per qualifying category (never per region — a
+   global figure isn't scoped to any one region), each with its own
+   expandable, searchable, sortable per-country breakdown. No bilateral
+   badge here (see GlobalTamPanel.jsx's own header comment for why) — the
+   "(based on N reporting countries)" note is this view's honesty signal
+   instead. */
+.global-tam {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.global-tam__cards {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.global-tam__card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.global-tam__card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.global-tam__card-head:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.global-tam__card-code {
+  font-variant-numeric: tabular-nums;
+  color: #35d399;
+  font-weight: 700;
+}
+
+.global-tam__card-name {
+  color: #35d399;
+  flex: 1;
+}
+
+.global-tam__card-total {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.global-tam__card-count {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.global-tam__card-body {
+  padding: 0.7rem 0.8rem 0.8rem;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0.6rem;
+}
+
+.global-tam__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.8rem;
+}
+
+.global-tam__sort {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.global-tam__sort select {
+  padding: 0.42rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card, #111f31);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.global-tam__table-wrap {
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.global-tam__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.global-tam__row td {
+  padding: 0.4rem 0.6rem;
+  border-top: 1px solid var(--border);
+}
+
+.global-tam__country-name {
+  color: var(--text-secondary);
+}
+
+.global-tam__value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
 /* Every region shares one table, one header and one horizontal scrollbar —
    a fixed layout (driven by the colgroup below) is what keeps every pill
    column exactly the same width, region to region, regardless of what's in

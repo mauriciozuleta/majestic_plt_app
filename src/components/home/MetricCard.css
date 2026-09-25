@@ -31,3 +31,8 @@
   font-size: 1.5rem;
   color: var(--text-primary);
 }
+
+.metric-card__sub {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}

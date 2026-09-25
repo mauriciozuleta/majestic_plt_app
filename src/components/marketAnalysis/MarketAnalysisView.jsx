@@ -7,6 +7,8 @@ import { buildMarketAnalysisStatus } from '../../services/marketAnalysisStatus'
 import { exportCountryProfileToPdf } from '../company/tabs/OperationsTab/countryProfileExport'
 import MarketAnalysisPanel from '../company/tabs/OperationsTab/MarketAnalysis/MarketAnalysisPanel'
 import AvailableCategoriesPanel from './AvailableCategoriesPanel'
+import SamPanel from './SamPanel'
+import GlobalTamPanel from './GlobalTamPanel'
 import { useAppStore } from '../../store/useAppStore'
 import './MarketAnalysisView.css'
 
@@ -309,8 +311,8 @@ function MarketAnalysisView() {
           </div>
           <div className="market-analysis__tab-panel market-analysis__tab-panel--nested">
             {marketSizeTab === 'available-categories' && <AvailableCategoriesPanel onCountryCodeClick={focusCategoryProduct} />}
-            {marketSizeTab === 'tam' && <p className="market-analysis__hint">TAM (Total Addressable Market) is coming soon.</p>}
-            {marketSizeTab === 'sam' && <p className="market-analysis__hint">SAM (Serviceable Available Market) is coming soon.</p>}
+            {marketSizeTab === 'tam' && <GlobalTamPanel />}
+            {marketSizeTab === 'sam' && <SamPanel />}
             {marketSizeTab === 'som' && <p className="market-analysis__hint">SOM (Serviceable Obtainable Market) is coming soon.</p>}
           </div>
         </div>

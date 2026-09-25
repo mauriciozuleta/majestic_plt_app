@@ -184,12 +184,15 @@ def list_region_assignments(db: Session = Depends(get_db)):
     return [{'name': row.name, 'company_id': row.company_id} for row in db.query(models.CommercialRegion).all()]
 
 
-@router.get('/market-analysis/regions')
-def market_analysis_regions(db: Session = Depends(get_db)):
+def get_market_analysis_regions(db: Session) -> list[dict]:
     """Every region in the portfolio with its active countries (the ones set
-    up in Commercial Structure), for the Market Analysis module. A region
-    belongs to exactly one company, so each country carries that company —
-    it's whose commercial profile and analyses the country's reports are."""
+    up in Commercial Structure) — the actual data behind /market-analysis/
+    regions below, pulled out into its own function so another router (the
+    TAM Overview endpoint in routers/comtrade.py) can reuse this exact
+    region/country grouping server-side instead of re-deriving it from the
+    same tables a second time. A region belongs to exactly one company, so
+    each country carries that company — it's whose commercial profile and
+    analyses the country's reports are."""
     companies = {company.id: company.name for company in db.query(models.Company).all()}
     countries_by_region: dict[str, list[models.CommercialCountry]] = {}
     for country in db.query(models.CommercialCountry).all():
@@ -212,6 +215,13 @@ def market_analysis_regions(db: Session = Depends(get_db)):
         {'region': name, 'countries': sorted(entries, key=lambda item: item['name'])}
         for name, entries in sorted(grouped.items())
     ]
+
+
+@router.get('/market-analysis/regions')
+def market_analysis_regions(db: Session = Depends(get_db)):
+    """Every region in the portfolio with its active countries, for the
+    Market Analysis module. See get_market_analysis_regions above."""
+    return get_market_analysis_regions(db)
 
 
 @router.post('/companies/{company_id}/commercial-regions', response_model=CommercialRegionOut)

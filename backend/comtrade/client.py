@@ -46,20 +46,28 @@ def _value_of(row: dict) -> float:
     return 0.0
 
 
-# Comtrade's response is broken down by mode of transport (motCode) and by
-# a secondary "partner2" dimension on top of the partner/reporter/flow
-# breakdown already asked for — leaving them unset returns every
-# combination of both as separate rows (confirmed against live data: HS
-# 0603 came back as 8 rows for one country/year/flow, one per motCode ×
-# partner2Code combination, several of them exact duplicates of each other).
-# motCode=0 is Comtrade's own "all modes of transport" total, and
-# partner2Code=0 its "no partner2 breakdown" total — asking for exactly
-# those, rather than requesting everything and filtering afterward, is both
-# correct (no ambiguity about which duplicate to keep) and cheaper (the
-# unfiltered call above returned 8x the rows this one does). Merged in here
-# rather than left to each caller so no future query type can reintroduce
-# the duplicate-rows bug by forgetting to ask for it.
-_TOTALS_ONLY = {'motCode': 0, 'partner2Code': 0}
+# Comtrade's response is broken down by mode of transport (motCode), by a
+# secondary "partner2" dimension, and by customs procedure (customsCode) on
+# top of the partner/reporter/flow breakdown already asked for — leaving
+# any of them unset returns every combination of all three as separate rows
+# (confirmed against live data: HS 0603 came back as 8 rows for one
+# country/year/flow, one per motCode × partner2Code combination; separately
+# confirmed a global chapter-02 pull for 2023 came back with 37 of 166 real
+# reporting countries duplicated 2-3x each, purely from unfiltered
+# customsCode — e.g. reporter 100's chapter 27 had C00/C01/C20 rows worth
+# 5.97B / 5.14B / 0.83B respectively, a >2x inflation risk if all three were
+# summed as if additive). motCode=0 is Comtrade's own "all modes of
+# transport" total, partner2Code=0 its "no partner2 breakdown" total, and
+# customsCode='C00' its "TOTAL CPC" (all customs procedures combined) total
+# — confirmed live that every one of a real query's reporters has a C00 row
+# (i.e. requesting it loses no country, C00 isn't itself a partial
+# procedure). Asking for exactly those three, rather than requesting
+# everything and filtering afterward, is both correct (no ambiguity about
+# which duplicate to keep) and cheaper (the fully unfiltered call for one
+# chapter/year returned ~20x the rows this one does). Merged in here rather
+# than left to each caller so no future query type can reintroduce the
+# duplicate-rows bug by forgetting to ask for any of the three.
+_TOTALS_ONLY = {'motCode': 0, 'partner2Code': 0, 'customsCode': 'C00'}
 
 
 def _call(params: dict) -> list[dict]:
@@ -160,5 +168,32 @@ def fetch_subheadings(db: Session, reporter_code: int, year: int, flow: str, hea
         if row.get('cmdCode') and str(row['cmdCode'])[:4] == heading
     ]
     results.sort(key=lambda item: item['value'], reverse=True)
+    snapshot_store.save_snapshot(db, cache_key, results)
+    return results
+
+
+def fetch_global_total(db: Session, chapter: str, year: int, flow: str) -> list[dict]:
+    """[{reporter_code, value}] — one row per UN Comtrade reporting country,
+    worldwide, for one HS 2-digit chapter/year/flow (Global TAM's raw
+    input). `reporterCode` is deliberately omitted from the request (not
+    set to 0 — confirmed live that reporterCode=0 returns an empty result,
+    there is no "World" reporter; see MARKET_SIZING_METHODOLOGY.md), which
+    is what makes Comtrade return every reporter's own row instead of one
+    country's. `partnerCode=0` here is a different axis entirely — it
+    means "every partner combined" (so each reporter's row is its total
+    trade with the world, not broken out by partner), not a "World
+    reporter"; conflating the two was confirmed live to silently return
+    nothing. Cached indefinitely once fetched, same convention as
+    fetch_categories — a global pull is meaningfully larger (~150-250 rows)
+    than a per-country one, so avoiding a re-fetch matters even more here
+    for the free tier's daily call limit."""
+    chapter = str(chapter).zfill(2)
+    cache_key = f'comtrade_global_total_{flow}_{chapter}_{year}'
+    cached = snapshot_store.list_snapshots(db, [cache_key])
+    if cached:
+        return cached[0]['products']
+
+    rows = _call({'period': year, 'partnerCode': 0, 'cmdCode': chapter, 'flowCode': flow})
+    results = [{'reporter_code': row['reporterCode'], 'value': _value_of(row)} for row in rows if row.get('reporterCode') is not None]
     snapshot_store.save_snapshot(db, cache_key, results)
     return results

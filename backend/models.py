@@ -720,6 +720,35 @@ class ProductSource(Base):
     created_at = Column(String, nullable=False)
 
 
+class MarketSizeSnapshot(Base):
+    """Persisted result of a SAM or TAM Overview computation (see
+    backend/routers/comtrade.py's sam_overview / tam_global_overview) — the
+    AGGREGATE (region/category totals, per-country breakdown), not the
+    underlying per-country/global Comtrade rows those aggregates are built
+    from (those are already cached indefinitely via snapshot_store, see
+    PriceComparisonSnapshot above and comtrade/client.py). One row per
+    `kind` ('sam' | 'tam'): once computed, a normal tab view reads this row
+    straight back — no live Comtrade re-aggregation — until an explicit
+    recompute (the chatbox's "refresh SAM/TAM" tool, see
+    routers/assistant.py) overwrites it. `chapters_json` records the
+    qualifying-category scope (frontend-only buildCategoryCoverage() output,
+    see productPortfolio.js) the stored result was last computed with — kept
+    for display/debugging and so a chatbox-triggered recompute (which has no
+    browser to ask for a fresh chapter list) can reuse the same scope; it is
+    never compared against a later request's own chapters to auto-invalidate
+    this row, by design (see MARKET_SIZING_METHODOLOGY.md). `data_json` is
+    the full computed response shape the endpoint already returned before
+    this table existed (regions/categories/etc.), with `computed_at` folded
+    into it too so the API response shape is unchanged either way."""
+    __tablename__ = 'market_size_snapshots'
+
+    kind = Column(String, primary_key=True)  # 'sam' | 'tam'
+    flow = Column(String, nullable=False, default='M')
+    chapters_json = Column(String, nullable=False, default='[]')
+    data_json = Column(String, nullable=False)
+    computed_at = Column(String, nullable=False)
+
+
 class BuiltInProductSourceOverride(Base):
     """The Wholesaler/Retail label for a code-defined built-in source (La
     Mayorista, Corabastos, the USDA feeds — see BUILT_IN_SOURCES in

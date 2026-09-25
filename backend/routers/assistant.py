@@ -25,7 +25,7 @@ from .. import models
 from ..database import get_db
 from ..knowledge_base import rag
 from ..knowledge_base.claude_client import ANTHROPIC_API_URL, ANTHROPIC_VERSION, MODEL
-from . import product_sources
+from . import comtrade, product_sources
 from .country_profile import PROFILES_DIR
 from .knowledge_base import _knowledge_base_document_ids
 
@@ -57,6 +57,11 @@ site, for example): call list_product_sources to find its id, then refresh_produ
 now, in a few seconds, not a background job — report back the new product count, or the reason it couldn't be read \
 (some sites need a file loaded instead, which only Settings can do). A source with no web address can't be refreshed \
 this way; say so rather than trying.
+- SAM and TAM (Market Analysis ▸ Market Size) are computed once and then stored — viewing those tabs never recomputes \
+them. When the user asks to update, refresh, or recompute SAM and/or TAM (e.g. "update SAM", "refresh the TAM \
+numbers", "recalculate market size"), call refresh_market_size right away — it runs immediately, in a few seconds, \
+not a background job. Report back the new total and category count it returns, or say plainly if the numbers came \
+back unchanged. If it says SAM/TAM has never been computed yet, tell the user to open that tab in the app once first.
 - Only start a build when the user actually asks for one.
 - Be concise and plain-spoken. No markdown headings; short paragraphs or simple lists are fine."""
 
@@ -116,6 +121,18 @@ TOOLS = [
             'required': ['source_id'],
         },
     },
+    {
+        'name': 'refresh_market_size',
+        'description': "Recompute SAM and/or TAM (Market Analysis ▸ Market Size) right now, in a few seconds, not a "
+        'background job, and overwrite the stored figures those tabs display. SAM/TAM are only ever computed once '
+        "and then stored — this is the only way to make them reflect newer UN Comtrade data. Reuses each tab's own "
+        "last-viewed category scope automatically; fails with a clear message if a tab has never been viewed yet.",
+        'input_schema': {
+            'type': 'object',
+            'properties': {'which': {'type': 'string', 'enum': ['sam', 'tam', 'both'], 'description': "Defaults to 'both' if omitted."}},
+            'required': [],
+        },
+    },
 ]
 
 # Colombia and the USA have built-in pipelines; any other country needs a
@@ -155,6 +172,32 @@ def _country_rows(db: Session) -> list[dict]:
         }
         for country in db.query(models.CommercialCountry).all()
     ]
+
+
+def _refresh_market_size_one(db: Session, label: str, summary_fn, refresh_fn) -> str:
+    """Shared by both branches of the refresh_market_size tool below:
+    reads the summary before, unconditionally recomputes (refresh_fn is
+    comtrade.refresh_sam_overview / refresh_tam_overview, called with no
+    explicit chapters so it reuses the last stored snapshot's own scope —
+    see those functions' own docstrings), then reads the summary again and
+    reports whether the total actually moved. A tab that's never been
+    viewed yet has no snapshot to reuse a scope from — refresh_fn raises an
+    HTTPException in that case, turned into a plain chat-readable message
+    here rather than a 500."""
+    before = summary_fn(db)
+    try:
+        refresh_fn(db, None)
+    except HTTPException as error:
+        return f'{label}: {error.detail}'
+    after = summary_fn(db)
+    total = f"USD ${after['total_value']:,.0f}"
+    unchanged = (
+        before['computed_at'] is not None
+        and before['total_value'] == after['total_value']
+        and before['category_count'] == after['category_count']
+    )
+    verdict = 'refreshed, no change' if unchanged else 'refreshed'
+    return f'{label}: {verdict} — now {total} across {after["category_count"]} categories (computed {after["computed_at"]}).'
 
 
 def _run_tool(db: Session, name: str, args: dict, sources: dict, actions: list) -> str:
@@ -214,6 +257,17 @@ def _run_tool(db: Session, name: str, args: dict, sources: dict, actions: list) 
     if name == 'list_product_sources':
         rows = db.query(models.ProductSource).order_by(models.ProductSource.country_name, models.ProductSource.created_at).all()
         return json.dumps([product_sources._serialize(row) for row in rows]) or '[]'
+
+    if name == 'refresh_market_size':
+        which = str(args.get('which', 'both')).strip().lower() or 'both'
+        if which not in ('sam', 'tam', 'both'):
+            return "which must be 'sam', 'tam', or 'both'."
+        lines = []
+        if which in ('sam', 'both'):
+            lines.append(_refresh_market_size_one(db, 'SAM', comtrade.sam_overview_summary, comtrade.refresh_sam_overview))
+        if which in ('tam', 'both'):
+            lines.append(_refresh_market_size_one(db, 'TAM', comtrade.tam_global_overview_summary, comtrade.refresh_tam_overview))
+        return '\n'.join(lines)
 
     if name == 'refresh_product_source':
         source_id = str(args.get('source_id', '')).strip()
