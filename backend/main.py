@@ -27,6 +27,7 @@ from .routers import (
     general_ledger,
     assistant,
     knowledge_base,
+    market_opportunities,
     org_chart,
     payroll,
     payroll_levels,
@@ -41,7 +42,9 @@ from .routers import (
     roadmap,
     settings,
     sim_parameters,
+    species_gallery,
     startup_investment,
+    unit_weight_estimates,
     usa_sourcing,
     weight_research,
 )
@@ -482,6 +485,17 @@ def _ensure_schema_migrations():
                     },
                 )
 
+        # Market Opportunities' count-vs-weight conversion (see
+        # countWeightConversion.js) added conversion_note after this table
+        # already existed in real databases — Base.metadata.create_all only
+        # creates missing tables, never alters existing ones.
+        if 'market_opportunity_comparisons' in inspector.get_table_names():
+            comparison_columns = {column['name'] for column in inspector.get_columns('market_opportunity_comparisons')}
+            if 'conversion_note' not in comparison_columns:
+                connection.execute(text('ALTER TABLE market_opportunity_comparisons ADD COLUMN conversion_note VARCHAR'))
+            if 'hs_code' not in comparison_columns:
+                connection.execute(text('ALTER TABLE market_opportunity_comparisons ADD COLUMN hs_code VARCHAR'))
+
 
 _ensure_schema_migrations()
 
@@ -528,6 +542,9 @@ app.include_router(payroll_schedule_settings.router)
 app.include_router(accounting_audit.router)
 app.include_router(risk_analysis.router)
 app.include_router(comtrade.router)
+app.include_router(market_opportunities.router)
+app.include_router(unit_weight_estimates.router)
+app.include_router(species_gallery.router)
 
 
 @app.on_event('startup')

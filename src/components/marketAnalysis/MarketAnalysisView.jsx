@@ -9,6 +9,8 @@ import MarketAnalysisPanel from '../company/tabs/OperationsTab/MarketAnalysis/Ma
 import AvailableCategoriesPanel from './AvailableCategoriesPanel'
 import SamPanel from './SamPanel'
 import GlobalTamPanel from './GlobalTamPanel'
+import MarketOpportunitiesPanel from './MarketOpportunitiesPanel'
+import SpeciesGalleryPanel from './SpeciesGalleryPanel'
 import { useAppStore } from '../../store/useAppStore'
 import './MarketAnalysisView.css'
 
@@ -23,6 +25,8 @@ import './MarketAnalysisView.css'
 const PAGE_TABS = [
   { key: 'country-information', label: 'Country Information', rgb: '59, 130, 246', text: '#93c5fd' },
   { key: 'market-size', label: 'Market Size', rgb: '167, 139, 250', text: '#e9d5ff' },
+  { key: 'market-opportunities', label: 'Market Opportunities', rgb: '20, 184, 166', text: '#5eead4' },
+  { key: 'variety-gallery', label: 'Variety Gallery', rgb: '236, 72, 153', text: '#f9a8d4' },
 ]
 
 // Nested tabs shown inside the Market Size page tab — same tinted-background
@@ -315,6 +319,18 @@ function MarketAnalysisView() {
             {marketSizeTab === 'sam' && <SamPanel />}
             {marketSizeTab === 'som' && <p className="market-analysis__hint">SOM (Serviceable Obtainable Market) is coming soon.</p>}
           </div>
+        </div>
+      )}
+
+      {pageTab === 'market-opportunities' && (
+        <div className="market-analysis__tab-panel">
+          <MarketOpportunitiesPanel />
+        </div>
+      )}
+
+      {pageTab === 'variety-gallery' && (
+        <div className="market-analysis__tab-panel">
+          <SpeciesGalleryPanel />
         </div>
       )}
 

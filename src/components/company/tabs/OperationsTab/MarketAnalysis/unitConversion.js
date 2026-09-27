@@ -12,14 +12,20 @@
 // so the user can judge each figure rather than take it on faith.
 
 const LB_TO_KG = 0.45359237
-const OZ_TO_KG = 0.028349523125
+export const OZ_TO_KG = 0.028349523125
 const CWT_TO_KG = 100 * LB_TO_KG
 const ARROBA_TO_KG = 25 * LB_TO_KG // Colombian arroba — a fixed traditional unit, always 25 lb
 
 // USDA's official minimum net weight per dozen, by egg size class (oz per
 // dozen) — a fixed regulatory grading standard, not an estimate. Checked in
 // this order so "Extra Large" matches before the plain "Large" substring.
-const EGG_DOZEN_OZ = [
+// Verified against USDA AMS's own published standard (Shell_Egg_Standard
+// PDF, ams.usda.gov) and a second independent source (Maryland Dept. of
+// Agriculture's copy of the same USDA standard) before this constant was
+// ever written — not from memory. Exported for reuse by
+// countWeightConversion.js (Colombia's/custom sources' count-based egg
+// pricing) — the SAME table, never redeclared.
+export const EGG_DOZEN_OZ = [
   ['Jumbo', 30],
   ['Extra Large', 27],
   ['Large', 24],

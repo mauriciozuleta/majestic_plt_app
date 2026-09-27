@@ -330,3 +330,46 @@ class StartupInvestmentRecordOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SpeciesOut(BaseModel):
+    scientific_name: str
+    common_name: Optional[str] = None
+    gbif_key: Optional[int] = None
+    gbif_rank: Optional[str] = None
+    kingdom: Optional[str] = None
+    family: Optional[str] = None
+    resolved_from: Optional[str] = None
+    resolved_term: Optional[str] = None
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+# Variety Gallery's structural Tier A/Tier B separation (spec section 2): a
+# PUBLIC/Gallery-facing response is built from VarietyPublicOut, which has
+# NO field for image_tier_a at all — omitting it is a property of the model
+# itself, not a value the endpoint remembers to leave out, so a future
+# change to the public endpoint can't accidentally start returning it. Only
+# VarietyAdminOut (below), used by the internal/admin path (e.g. the
+# optional CV signal in matching, which needs Tier A images), carries it.
+class VarietyPublicOut(BaseModel):
+    id: str
+    scientific_name: str
+    variety_name: str
+    source_country: str
+    characteristics: dict
+    image_tier_b: Optional[str] = None
+    image_tier_b_license: Optional[str] = None
+    image_tier_b_attribution: Optional[str] = None
+    image_tier_b_source_url: Optional[str] = None
+    confidence_status: str
+    created_via: str
+    created_at: str
+    confirmed_at: Optional[str] = None
+
+
+class VarietyAdminOut(VarietyPublicOut):
+    image_tier_a: Optional[str] = None
+    bootstrap_note: Optional[str] = None

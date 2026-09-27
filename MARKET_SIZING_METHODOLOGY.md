@@ -475,3 +475,286 @@ ROI/Valuation) — there's no real SOM calculation yet; this is explicitly a pla
 Both SAM's and TAM's `Custom` sub-tab (always a stub) have been removed, along with the now-pointless single-item
 nested tab bar that used to switch between it and Overview — `SamPanel.jsx` and `GlobalTamPanel.jsx` now render
 their Overview content directly. SOM has no sub-tabs and was never touched by this.
+
+---
+
+## Part 4 — Market Opportunities (built)
+
+**Market Opportunities is a different question from SAM/TAM.** Where SAM/TAM answer "how big is this category's
+import demand," Market Opportunities answers "for one real product this app already has a wholesale price for in a
+SOURCE country, is it actually cheaper to sell into a given TARGET market than that market's own price?" — a
+per-product, per-country-pair price comparison and opportunity score, not a category aggregate. It replaces
+`MarketOpportunitiesPanel.jsx`'s original "Selection saved — opportunity analysis for this pairing is coming soon"
+placeholder that sat under its cascading Source ▸ Target ▸ Region ▸ Country selector.
+
+### 4.1 Scope: one source, one or many targets
+
+Target = "By Country" runs exactly one source→target pair. Target = "By Region" is the natural, non-inventive
+extension of the same logic: every qualifying country already listed in that region (the same "has a linked
+Wholesaler or Retail source with real products" filter the selector itself already applies) is run as its own
+independent source→target pair — never blended into one figure, grouped and filterable by target country in the
+results table.
+
+### 4.2 Step 1 — product matching: composing three existing pieces, not a fourth mechanism
+
+This app already had relevant, independently-built pieces, and Market Opportunities composes them rather than
+inventing a new matching mechanism:
+
+1. **`backend/price_sources/match_table.py`** — a curated, human-verified name-override dict, checked before a
+   plain normalized-name match, explicitly *not* a fuzzy-string algorithm. Built for one same-language pair
+   (Corabastos ↔ La Mayorista, both Colombia/Spanish).
+2. **`src/services/productPortfolio.js`** — already establishes cross-country product identity today: every
+   country's products get translated to English (Colombia via `productTranslations.js`, Spanish→English, frontend-
+   only by design) and deduplicated onto one canonical name.
+3. **`backend/comtrade/product_classification.py`'s HS-code cache** (`GET /api/product-hs-codes`) — the same
+   classification `buildProductPortfolio()`/`buildCategoryCoverage()`/Available Categories/SAM/TAM already read,
+   reused here as a third, lower-confidence matching tier (§4.2.1).
+
+**Decision, made after inspecting real data from all three live custom sources (Jamaica, Saint Lucia, Trinidad and
+Tobago) and Colombia's own catalog: translate-then-normalize is the primary join, with a curated override as a
+refinement on top — not a replacement for it.** `src/services/marketOpportunities.js` translates a Colombia source
+product's Spanish name to English the same way `productPortfolio.js` already does, then joins on
+`normalizeProductName()` (accent-strip, lowercase, parenthetical-qualifier-strip — already used for exactly this
+purpose elsewhere in this app). A source/target pair whose translated names still don't align (e.g. Colombia's
+"Pimentón" → "Bell Pepper" vs. Jamaica's own "Sweet Pepper") falls back to a new curated override table,
+**`src/data/crossCountryMatchOverrides.js`** — `match_table.py`'s exact pattern (a human comparing both real
+product lists), generalized from one hardcoded same-language pair to arbitrary `"<Source>|<Target>"` country pairs.
+Every Colombia product with no Jamaica counterpart (e.g. Hass Avocado — Jamaica's bulletin has no avocado at all)
+and every Jamaica-only product (e.g. Callaloo, Scotch Bonnet Pepper) is listed separately as "no match found in
+target market," never dropped — the same full-outer-join discipline `priceComparisonData.js`'s `mergeSources()`
+already established, just scoped to what this feature actually needs (a source product with no target match; a
+target-only product isn't a sourcing opportunity and isn't shown as a second unmatched list).
+
+#### 4.2.1 A real gap found after shipping tiers 1–2, and the HS-code tier that closes it
+
+A user reported real Colombia/Jamaica tomato products missing from the table despite both countries clearly
+selling tomatoes. Confirmed live: many product variants on both sides share the exact same already-classified HS
+code (`070200`, "Vegetables; tomatoes, fresh or chilled") under completely different display names — Colombia's
+"Chonto Tomato"/"Milano Tomato"/"Long-Life Tomato"/`"Kidney" Tomato` and Jamaica's "Tomato [Plummy] (Local)"/
+"Tomatoes(Plummy) (Local)"/"Tomato [Salad ] (Local)" — none of which are identical strings even after translation
+and normalization, so tiers 1–2 correctly excluded every one of them. This is a real, disclosed gap in name-based
+matching, not a bug in tiers 1–2 themselves.
+
+**Tier 3: matched by shared HS code**, added as a fallback — never a replacement for tiers 1–2, only reached when
+a source product has no name/override match. Reuses the exact classification cache every other product-identity
+feature in this app already reads (`fetchProductHsCodes()`), keyed by the product's plain display name, trimmed
+and lowercased — the same key format the classification pipeline itself uses (**not** `normalizeProductName()`,
+which additionally strips parentheses/accents for the name-join above and would miss real cache entries like
+`"tomato (deli) (a)"`, cached under that exact string). A product not yet classified (background classification
+still running, or it failed) simply isn't eligible for this tier yet — same "no invented data" discipline as every
+other unresolved case in this app.
+
+**Multi-candidate handling — an explicit product decision, not a silent default**: an HS code very often groups
+*several* real variants per side (as above), so a naive one-to-one join would have to pick a winner among several
+equally-real candidates. Asked directly, and the answer was: **show every source × target combination as its own
+row, never silently pick one** — nothing hidden, even though a widely-shared code (like tomatoes) can now produce
+many rows for one source product. A `hs_code`-tier row is always `match_confidence: 'review'`, tagged with the same
+amber "HS Code Match" badge treatment as a curated-override match (a real match, just not a name match), and its
+review reason names the exact HS code and description used, plus that other variants may share it. Confirmed live:
+Colombia → Jamaica went from 12 matched products (tiers 1–2 only) to 205 after adding tier 3 — including all 27
+real tomato-pair combinations across Colombia's 4 variants and Jamaica's 3, each independently priced and scored,
+each correctly tagged. The results table gained a "Target Product" column specifically because of this tier — two
+rows for the same source product previously looked identical except for price; now which specific target product
+each row compares against is always visible, not just inferable from the number.
+
+### 4.3 Step 2 — unit normalization
+
+**Colombia and USA** reuse `unitConversion.js`'s existing `colombiaPricePerKg`/`usaPricePerKg` unchanged. **Every
+other country's custom source** uses a new sibling module, `genericUnitConversion.js`, built only after reading the
+real product rows from all three live custom sources (`GET /product-sources/products`), not guessed:
+
+- Jamaica (moa.gov.jm) and Saint Lucia (Massy Stores) already report a clean `kg` / `g` / `each` / `unit` value —
+  a simple official kg/g/lb/oz lookup covers them.
+- Trinidad and Tobago (namdevco) has the same "real weight embedded in unstructured unit text" shape Colombia's own
+  parser already solved for `"bulto de 50 kilos"` — just in English (`"45kg bag"`, `"100lb bag"`, `"22.68kg bag"`,
+  `"5lb bundle"`) — so `genericUnitConversion.js` reuses that exact regex-extraction approach, generalized to the
+  real wording found, rather than re-deriving it. A count/package unit with no stated weight anywhere (e.g. Trinidad's
+  `"100's"`, `"Bundle"`) returns `null` with a plain-language comment, same discipline as every other conversion
+  path in this app — never an invented number. The existing AI-research fallback (`weightResearch.js`) is wired up
+  as the same tier-2 fallback signature shape (`genericWeightResearchItem`) for a future pass; this build's own
+  verification did not need it (Colombia/Jamaica's real matched products all resolved via tier 1).
+
+#### 4.3.1 Count-based vs. weight-based units — the conversion §4.3 deliberately didn't attempt
+
+§4.3's two conversion modules (`unitConversion.js`, `genericUnitConversion.js`) both deliberately return `null` for
+a count-based unit (Colombia's `"unidad"`/`"docena"`/`"30 UNIDADES (1 per package)"`; a custom source's `"each"`/
+`"unit"`/`"100's"`/a bare `"Bag"`/`"Bundle"`/`"Head"`) — correct, since neither module has a safe universal
+per-item weight, and an invented one would silently corrupt every downstream $/kg figure. That was the end of the
+line for both modules **by design**. The real gap this closes: a matched cross-country pair where Colombia sells
+eggs "por unidad" (per egg, count-based) and the target market prices them per kg (weight-based) — the comparison
+correctly came back unresolved, but this app already holds the exact reference data needed to convert the count
+side to a real $/kg figure and wasn't using it.
+
+A new module, `countWeightConversion.js`, activates ONLY when a matched pair has exactly one side still `null`
+because it's count-based **and** the other side is already weight-resolved — never speculatively on every
+count-based product regardless of whether it's part of a real comparison. Two tiers:
+
+**Tier A — eggs, deterministic, zero cost.** USDA AMS's own official minimum net-weight-per-dozen standard
+(`unitConversion.js`'s `EGG_DOZEN_OZ` — Jumbo 30oz/Extra Large 27oz/Large 24oz/Medium 21oz/Small 18oz/Peewee
+15oz — cross-checked against two independent sources, the AMS PDF itself and Maryland's Dept. of Agriculture's
+copy of the same standard, before writing any code) is reused verbatim, never redeclared, converting
+price-per-egg → price-per-dozen → price-per-kg. Colombia's own grading scales (La Mayorista's A/AA/AAA;
+Corabastos' A/AA/B/Extra) have **no established correspondence** to USDA's Jumbo/Extra Large/Large/Medium/Small/
+Peewee size classes — confirmed by checking `productTranslations.js`'s own `huevo-*` entries and the rest of the
+app for any such mapping; none exists. Every non-USDA-graded egg therefore maps to USDA "Large" as an explicit,
+disclosed default (never silently treated as a confirmed grade match) — the dozen-weight figure itself is a real
+official standard, so a row converted this way is still eligible for `match_confidence: 'confirmed'` if everything
+else about it is clean, but the grade-default ASSUMPTION is independently flagged as a review reason regardless,
+since it's the assumption that's uncertain, not the reference table.
+
+**Tier B — everything else (e.g. Trinidad's "papaya, box of 18" style packaging) — a single cached Haiku call per
+distinct product, no web search, no tools.** Deliberately **not** the existing `ProductWeightResearch`/
+`weight_research.py` pipeline — that's `claude-sonnet-5` **with** the server-side `web_search` tool, batched, a
+real research call already wired up for a different purpose (USA produce cartons / Colombia's own single-country
+$/kg table via `usaWeightResearchItem`/`colombiaWeightResearchItem`). Reusing it here would defeat the point: this
+is a plain "what's the typical weight of one X" estimate from the model's own general knowledge — its own new,
+separate table (`product_unit_weight_estimates`), its own new endpoint (`backend/routers/unit_weight_estimates.py`),
+pointed at `claude-haiku-4-5` (no web search, no tools). Cached forever per distinct product, keyed by the
+product's own display name trimmed/lowercased — the same convention §4.2.1's HS-code cache already uses,
+deliberately **not** `normalizeProductName()` (which strips parentheticals — `"Pimento (S)"` and
+`"Pimento (S)(20lb)"` are genuinely different pack sizes with genuinely different real weights, and collapsing
+them into one signature would silently apply the wrong pack's estimate to the other). Paid **at most once** per
+distinct product for the whole app: the endpoint checks the cache before ever calling Haiku, and a second request
+for an already-cached signature returns the stored value with no new API call — confirmed live (see below). A
+Haiku-estimated row is always `match_confidence: 'review'`, tagged with a new "Estimated Unit Weight" badge
+(`.market-analysis__estimated-badge`, the same blue treatment §4.6 already uses for "not a clean match," never the
+same badge as a real official conversion) — reusing `reviewBadges()`'s existing vocabulary, not inventing a color.
+Genuinely uncertain — the model can decline: confirmed live against a real ambiguous case (Trinidad's `"100's"`
+corn count), where Haiku correctly returned `weight_grams: null` with a note explaining the ambiguity rather than
+guessing, and the row correctly stayed unresolved.
+
+**A new `conversion_note` field** (both `MarketOpportunityComparison.conversion_note` and the API contract) records
+which method was used and the exact factor/weight, in plain language, on any row where a count↔weight conversion
+was applied — empty/null on a row that needed none, unchanged from before this existed.
+
+**Cost guardrail, checked before any real spend**: a dry-run mode on the new endpoint (`dry_run: true` — checks the
+cache and reports hit/miss counts without calling Haiku or writing anything) found **30 distinct non-egg products**
+with a real count-vs-weight mismatch across this app's currently tracked countries (Colombia/USA/Jamaica/Trinidad
+and Tobago/Saint Lucia), found by grouping every product by its already-classified HS code and flagging any
+cross-country group mixing a count-based and a weight-based unit — confirmed reachable today only for the subset
+whose group also contains a Colombia or USA member (the only two source-eligible countries in the UI today); the
+rest would surface only if a retail-only country (Jamaica/Trinidad/Saint Lucia) were ever promoted to a wholesale
+source. Verified end-to-end, not just unit-tested: Colombia → Jamaica's egg rows (11 real rows, La Mayorista's
+A/AA/AAA and Corabastos' A/AA/B/Extra, `"unidad"` and `"30 UNIDADES (1 per package)"` alike) all now resolve to a
+real USD/kg figure (~$2.25–$3.35/kg) instead of staying unresolved, each correctly tagged `review` with the
+grade-default caveat; USA → Saint Lucia's "Cab Fresh Beff Kebabs" (`"unit"`, no stated weight) resolved via a fresh
+Haiku call (400g, cached on the next request — confirmed by a repeat call returning the identical `estimated_at`
+timestamp and `cached: true`, no second Haiku call); and three real Colombia papaya varieties → Jamaica resolved
+via Haiku correctly reasoning about their own stated crate counts (`"Melona"`/`"Round"` papaya: 18/crate ≈ 9000g;
+`"Tainung"`: 10/crate ≈ 7500g) — the exact "papaya, box of 18" scenario this mechanism was built for, working on
+real data.
+
+### 4.4 Step 2 — currency normalization: every currency to a common USD basis
+
+Every currency converts **independently to USD** — never source-currency straight to target-currency. With N
+currencies in play, a common USD basis needs only N rates total (each currency → USD), not one per pair; adding a
+new country later needs just one new rate, not one per existing country; and every comparison, regardless of which
+two countries, ends up on the same common basis (USD/kg).
+
+Built as `backend/currency/usd_rates.py`, wrapping the free, keyless
+[open.er-api.com](https://open.er-api.com/v6/latest/USD) — deliberately not `currency/exchange_rate.py` (a
+separate, paid, 4-hour-cached service with no rate date, left untouched). One bulk call returns every one of its
+~166 supported currencies' rate against USD at once — confirmed live: `GET /v6/latest/USD` →
+`200 {"result":"success","time_last_update_utc":"...","rates":{"JMD":158.03,"COP":3264.54,"XCD":2.70,"TTD":6.80,...}}`,
+no API key needed. Cached per currency, keyed against this app's own clock so any currency already fetched today
+is served with no outbound call (`usd_exchange_rate_cache`, a new table — not `exchange_rate.py`'s existing 4-hour
+in-memory cache). USD itself, and XCD (a fixed 2.70-per-USD peg the Eastern Caribbean Central Bank has held since
+1976 — independently confirmed against this same API's own live value for it, also exactly 2.70), never need a
+network call at all.
+
+**Direction, confirmed empirically and worth restating since getting it backwards produces a plausible-looking but
+wrong number**: the API's `rate` for a currency is how many units of it equal 1 USD (e.g. `JMD: 158.03` means
+1 USD = 158.03 JMD) — stored in exactly this raw form (not inverted) so it stays checkable against a real-world
+quote by eye. Converting a LOCAL price to USD is therefore `usd_value = local_value / rate` — a **division**, never
+a multiplication. Sanity-checked against real magnitudes before trusting this at scale: a Colombia wholesale
+vegetable price around 2,000–5,000 COP/kg divides to roughly $0.6–1.5/kg, and a Jamaica retail price around
+150–300 JMD/kg divides to roughly $1–2/kg — both plausible, neither wildly off.
+
+**This supersedes an earlier version of this module that wrapped Frankfurter/ECB** (`backend/currency/frankfurter.py`,
+since removed) — confirmed live that Frankfurter covers only its own ~30 ECB-tracked currencies, and specifically
+does **not** include COP, JMD, XCD, or TTD, exactly the currencies behind this app's real tracked product data
+(Colombia, Jamaica, Saint Lucia, Trinidad and Tobago), so no real comparison could ever reach `'confirmed'` — every
+real row came back `review` for a currency reason, disclosed rather than papered over at the time. open.er-api.com
+covers all four, confirmed live, so a real comparison can now actually reach `'confirmed'` when everything else
+about it (the match, both units) is also clean.
+
+### 4.5 Step 3/4 — the comparison record and the opportunity-rating scale
+
+A new table, `market_opportunity_comparisons` (`backend/models.py`, no migration — a brand-new table, same
+`Base.metadata.create_all` pattern `MarketSizeSnapshot` already established), one row per matched product per
+source→target pair: both sides' original (value, unit, currency) and normalized (USD/kg) prices, both sides'
+exchange rate used + its own date, `diff_pct`, `opportunity_rating`, `match_tier`, `match_confidence`
+(`'confirmed'` only when the match was an exact/translated-exact name join **and** both sides normalized via an
+official factor and a resolved currency; anything less — a curated-override match, an unresolved unit, an
+unavailable USD exchange rate — is `'review'`, with the specific reason(s) recorded), and `calculated_at`. Computed
+and persisted by `POST /api/market-opportunities/comparisons` (`backend/routers/market_opportunities.py`), the one
+place the rating scale itself lives:
+
+```
+diff_pct < 20%           → "Very High"
+20% ≤ diff_pct < 30%      → "High"
+30% ≤ diff_pct < 50%      → "Challenging"
+50% ≤ diff_pct < 65%      → "Complex"
+65% ≤ diff_pct ≤ 100%     → "Difficult"
+diff_pct > 100%           → "Not Viable"
+```
+
+**The ">100% → Not Viable" tier is mathematically correct, not an arbitrary addition** — verified, not assumed:
+`diff_pct = (source_price_normalized / target_price_normalized) × 100`. A low `diff_pct` means the source price is
+a small fraction of the target market's own price (the largest possible margin, correctly "Very High"); as
+`diff_pct` climbs toward 100 the two prices converge (a shrinking margin, correctly "Difficult" just under 100).
+Past 100%, the source price actually *exceeds* the target market's own price — there is no margin at all, a
+fundamentally different situation from a thin-but-positive one — so a distinct break exactly at 100 is the correct
+place for "Not Viable," not a more extreme flavor of "Difficult." Confirmed with a direct boundary test at every
+edge (19.9/20.0/29.9/30.0/49.9/50.0/64.9/65.0/100.0/100.1) — every value landed in exactly the tier above.
+
+### 4.6 What's shown on screen
+
+`MarketOpportunitiesPanel.jsx`'s results section: a sortable/filterable table (default sort: Opportunity Rating,
+then `diff_pct` — the two options the spec calls out, via the same sort-dropdown language `GlobalTamPanel.jsx`
+already uses), a search box (`AvailableCategoriesPanel.jsx`'s convention), and — only in a "By Region" run — a
+target-country filter. The "no match found in target market" list is rendered as its own separate section, grouped
+by target country in a region run, never mixed into the matched table. A row carrying a `review`-tier
+`match_confidence` shows a badge drawn from this app's existing vocabulary, never a new color:
+`.market-analysis__bilateral-badge` (amber) for a curated-override match, and
+`.market-analysis__estimated-badge--low-confidence` (red) for anything that actually blocked the `diff_pct`
+computation (an unresolved unit, an unavailable USD exchange rate, no currency at all) — confirmed live rendering
+both badges together on the same row (Colombia's Bell Pepper → Jamaica's Sweet Pepper: a real curated match that is
+*also* currency-unresolved, shown exactly as both).
+
+### 4.7 Where the code lives
+
+- `backend/currency/usd_rates.py` — the open.er-api.com client + its own daily persisted cache (§4.4).
+- `backend/routers/market_opportunities.py` — the exchange-rate passthrough, and `POST`/`GET
+  /api/market-opportunities/comparisons` (scoring + persistence, §4.5).
+- `backend/models.py` — `UsdExchangeRateCache`, `MarketOpportunityComparison`, `ProductUnitWeightEstimate` (§4.3.1).
+- `backend/unit_weight_estimates/claude_client.py` + `backend/routers/unit_weight_estimates.py` — the cached
+  Haiku unit-weight-estimate endpoint (§4.3.1), deliberately separate from `weight_research/`.
+- `src/components/company/tabs/OperationsTab/MarketAnalysis/genericUnitConversion.js` — custom-source unit
+  conversion (§4.3).
+- `src/components/company/tabs/OperationsTab/MarketAnalysis/countWeightConversion.js` — count-vs-weight
+  conversion (§4.3.1), reusing `unitConversion.js`'s `EGG_DOZEN_OZ`/`OZ_TO_KG`.
+- `src/services/unitWeightEstimates.js` — the frontend fetcher for the Haiku unit-weight-estimate endpoint (§4.3.1).
+- `src/data/crossCountryMatchOverrides.js` — the generalized curated-match-override table (§4.2).
+- `src/services/marketOpportunities.js` — the matching/normalization engine (§4.2–4.4) and the frontend fetchers
+  for the backend endpoints.
+- `src/components/marketAnalysis/MarketOpportunitiesPanel.jsx` — the selector (unchanged) plus the results
+  table/unmatched-list UI (§4.6) and the "Estimated Unit Weight" badge (§4.3.1).
+- `src/components/marketAnalysis/MarketAnalysisView.css` — the `.market-opportunities__*` results styles (badges
+  reuse the existing SAM classes as-is, no new colors added).
+
+### 4.8 Known limitations register
+
+Issues found during development or later testing that are real, disclosed gaps — not fixed in the pass that found
+them, recorded here so they aren't lost.
+
+- **HS-code matching (§4.2.1) groups by broad commodity category, not by cut/sub-product.** Found in testing: a
+  real row matched Colombia's "Chicken Breast" to a target market's "Chicken Neck (Best Dressed)" — both correctly
+  share one HS code (poultry cuts, not further subdivided), so tier 3 correctly produced the pairing per its own
+  design, but a breast and a neck are not a remotely substitutable product for a real sourcing decision. This is
+  the same "an HS code can group several real variants" behavior §4.2.1 already discloses for tomatoes (where every
+  variant genuinely IS the same product, just a different name) — the gap is that the same mechanism doesn't
+  distinguish a same-product naming difference from a different-cut-entirely difference within one code. A fix
+  likely needs sub-cut-level matching — parsing/comparing the specific cut name within a shared HS code, not just
+  the code itself — which is its own separate design problem (what vocabulary of cuts to recognize, per category,
+  across languages) and was deliberately not attempted in this pass.

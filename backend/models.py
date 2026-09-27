@@ -544,6 +544,39 @@ class ProductWeightResearch(Base):
     researched_at = Column(String, nullable=False)
 
 
+class ProductUnitWeightEstimate(Base):
+    """A cached, one-time Haiku (no web search, no tools) estimate of the
+    typical TOTAL net weight (grams) of one priced count-based unit/pack —
+    e.g. Trinidad's "papaya, box of 18" style packaging — used ONLY by
+    Market Opportunities' count-vs-weight conversion (see
+    src/components/company/tabs/OperationsTab/MarketAnalysis/
+    countWeightConversion.js) to turn a count-based price into a $/kg
+    figure when the matched product on the other side of a cross-country
+    comparison is already weight-based.
+
+    Deliberately NOT ProductWeightResearch (above) — that table backs a
+    different, more expensive mechanism (Sonnet + the server-side
+    web_search tool, batched, backed by weight_research.py) built for a
+    different purpose (USA produce cartons / Colombia's own single-country
+    $/kg table). This is a plain "what's the typical weight of one X"
+    estimate from the model's own knowledge, no tools, cached forever once
+    made — see backend/unit_weight_estimates/claude_client.py for why the
+    two are kept separate rather than sharing a table or a call.
+
+    Global, not per-company — a product's typical pack weight is a fact
+    about the product. Keyed by a stable signature (the product's own
+    display name, trimmed/lowercased — see countWeightConversion.js's
+    genericWeightSignature) so it's paid AT MOST ONCE per distinct product
+    for the whole app, never re-requested on a later comparison/run."""
+    __tablename__ = 'product_unit_weight_estimates'
+
+    signature = Column(String, primary_key=True, index=True)
+    description = Column(String, nullable=False)
+    weight_grams = Column(Float, nullable=True)
+    note = Column(String, nullable=True)
+    estimated_at = Column(String, nullable=False)
+
+
 class ProductHsCode(Base):
     """The real UN Comtrade HS code assigned to one of our own wholesale
     product names (see backend/comtrade/product_classification.py) — what
@@ -747,6 +780,197 @@ class MarketSizeSnapshot(Base):
     chapters_json = Column(String, nullable=False, default='[]')
     data_json = Column(String, nullable=False)
     computed_at = Column(String, nullable=False)
+
+
+class UsdExchangeRateCache(Base):
+    """Daily-cached FX rate against USD, from the free, keyless
+    open.er-api.com API (https://open.er-api.com/v6/latest/USD — one bulk
+    call returns every one of its ~166 supported currencies' rate at once),
+    built specifically for Market Opportunities (see
+    routers/market_opportunities.py). Kept deliberately separate from
+    currency/exchange_rate.py's own 4-hour in-memory cache — that module
+    wraps a different, paid, pairwise service and never records the rate's
+    own date, neither of which fits this feature's need for a free path
+    with an auditable date.
+
+    `rate` is exactly what the API returns for that currency: how many
+    units of it equal 1 USD (e.g. JMD ~158 means 1 USD = 158 JMD) — stored
+    in this raw, directly-quotable form (not inverted) specifically so it
+    can be checked against a real-world quote by eye, the same way any
+    other figure in this app is meant to be auditable. Converting a LOCAL
+    price to USD is therefore a DIVISION: usd_value = local_value / rate —
+    getting this backwards is exactly the kind of silent, plausible-looking
+    error this module's own docstring warns about; every caller must divide,
+    never multiply. One row per (currency, rate_date) actually fetched;
+    `rate_date` is the API's own `time_last_update_utc` date, while
+    `fetched_at` (this app's own clock) is what a same-day cache hit is
+    checked against. USD itself and XCD (a fixed 2.70-per-USD peg the
+    Eastern Caribbean Central Bank has held since 1976, confirmed live
+    against this same API's own value for it) never need a network call at
+    all — see currency/usd_rates.py."""
+    __tablename__ = 'usd_exchange_rate_cache'
+
+    id = Column(String, primary_key=True)
+    currency = Column(String, nullable=False, index=True)
+    rate_date = Column(String, nullable=False)
+    rate = Column(Float, nullable=False)
+    fetched_at = Column(String, nullable=False)
+
+
+class MarketOpportunityComparison(Base):
+    """One product's SOURCE-country-vs-TARGET-country wholesale price
+    comparison row — Market Opportunities' real engine (see
+    MarketOpportunitiesPanel.jsx / src/services/marketOpportunities.js),
+    replacing that panel's original "coming soon" placeholder. Product
+    matching (curated overrides + translated/exact normalized-name join)
+    and unit normalization happen on the frontend, reusing the pieces the
+    rest of Market Analysis already built for exactly this
+    (productTranslations.js, priceComparisonData.js's mergeSources shape,
+    unitConversion.js/genericUnitConversion.js) — this table just persists
+    the final computed row, the same "new table, no migration, picked up by
+    Base.metadata.create_all" pattern as MarketSizeSnapshot above. A Target
+    = "By Region" run produces one row per qualifying country in that
+    region (each its own independent source->target pair), grouped/
+    filtered by target_country in the UI, never blended into one figure.
+
+    `match_confidence` is 'confirmed' only when the product match was an
+    exact (or translated-then-exact) normalized-name join AND both sides'
+    unit/currency normalization used an official, non-estimated factor;
+    anything short of that — a curated-override match, an AI-researched
+    pack weight, an unavailable USD exchange rate for either currency — is
+    'review', with the specific reason(s) recorded in
+    `review_reasons_json`, so a comparison built on less than a fully
+    confirmed input is never shown with the same confidence as one that is
+    (see MARKET_SIZING_METHODOLOGY.md's SAM bilateral-badge precedent,
+    which this follows)."""
+    __tablename__ = 'market_opportunity_comparisons'
+
+    id = Column(String, primary_key=True)
+    product_name = Column(String, nullable=False)
+    source_country = Column(String, nullable=False, index=True)
+    target_country = Column(String, nullable=False, index=True)
+
+    # The source product's own classified HS code (product_hs_codes,
+    # backend/comtrade/product_classification.py) — the same code the
+    # hs_code match tier already reads to pair products (see
+    # marketOpportunities.js), surfaced here so it's visible on screen, not
+    # just used internally for matching. Null for a product not yet
+    # classified, same as everywhere else this cache is read.
+    hs_code = Column(String, nullable=True, index=True)
+
+    source_price_value = Column(Float, nullable=True)
+    source_price_unit = Column(String, nullable=True)
+    source_price_currency = Column(String, nullable=True)
+    target_price_value = Column(Float, nullable=True)
+    target_price_unit = Column(String, nullable=True)
+    target_price_currency = Column(String, nullable=True)
+
+    source_price_normalized = Column(Float, nullable=True)  # USD/kg
+    target_price_normalized = Column(Float, nullable=True)  # USD/kg
+
+    exchange_rate_source_used = Column(Float, nullable=True)
+    exchange_rate_source_date = Column(String, nullable=True)
+    exchange_rate_target_used = Column(Float, nullable=True)
+    exchange_rate_target_date = Column(String, nullable=True)
+
+    diff_pct = Column(Float, nullable=True)
+    opportunity_rating = Column(String, nullable=True)
+
+    match_tier = Column(String, nullable=True)  # 'curated_override' | 'translated_exact' | 'exact'
+    match_confidence = Column(String, nullable=False, default='review')  # 'confirmed' | 'review'
+    review_reasons_json = Column(String, nullable=False, default='[]')
+
+    # Plain-language explanation of a count-based-unit -> $/kg conversion
+    # applied to either side of this row (see countWeightConversion.js) —
+    # which method ('usda_standard' egg dozen weight, or 'cached_estimate'/
+    # 'fresh_haiku_estimate' from product_unit_weight_estimates) and the
+    # factor/weight actually used. Null/empty for a row that needed no such
+    # conversion, unchanged from before this field existed.
+    conversion_note = Column(String, nullable=True)
+
+    calculated_at = Column(String, nullable=False)
+
+
+class Species(Base):
+    """The category anchor for the Variety Gallery (backend/species_gallery/)
+    — one row per real biological species, keyed by its GBIF-confirmed
+    scientific name (never a raw product/variety name; see
+    species_gallery/resolver.py for how a product name or HS classification
+    description is turned into this). `common_name` is the plain-English
+    label the gallery displays alongside the scientific name (e.g. "Tomato"
+    for Solanum lycopersicum) — informational only, never used for lookups.
+    `gbif_key`/`gbif_rank`/`kingdom`/`family` are copied straight from the
+    GBIF Backbone Taxonomy match that confirmed this name, kept for
+    auditability (so a resolution can be checked against GBIF's own record
+    by eye) and so a later re-validation has something to compare against.
+    Global, not per-company — a species is a fact about the world, not
+    about who's selling it, same convention as ProductHsCode/
+    ProductWeightResearch."""
+    __tablename__ = 'species'
+
+    scientific_name = Column(String, primary_key=True, index=True)
+    common_name = Column(String, nullable=True)
+    gbif_key = Column(Integer, nullable=True)
+    gbif_rank = Column(String, nullable=True)
+    kingdom = Column(String, nullable=True)
+    family = Column(String, nullable=True)
+    resolved_from = Column(String, nullable=True)  # 'hs_latin_binomial' | 'commodity_dictionary' | 'human_entry'
+    resolved_term = Column(String, nullable=True)  # the commodity term/HS description this was matched from, for audit
+    created_at = Column(String, nullable=False)
+
+
+class Variety(Base):
+    """One named variety/cultivar of a Species, one or more per species —
+    e.g. "Chonto Tomato" (Colombia) and "Roma Tomato" (USA) both under
+    Solanum lycopersicum. This table IS the review queue this feature's own
+    spec calls for (see routers/species_gallery.py's /review-queue
+    endpoints) — analogous to ProductTranslationSuggestion's
+    queryable-pending / confirm / reject pattern, but not that same table,
+    since a variety carries a very different shape (characteristics, two
+    image tiers) than a translation suggestion ever needs.
+
+    `characteristics_json` is deliberately schema-less (a JSON blob, not
+    fixed columns) so a category with different trait vocabulary (produce:
+    shape/firmness/primary_culinary_use/skin_flesh/ripening_type; meat/
+    seafood: cut/fat_marbling/typical_size — whatever that category needs)
+    can be added without a migration; species_gallery/matching.py reads
+    whichever keys both sides of a comparison happen to share.
+
+    `image_tier_a` is internal-only (broader, non-Commons sourcing — never
+    guaranteed to be reusable) and must NEVER reach a public/Gallery-facing
+    response; see schemas.VarietyPublicOut, which has no field for it at
+    all, vs. VarietyAdminOut, which does — the omission is structural
+    (a different Pydantic model), not a runtime check. `image_tier_b` is
+    Wikimedia-Commons-only, with `image_tier_b_license`/
+    `image_tier_b_attribution` stored alongside it — all three stay null
+    together when Commons has nothing for this variety (never
+    backfilled from Tier A or a generic stock image).
+
+    `confidence_status` starts `'auto-filled - unverified'` for every
+    row `created_via='bootstrap_search'` and only ever becomes
+    `'confirmed'` through a human hitting the confirm endpoint — never
+    automatically, no matter how confident the bootstrap search seemed.
+    A `created_via='human_entry'` row may be created already confirmed."""
+    __tablename__ = 'varieties'
+    __table_args__ = (UniqueConstraint('scientific_name', 'variety_name', 'source_country', name='uq_variety_species_name_country'),)
+
+    id = Column(String, primary_key=True, index=True)
+    scientific_name = Column(String, ForeignKey('species.scientific_name'), nullable=False, index=True)
+    variety_name = Column(String, nullable=False)
+    source_country = Column(String, nullable=False, index=True)
+    characteristics_json = Column(String, nullable=False, default='{}')
+
+    image_tier_a = Column(String, nullable=True)  # internal-only — see schemas.VarietyPublicOut
+    image_tier_b = Column(String, nullable=True)  # Wikimedia Commons only, or null
+    image_tier_b_license = Column(String, nullable=True)
+    image_tier_b_attribution = Column(String, nullable=True)
+    image_tier_b_source_url = Column(String, nullable=True)
+
+    confidence_status = Column(String, nullable=False, default='auto-filled - unverified')  # 'auto-filled - unverified' | 'confirmed'
+    created_via = Column(String, nullable=False, default='bootstrap_search')  # 'bootstrap_search' | 'human_entry'
+    bootstrap_note = Column(String, nullable=True)  # plain-language summary of what the bootstrap search did/found, for audit
+    created_at = Column(String, nullable=False)
+    confirmed_at = Column(String, nullable=True)
 
 
 class BuiltInProductSourceOverride(Base):

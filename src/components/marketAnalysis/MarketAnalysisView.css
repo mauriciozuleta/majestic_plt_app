@@ -600,6 +600,210 @@
   white-space: nowrap;
 }
 
+/* Market Opportunities: a cascading Source ▸ Target ▸ Region ▸ Country
+   picker — each field disabled until the one before it has a value (see
+   MarketOpportunitiesPanel.jsx), same control chrome as Global TAM's own
+   sort dropdown (.global-tam__sort) for visual consistency. */
+.market-opportunities {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.market-opportunities__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.market-opportunities__field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 13rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.market-opportunities__field select {
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card, #111f31);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.market-opportunities__field select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Market Opportunities' results table — same sortable/searchable control
+   row language as Global TAM's own cards (.global-tam__controls/__sort) and
+   Available Categories' search box (.available-categories__search), reused
+   directly rather than a third set of control styles; the badges in its
+   Confidence column reuse SAM's existing bilateral/estimated badge classes
+   as-is (see MarketAnalysisView.jsx's reviewBadges()). */
+.market-opportunities__results {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.market-opportunities__table-wrap {
+  overflow-x: auto;
+  max-height: 32rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.market-opportunities__table {
+  width: 100%;
+  min-width: 60rem;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.market-opportunities__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: #111f31;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.market-opportunities__table td {
+  padding: 0.5rem 0.7rem;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.market-opportunities__table td span[class*='badge'] {
+  margin-left: 0;
+  margin-right: 0.3rem;
+}
+
+.market-opportunities__hs-code {
+  font-variant-numeric: tabular-nums;
+  color: #35d399;
+  white-space: nowrap;
+}
+
+/* One Price column per side instead of two — the USD/kg figure (what
+   actually feeds diff_pct/the opportunity rating) stacked above the
+   original local-currency price it was computed from, so a user sees both
+   without needing four separate columns. */
+.market-opportunities__price-cell {
+  white-space: nowrap;
+}
+
+.market-opportunities__price-usd {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.market-opportunities__price-local {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+/* Opportunity-rating group divider row — same collapsible-row language as
+   AvailableCategoriesPanel's own sections (reuses its exact
+   .available-categories__row-toggle/__chevron classes), inside one shared
+   table so every group's columns still line up (same reasoning as
+   .market-analysis__region-row below). */
+.market-opportunities__rating-row {
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.market-opportunities__rating-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.market-opportunities__rating-row td {
+  padding: 0.55rem 0.7rem;
+}
+
+/* Flex lives on this inner div, never the <td> itself — mixing display:flex
+   directly onto a table cell alongside the browser's own table layout
+   algorithm caused a real hit-testing bug (clicks on the row were
+   intercepted by the <table> ancestor instead of reaching the button
+   inside it), confirmed live before landing on this fix. */
+.market-opportunities__rating-row-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.market-opportunities__rating-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.market-opportunities__rating-summary {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.market-opportunities__unmatched {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+}
+
+.market-opportunities__unmatched h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.market-opportunities__unmatched-group {
+  margin-bottom: 0.5rem;
+}
+
+/* Same collapsible-header treatment as the rating groups above (reuses its
+   own .market-opportunities__rating-summary text style) — collapsed by
+   default, one per target country (or the single one, in a By Country
+   run — still collapsible for consistency, not a special case). */
+.market-opportunities__unmatched-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.3rem 0;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.market-opportunities__unmatched-head:hover {
+  color: var(--text-secondary);
+}
+
+.market-opportunities__unmatched-group ul {
+  margin: 0.2rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
 /* Every region shares one table, one header and one horizontal scrollbar —
    a fixed layout (driven by the colgroup below) is what keeps every pill
    column exactly the same width, region to region, regardless of what's in
@@ -851,5 +1055,226 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.2rem;
+  }
+}
+
+/* Variety Gallery (SpeciesGalleryPanel.jsx) — a product selector on the
+   left, its species anchor / known varieties / bootstrap / match tools on
+   the right, and a review queue along the bottom. Confidence badges reuse
+   .market-analysis__estimated-badge as-is (see the component's own
+   ConfidenceBadge) rather than anything defined here. */
+.species-gallery__header p {
+  color: var(--text-muted);
+  max-width: 70ch;
+}
+
+.species-gallery__notice {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  max-width: 70ch;
+}
+
+.species-gallery__hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.species-gallery__layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.species-gallery__search {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.species-gallery__product-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.species-gallery__product-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.species-gallery__product-item.is-active {
+  background: rgba(53, 211, 153, 0.14);
+  border-color: rgba(53, 211, 153, 0.28);
+  color: var(--text-primary);
+}
+
+.species-gallery__product-countries {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.species-gallery__anchor {
+  font-size: 1rem;
+}
+
+.species-gallery__variety-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.species-gallery__variety-card {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.species-gallery__variety-card.is-selected {
+  border-color: rgba(53, 211, 153, 0.6);
+}
+
+.species-gallery__variety-image {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+  background: var(--surface-3);
+}
+
+.species-gallery__variety-image--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.species-gallery__variety-body {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.species-gallery__variety-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.species-gallery__variety-country {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.species-gallery__attribution {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.species-gallery__select-button {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.species-gallery__bootstrap-form,
+.species-gallery__match-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.species-gallery__bootstrap-form input,
+.species-gallery__match-form input {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.species-gallery__match-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  max-width: 480px;
+}
+
+.species-gallery__score {
+  font-weight: 700;
+  margin: 0.5rem 0;
+}
+
+.species-gallery__breakdown {
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.species-gallery__breakdown th,
+.species-gallery__breakdown td {
+  border: 1px solid var(--border-color);
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+}
+
+.species-gallery__review-queue {
+  margin-top: 2rem;
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+}
+
+.species-gallery__review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.species-gallery__review-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .species-gallery__layout {
+    grid-template-columns: 1fr;
   }
 }
