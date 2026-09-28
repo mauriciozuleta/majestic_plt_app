@@ -62,6 +62,24 @@ import { EGG_DOZEN_OZ, OZ_TO_KG } from './unitConversion'
 // package)" shape (verified live against every real unitLabel this app's
 // own Colombia snapshots currently hold before writing these patterns, not
 // guessed).
+//
+// Whether `price` covers the WHOLE priced batch (itemCount items) or is
+// ALREADY per one single item depends on which of these shapes matched —
+// this isn't a stylistic choice, it comes straight from corabastos.py's own
+// documented rule ("Precio Unidad is always Precio Extra / Cantidad"),
+// confirmed against a real pair of rows:
+//   - "30 UNIDADES (1 per package)" (eggs): the item count (30) is the
+//     PRESENTACION prefix; Cantidad itself is 1 (one package), so Precio
+//     Unidad = Precio Extra / 1 is unchanged — `price` is for the WHOLE
+//     30-item package. perSingleItem: false (divide by itemCount to reach
+//     a per-item price, same as before).
+//   - "CAJA DE MADERA (18 per package)" (papaya): here Cantidad IS the 18 —
+//     Corabastos already computed Precio Unidad = Precio Extra / 18 before
+//     this app ever sees it, so `price` is ALREADY per one single item.
+//     perSingleItem: true — dividing it by itemCount again would silently
+//     shrink it ~18x (confirmed live: this was producing $0.05/kg for
+//     papaya priced at COP 1,556/unit against a ~3,334 COP/USD rate, when
+//     the correct figure is ~$0.93/kg).
 const UNIDADES_PREFIX_RE = /^(\d+)\s*unidades\b/i
 const PER_PACKAGE_RE = /\((\d+)\s*per package\)/i
 
@@ -69,12 +87,12 @@ export function classifyColombiaCountUnit(unit, unitLabel) {
   if (unit !== 'other' || !unitLabel) return null
   const trimmed = unitLabel.trim()
   const lower = trimmed.toLowerCase()
-  if (lower === 'unidad') return { itemCount: 1, packDescription: '1 unit ("unidad")' }
-  if (lower === 'docena') return { itemCount: 12, packDescription: 'a dozen ("docena")' }
+  if (lower === 'unidad') return { itemCount: 1, packDescription: '1 unit ("unidad")', perSingleItem: false }
+  if (lower === 'docena') return { itemCount: 12, packDescription: 'a dozen ("docena")', perSingleItem: false }
   const unidadesMatch = trimmed.match(UNIDADES_PREFIX_RE)
-  if (unidadesMatch) return { itemCount: parseInt(unidadesMatch[1], 10), packDescription: trimmed }
+  if (unidadesMatch) return { itemCount: parseInt(unidadesMatch[1], 10), packDescription: trimmed, perSingleItem: false }
   const perPackageMatch = trimmed.match(PER_PACKAGE_RE)
-  if (perPackageMatch) return { itemCount: parseInt(perPackageMatch[1], 10), packDescription: trimmed }
+  if (perPackageMatch) return { itemCount: parseInt(perPackageMatch[1], 10), packDescription: trimmed, perSingleItem: true }
   return null
 }
 
@@ -121,13 +139,16 @@ export function isEggProduct(hsCode, displayName) {
 // disclosed default rather than a real known grade.
 const DEFAULT_EGG_SIZE = 'Large'
 
-export function resolveEggPriceViaUsdaStandard(price, itemCount) {
+export function resolveEggPriceViaUsdaStandard(price, itemCount, perSingleItem = false) {
   if (price == null || !itemCount || itemCount <= 0) return null
   const sizeEntry = EGG_DOZEN_OZ.find(([size]) => size === DEFAULT_EGG_SIZE)
   if (!sizeEntry) return null
   const [size, oz] = sizeEntry
   const dozenWeightKg = oz * OZ_TO_KG
-  const pricePerEgg = price / itemCount
+  // See classifyColombiaCountUnit's own header: some count shapes (Corabastos'
+  // "(N per package)") already report a per-single-egg price — dividing by
+  // itemCount again would silently shrink it ~N-fold.
+  const pricePerEgg = perSingleItem ? price : price / itemCount
   const perKg = (pricePerEgg * 12) / dozenWeightKg
   return {
     perKg,
@@ -136,7 +157,11 @@ export function resolveEggPriceViaUsdaStandard(price, itemCount) {
     conversionNote:
       `Converted via USDA AMS's official minimum net weight standard for "${size}" eggs ` +
       `(${oz} oz/dozen = ${dozenWeightKg.toFixed(3)} kg/dozen), applied as price-per-egg → price-per-dozen → ` +
-      `price-per-kg (${itemCount} egg${itemCount === 1 ? '' : 's'} per priced unit). This source's own grading ` +
+      `price-per-kg (${
+        perSingleItem
+          ? `this source already prices a single egg out of its ${itemCount}-egg pack`
+          : `${itemCount} egg${itemCount === 1 ? '' : 's'} per priced unit`
+      }). This source's own grading ` +
       `scale has no established correspondence to USDA's Jumbo/Extra Large/Large/Medium/Small/Peewee size ` +
       `classes, so "${size}" was used as an explicit default, not a confirmed match to this grade.`,
   }
@@ -155,7 +180,13 @@ export function genericWeightSignature(displayName) {
   return displayName.trim().toLowerCase()
 }
 
-export function buildGenericWeightDescription(displayName, packDescription) {
+export function buildGenericWeightDescription(displayName, packDescription, perSingleItem = false) {
+  if (perSingleItem) {
+    return (
+      `"${displayName}" is sold as "${packDescription}", but the price is already quoted per SINGLE item, ` +
+      `not per whole pack (see classifyColombiaCountUnit). What is the typical net weight, in grams, of just ONE such single item?`
+    )
+  }
   return `"${displayName}", sold as "${packDescription}". What is the typical TOTAL net weight, in grams, of ONE such priced unit/pack?`
 }
 

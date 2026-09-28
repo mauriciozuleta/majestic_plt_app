@@ -347,7 +347,7 @@ async function resolveCountWeightConversions(pairs) {
       if (!countInfo) return // null unit, volume unit, or anything else unitConversion.js/genericUnitConversion.js already explain — untouched
 
       if (isEggProduct(product.hsCode, product.displayName)) {
-        const resolved = resolveEggPriceViaUsdaStandard(product.priceValue, countInfo.itemCount)
+        const resolved = resolveEggPriceViaUsdaStandard(product.priceValue, countInfo.itemCount, countInfo.perSingleItem)
         if (resolved) {
           product.perKgLocal = resolved.perKg
           product.conversionNote = resolved.conversionNote
@@ -357,17 +357,21 @@ async function resolveCountWeightConversions(pairs) {
         return
       }
 
-      // Unlike the egg formula above, the generic Haiku tier asks for the
-      // WHOLE pack's weight directly (same convention as
+      // Unlike the egg formula above, the generic Haiku tier normally asks
+      // for the WHOLE pack's weight directly (same convention as
       // usaWeightResearchItem/colombiaWeightResearchItem) — countInfo's
       // itemCount can be null here (a bare "Bag"/"Bundle"/"Head" with no
       // stated count) and this is still eligible; packDescription is all
-      // the generic tier actually needs.
+      // the generic tier actually needs. countInfo.perSingleItem flips this
+      // to asking for ONE item's weight instead (see
+      // classifyColombiaCountUnit's own header) — carried onto the product
+      // so the conversionNote below can describe what was actually asked.
       const signature = genericWeightSignature(product.displayName)
       if (!genericCandidates.has(signature)) {
         genericCandidates.set(signature, {
           products: [],
-          description: buildGenericWeightDescription(product.displayName, countInfo.packDescription),
+          description: buildGenericWeightDescription(product.displayName, countInfo.packDescription, countInfo.perSingleItem),
+          perSingleItem: countInfo.perSingleItem,
         })
       }
       genericCandidates.get(signature).products.push(product)
@@ -404,7 +408,7 @@ async function resolveCountWeightConversions(pairs) {
         // row's price.
         product.perKgLocal = resolveGenericPriceFromWeightGrams(product.priceValue, result.weight_grams)
         product.conversionNote =
-          `Converted using a Haiku-estimated typical pack weight (${result.weight_grams.toFixed(0)} g` +
+          `Converted using a Haiku-estimated typical ${entry.perSingleItem ? 'single-item' : 'pack'} weight (${result.weight_grams.toFixed(0)} g` +
           `${result.note ? `: ${result.note}` : ''}) — an AI estimate, not an official standard.`
         product.conversionMethod = method
       })
