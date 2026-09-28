@@ -444,3 +444,135 @@ both land in `GET /api/species-gallery/review-queue` like every other bootstrap.
 **Not yet a bulk-run-ready source** — per its own spec, this coverage number (1/9 real searches, 1/17 of the full
 tested set) is reported honestly as a small first test, not treated as reliable for the whole `granos_procesados`/
 `Grains (Export)` category without a larger real run first.
+
+---
+
+## Part 9 — A real Wikimedia Commons image-relevance bug, root-caused and fixed
+
+A real, live row already in the `varieties` table — `"Grey" Orange` (Colombia, `Citrus sinensis`) — had bootstrapped
+`File:Aleksander_Gierymski_-_Jewish_woman_selling_oranges_-_Google_Art_Project.jpg` as its Tier B image: an 1880s
+painting, not a photo of the fruit. Investigated live, not guessed:
+
+- **`filetype:bitmap` isn't a photo-vs-art filter** — it only restricts container format (raster vs. vector); a
+  scanned painting saved as JPEG still matches it.
+- **The file's own MIME type (`image/jpeg`) is identical to a real photo's** — also not a usable signal alone.
+- **The file's real Commons categories are unambiguous**, confirmed live via
+  `action=query&titles=<file>&prop=categories`: `Category:Artworks digital representation of 2D work`,
+  `Category:Featured pictures of paintings from Poland`, `Category:Google Art Project works by Aleksander
+  Gierymski`, `Category:PD-Art (PD-old-auto-expired)`, etc.
+
+### 9.1 The fix, and three more real false positives found verifying it
+
+`backend/species_gallery/commons_client.py` now fetches each search candidate's real categories
+(`action=query&titles=<file>&prop=categories&cllimit=50`) and rejects it against `_ART_EXCLUSION_KEYWORDS` — built
+from real category text seen across several more real Commons food-image searches in this pass (`painting`,
+`artwork`, `drawing`, `illustration`, `engraving`, `sketch`, `google art project`, `digital representation of 2d
+work`, `museum collection`, `still life`, `watercolor`, `lithograph`, `woodcut`, `etching`, `fresco`, `tapestry`,
+`mural`, `pd-art`, `clip art`, `stamp`/`stamps`, `art museum`/`gallery`, ...) — not the original brief's list taken
+as final. **`portrait` was deliberately left out**: confirmed live that `Category:Portrait orientation` (a photo
+ASPECT-RATIO tag, one of Commons' most common categories on completely ordinary photos) would false-positive on a
+bare substring match; a real art-portrait category is already caught by `painting`/`artwork`/`google art project`.
+
+Re-verifying this fix live against the real `"Grey" Orange` case surfaced three MORE real false-positive shapes,
+each root-caused and fixed in turn rather than papered over:
+
+1. **A real photograph of an unrelated animal** (`Front_view_of_a_resting_Canis_lupus_ssp.jpg` — a grey wolf) won
+   next, once the painting was excluded — real license, real photo, zero art categories, just irrelevant. Fixed by
+   reusing this codebase's own existing generic-vs-distinctive-token pattern (`openfoodfacts_client.py`'s
+   `_GENERIC_COMMODITY_WORDS`/`_distinctive_terms`, Part 8.3 above): a candidate must have a real anchor term
+   (from the variety name/species label, minus generic color/quality descriptors like "grey") appearing in its own
+   title/categories before it's accepted at all.
+2. **A real "dominant colors" Commons category** (`Category:Black, cream, gray, green, orange, red, white` — the
+   wolf's own coat/eye colors) still matched the anchor term "orange" purely because Commons tags photos with their
+   dominant on-screen colors, comma-separated. Fixed by detecting and stripping this specific category shape
+   (`_is_color_palette_category`) before anchor-matching runs.
+3. **"orange" the fruit collides with "orange" the color adjective in open-ended natural language** — a real
+   landscape photo tagged `Category:Orange sky in North Rhine-Westphalia` (a sunset) still matched. An open-ended
+   blacklist of disambiguating qualifier words (river, free state, colour, a drag-strip nickname, ...) caught
+   several real cases but is inherently unbounded. Replaced with a bounded, POSITIVE requirement instead: a
+   known-ambiguous anchor word (`_AMBIGUOUS_ANCHOR_WORDS = {'orange'}` today, grown only from a real case like this
+   one) only counts as a match in a fragment that ALSO carries a real produce/fruit-context word (`fruit`, `citrus`,
+   `tree`, `orchard`, `oranges`, ...) — a bare, unqualified category like Commons' own real `Category:Oranges` still
+   validates normally.
+
+The candidate pool was also widened from 5 to 10 results (`srlimit`) — confirmed live that Commons' own relevance
+ordering for this genuinely ambiguous query re-shuffles slightly between otherwise-identical live requests, pushing
+a real, relevant photo just outside a 5-result window on one call and back inside it on the next.
+
+**Query-side bias, tested and reported honestly**: biasing the search query toward species context
+(`f'{variety_name} {species_label} fruit photograph'`) was tried live against every real variety already in this
+app's own database (`"Grey" Orange`/`Citrus sinensis`, `"Kidney" Tomato`/`Solanum lycopersicum`, Roma Tomato, Tomate
+Chonto, Caribe Tomato — each with their real scientific binomial) — confirmed live it returns **zero raw search
+hits** in every one of those real cases; CirrusSearch's relevance engine doesn't degrade to a worse-ranked result
+when too many required-ish terms are combined, it returns nothing. `find_variety_image` still tries this biased
+query first, then falls back to the original, narrower query when the biased one returns nothing — which is what
+actually still returns candidates in every real case tested. Reported plainly, matching this subsystem's own
+"confirmed live, here's what actually works" style: **the category-exclusion + anchor-term gates are doing
+effectively all of the real preventive work right now**, not the query bias.
+
+### 9.2 Re-verified against the real case, and a real audit of every existing image
+
+Re-running the fixed `find_variety_image("\"Grey\" Orange", "Citrus sinensis")` live, repeatedly: the Gierymski
+painting is correctly excluded every time, and the result now consistently lands on
+`File:Bergamot_-_Sour_Orange_-_January_2013.jpg` — CC BY 2.0, real photographer attribution, real category
+`Category:Cross sections of bergamot oranges` — a genuine photo of a citrus fruit. The DB row (`"Grey" Orange`,
+Colombia) was corrected to this image; its `bootstrap_note` records what the original image was and why it was
+replaced.
+
+**Full audit of every real row in `varieties` with a non-null `image_tier_b`** (only two existed): re-checked each
+one's real Commons categories against the new filter.
+
+| Variety | Image | Real categories | Verdict |
+|---|---|---|---|
+| `"Kidney" Tomato` (Colombia) | `Rajčica.JPG` | `Solanum lycopersicum (cultivars)`, `Tomatoes on black background`, `Mutations in tomatoes`, ... | **Genuinely fine** — a real tomato photo, no art/irrelevance markers. Left unchanged. |
+| `"Grey" Orange` (Colombia) | Gierymski painting | `Artworks digital representation of 2D work`, `Featured pictures of paintings from Poland`, `PD-Art`, ... | **Wrong** — an artwork, not a photo. Corrected (see 9.1 above). |
+
+**Result: 1 of 2 existing Tier B images was wrong; it has been corrected. The other was already genuinely
+correct.** No image was silently re-bootstrapped without this being recorded here.
+
+---
+
+## Part 10 — UI restructure: a guided, stepped flow (`SpeciesGalleryPanel.jsx`)
+
+The previous layout was a flat "pick any product, see every variety in one list" panel. It's now a guided sequence
+matching how this feature is actually meant to be used — none of the underlying matching/bootstrap/caching/
+threshold logic changed, only how it's presented:
+
+1. **Origin country** — reuses the same "has a real Country Product Portfolio" country pool
+   `MarketOpportunitiesPanel.jsx`'s own Source dropdown already draws from (`fetchProductSources()`,
+   `product_count > 0`), not a new list.
+2. **Products in that country, grouped by species/HS code** — reuses `resolveSpecies()` (already used elsewhere in
+   this panel) and `fetchProductHsCodes()` (the same cache Available Categories/SAM/TAM/Market Opportunities already
+   read) to collapse every portfolio product name that resolves to the same species into one entry — e.g. Colombia's
+   ten distinct tomato product names (`"Kidney" Tomato`, `Tomate Chonto`, ...) now show as one `"Kidney" Tomato (HS
+   070200)` group (labeled by the resolved common name when one exists, otherwise the first product name
+   alphabetically), not ten separate top-level rows. Supports search/filter by product name or HS code. A product
+   that doesn't resolve to a real species simply has no group — the same "never guessed" discipline Part 1 already
+   applies.
+3. **Select a group** (e.g. the Tomato group).
+4. **Varieties of that species already cached for the origin country** — existing `Variety` rows, filtered to
+   `source_country === originCountry`, re-presented nested under the selected group instead of flattened. A
+   "bootstrap a new variety" affordance stays here (this pass didn't remove any existing capability, just relocated
+   it to its natural home) for when nothing is cached yet.
+5. **Select a variety** — its card (Tier B image, species anchor, characteristics in plain humanized language, e.g.
+   "Shape: oblong") renders using the same `VarietyCard` rendering the old layout already had, just relocated.
+6. **Destination country** — a second country selector (reuses `fetchReferenceCountries()`, the broad reference-country
+   list, since a match's own discovery step can search any country, not just ones with their own portfolio here),
+   appearing only once a variety is selected.
+7. **Automatic match** — picking the destination country IS the confirming action (no extra button): it immediately
+   calls the existing, unchanged `/api/species-gallery/match` (auto-discovery + the already-fixed
+   `MIN_COMPARABLE_FIELDS` threshold) and shows the source/target cards side by side plus the score breakdown
+   rendered as plain sentences (e.g. *"Shape: they disagree — the source variety is 'oblong', the target is
+   'round'."*) instead of only a raw table. A genuine "no reliable match" result (`best_match: null`) shows the
+   backend's own message plainly, never an empty/broken-looking state.
+
+**Confirmed live end-to-end (Playwright)**: Colombia → "Kidney" Tomato group (HS 070200, `Solanum lycopersicum`, 10
+underlying product names) → its 2 cached varieties → selected `"Kidney" Tomato` → destination United States →
+matched against `Caribe Tomato` (score 0/0, "neither variety has any characteristics on file to compare yet" — an
+honest empty-overlap result, not a wrong one). A second run selecting `Tomate Chonto` instead reproduced this
+methodology doc's own Part 4.2 real case exactly: matched against `Carolina Gold Tomato`, score 0/1, rendered as
+*"Shape: they disagree — the source variety is 'oblong', the target is 'round'."*
+
+**Review Queue** moved to its own tab (`Review Queue (N)`), fully separate from the main step-by-step flow — same
+list/confirm/reject functionality as before, confirmed still working live (all 7 real DB rows listed, confirm/reject
+buttons present) from its new location.

@@ -140,9 +140,12 @@ def bootstrap_variety(scientific_name: str, common_name: Optional[str], variety_
             tier_a_image = _find_tier_a_image(search['results'])
             notes.append(f'Tier A image {"found" if tier_a_image else "not found"} among search results.')
 
-    # Step 3: Wikimedia Commons, specifically, for the Tier B public image
-    commons_query = f'{variety_name} {species_label}'
-    commons_result = commons_client.find_variety_image(commons_query)
+    # Step 3: Wikimedia Commons, specifically, for the Tier B public image.
+    # Query construction (species-context bias + fallback) and the
+    # art/painting-exclusion hard gate both live in commons_client.py now —
+    # see its own module docstring for the real, empirically-tested case
+    # behind both.
+    commons_result = commons_client.find_variety_image(variety_name, species_label)
     if commons_result is None:
         notes.append('Wikimedia Commons: no licensed image found for this variety.')
     else:
