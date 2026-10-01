@@ -18,12 +18,16 @@ import httpx
 
 ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 ANTHROPIC_VERSION = '2023-06-01'
-MODEL = 'claude-haiku-4-5'
-MAX_TOKENS = 4000
-MAX_SOURCES_PER_BATCH = 20
+# Sonnet, not Haiku: the prompt states general principles only (no named
+# products), so the judge must supply trade knowledge itself — e.g. which
+# retail cuts come from which wholesale primal. Haiku applied those rules
+# noticeably less well. Every judgement is cached, so the cost is one-off.
+MODEL = 'claude-sonnet-5'
+MAX_TOKENS = 16000
+MAX_SOURCES_PER_BATCH = 10
 # Part of every cache signature (see routers/product_matches.py): bumping it
 # re-judges everything instead of reusing answers from an older prompt.
-PROMPT_VERSION = 'v3'
+PROMPT_VERSION = 'v5'
 
 
 def _get_api_key():
@@ -33,29 +37,30 @@ def _get_api_key():
 def _build_prompt(sources, candidates, target_country):
     source_lines = '\n'.join(f'{i + 1}. {source}' for i, source in enumerate(sources))
     candidate_lines = '\n'.join(f'- {name}' for name in candidates)
-    return f"""You are matching agricultural and food products between two markets for a wholesale price \
-comparison. For EACH source product below, pick the products from the {target_country} list that are the SAME \
-product, so their prices per kg can fairly be compared.
+    return f"""You are matching agricultural and food products between two markets for a price comparison. For EACH \
+source product below, pick the products from the {target_country} list that are the SAME product, so their prices \
+per kg can fairly be compared.
+
+Product names come from different countries' price reports: they may be trade names, cut or part names, varieties, \
+local or regional names, abbreviations or translations. First work out what each product actually is — its species \
+and, for meat and fish, which part or cut — using its category and source; then compare on that, not on shared words.
 
 Count as the same product:
-- the same commodity or species AND the same cut, part or type (pork belly = pork bellies; chicken drumsticks = \
-chicken legs/drumsticks; Hass avocado = avocado; Valencia orange = oranges)
-- differences in size or quality grade (Jumbo, Grade A/B), ripeness stage (mature-green vs ripe tomatoes), origin \
-label (local/imported), brand or packaging are fine
-- standard trade names for the same cut: fresh ham = pork leg; pork butt and pork picnic = pork shoulder; \
-drumsticks + thighs = leg quarters only when sold together as a leg quarter
-- a wholesale primal and a retail cut taken from that same primal (beef primal loin = sirloin/T-bone steak; beef \
-primal chuck = beef stew/chuck) — this is a wholesale-vs-retail comparison, so that gap is expected
-- the same physical form: fresh/chilled vs frozen is acceptable ONLY if nothing in the list matches the exact form
+- the same species AND the same part, cut or type, whatever each market calls it — including the different trade \
+or regional names the same cut or produce goes by
+- a wholesale primal or bulk cut and a retail cut taken from that same primal — the comparison is often wholesale \
+against retail, so that difference is expected
+- differences in variety within the same species and type, size or quality grade, ripeness stage, origin label \
+(local/imported), brand or packaging
+- fresh/chilled vs frozen, ONLY if nothing in the list matches the exact form
 
 Do NOT count as the same product:
-- a different species, even a similar-looking or similarly named one: gungo/pigeon peas are not green peas, coco \
-(cocoyam/dasheen) is not cassava, sweet potato is not potato, scallion is not leek, hot pepper is not sweet pepper
-- a different cut or part of the same animal (breast vs neck, rib vs mince, loin vs leg)
+- a different species, even one with a similar name or look
+- a different part or cut of the same animal, unless one is the primal the other is cut from
 - fresh vs cured/smoked/salted/dried, or raw vs prepared/processed
-- whole carcass vs a single cut
+- a whole carcass or whole bird vs a single cut
 
-An empty list is the correct answer whenever the list has no product of the same species, cut and form. Never pick \
+An empty list is the correct answer whenever the list has no product of the same species, part and form. Never pick \
 the "closest available" item.
 
 Source products:
@@ -100,7 +105,6 @@ def judge_matches(sources, candidates, target_country):
         json={
             'model': MODEL,
             'max_tokens': MAX_TOKENS,
-            'temperature': 0,
             'messages': [{'role': 'user', 'content': _build_prompt(sources, candidates, target_country)}],
         },
         headers={'x-api-key': api_key, 'anthropic-version': ANTHROPIC_VERSION, 'content-type': 'application/json'},

@@ -35,6 +35,14 @@ Currency is converted **after** the per-kg figure is known (section 6).
 | Beef, Pork | USD per cwt | 1 cwt = 100 lb = 45.359 kg | Official |
 | Poultry | USD per lb | 1 lb = 0.45359237 kg | Official |
 | Eggs | USD per dozen, by size class | USDA minimum net weight per dozen: Jumbo 30 oz, Extra Large 27, Large 24, Medium 21, Small 18, Peewee 15 (1 oz = 28.3495 g) | Official |
+
+**Eggs — which price.** The Daily National Shell Egg Index quotes each housing type and colour in several sizes. The
+app uses the size with the **largest traded volume that day** (the most representative price), not simply the
+largest size, which can rest on one thin trade. The price unit and delivery basis are read from each section's own
+header ("Cents Per Dozen / FOB" or "/ Delivered"), and the row type ("Graded Loose" = Grade A or better, sold loose
+in 30-dozen cases) is shown in the unit. These are **bulk wholesale prices before packing, freight and retail
+margin** — far below supermarket carton prices. At the start of October 2026, caged white Large traded at about 47¢
+a dozen (about US$0.70/kg), against about 118¢ a year earlier.
 | Grains | USD per bushel | USDA standard test weight: corn 56 lb, soybeans 60 lb, wheat 60 lb | Official |
 | Produce (FL/CA shipping point) | USD per carton, flat or container | The net weight USDA prints on the pack's own line — see section 3 | Official |
 
@@ -189,6 +197,15 @@ Worked example — Round Papaya (Corabastos): COP 1,556 per fruit ÷ 0.700 kg = 
 The Country Product Portfolio tables also offer **Research Missing Weights** (Claude with web search) for any row
 still without a weight; its result is labeled with a confidence level and its sources, and never replaces an
 official conversion.
+
+---
+
+## 5b. Wholesale vs retail
+
+Every source has a price level — Wholesaler or Retail — set in Settings ▸ Product analysis sources (the USDA reports,
+La Mayorista and Corabastos are wholesale). When Market Opportunities compares two products from different price
+levels, the row is flagged **Wholesale vs Retail**: part of that gap is packing, freight and retail margin, not an
+opportunity in itself.
 
 ---
 

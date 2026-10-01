@@ -1,4 +1,4 @@
-"""Cached Claude Haiku product matching for Market Opportunities' AI match
+"""Cached Claude product matching for Market Opportunities' AI match
 tier (see backend/product_matching/claude_client.py). Cache-first: a source
 product already judged against the same target country and the same
 candidate list is served from models.ProductMatchCache with no API call."""
@@ -46,8 +46,10 @@ def _serialize(row: models.ProductMatchCache, cached: bool) -> dict:
 @router.post('/api/product-matches')
 def request_product_matches(request: MatchRequest, db: Session = Depends(get_db)):
     """Returns {"results": {key: {"matches": [...], "note", "cached"}},
-    "cache_hit_count", "cache_miss_count"} for every source in every group."""
+    "errors", "cache_hit_count", "cache_miss_count"}. A source missing from
+    `results` belongs to a batch whose AI call failed (reported in `errors`)."""
     results: dict[str, dict] = {}
+    errors: list[str] = []
     hits = misses = 0
     for group in request.groups:
         candidates = sorted({name.strip() for name in group.candidates if name.strip()})
@@ -69,7 +71,10 @@ def request_product_matches(request: MatchRequest, db: Session = Depends(get_db)
             try:
                 judged = judge_matches([source.description for source, _ in chunk], candidates, request.target_country)
             except Exception as exc:
-                raise HTTPException(status_code=502, detail=f'AI product matching failed: {exc}') from exc
+                # One failed batch never sinks the rest: its products are left
+                # out of `results` (and uncached, so they're retried next run).
+                errors.append(str(exc))
+                continue
             now = datetime.now(timezone.utc).isoformat()
             for (source, signature), result in zip(chunk, judged):
                 row = models.ProductMatchCache(
@@ -89,4 +94,4 @@ def request_product_matches(request: MatchRequest, db: Session = Depends(get_db)
                     row = db.query(models.ProductMatchCache).filter_by(signature=signature).first()
                 results[source.key] = _serialize(row, cached=False)
 
-    return {'results': results, 'cache_hit_count': hits, 'cache_miss_count': misses}
+    return {'results': results, 'errors': errors, 'cache_hit_count': hits, 'cache_miss_count': misses}

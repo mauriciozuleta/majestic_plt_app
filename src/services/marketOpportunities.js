@@ -37,7 +37,7 @@
 
 import { API_BASE } from './apiBase'
 import { fetchReferenceCountries } from './commercialStructure'
-import { fetchCustomSourceProducts } from './productSources'
+import { fetchCustomSourceProducts, fetchProductSources } from './productSources'
 import { mergeSources } from '../components/company/tabs/OperationsTab/MarketAnalysis/priceComparisonData'
 import { translateProductName, normalizeProductName } from '../components/company/tabs/OperationsTab/MarketAnalysis/productTranslations'
 import {
@@ -141,6 +141,7 @@ async function collectColombiaComparisonProducts() {
         displayName: text,
         category: p.category,
         sourceLabel: useLaMayorista ? 'La Mayorista' : 'Corabastos',
+        sourceId: useLaMayorista ? 'la_mayorista' : 'corabastos',
         priceValue: value,
         priceUnit: unit === 'kg' ? 'kg' : unitLabel || unit,
         priceCurrency: 'COP',
@@ -165,6 +166,7 @@ async function collectUsaComparisonProducts() {
       displayName: p.product_en,
       category: p.category,
       sourceLabel: s.source,
+      sourceId: s.source,
       priceValue: p.price,
       priceUnit: p.unit,
       priceCurrency: 'USD',
@@ -202,6 +204,7 @@ async function collectCustomComparisonProducts(countryName) {
         displayName: product.name,
         category: product.category,
         sourceLabel: source.source_name,
+        sourceId: source.source_id,
         priceValue: product.price,
         priceUnit: product.unit,
         priceCurrency: currency,
@@ -245,13 +248,19 @@ function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCount
     const code = `${sourceProduct.hsCode}${sourceProduct.hsDescription ? `: ${sourceProduct.hsDescription}` : ''}`
     reviewReasons.push(
       aiNote
-        ? `Shares HS code ${code}, and AI (Claude Haiku) confirmed it as the same product — ${aiNote}`
+        ? `Shares HS code ${code}, and AI confirmed it as the same product — ${aiNote}`
         : `Matched by shared HS code (${code}) only — the AI check couldn't run, and other products on either side may share this same code, so this pairing is one of possibly several.`,
     )
   }
   if (matchTier === 'ai_match') {
     reviewReasons.push(
-      `Matched by AI (Claude Haiku) as the same product${aiNote ? ` — ${aiNote}` : ''}. Not an identical name or a shared HS code; check the pairing before relying on it.`,
+      `Matched by AI as the same product${aiNote ? ` — ${aiNote}` : ''}. Not an identical name or a shared HS code; check the pairing before relying on it.`,
+    )
+  }
+  if (sourceProduct.priceLevel && targetProduct.priceLevel && sourceProduct.priceLevel !== targetProduct.priceLevel) {
+    const label = (level) => (level === 'retail' ? 'retail' : 'wholesale')
+    reviewReasons.push(
+      `Different price levels — ${sourceCountry} is a ${label(sourceProduct.priceLevel)} price, ${targetCountry} is a ${label(targetProduct.priceLevel)} price. Part of the gap is packing, freight and retail margin, not an opportunity in itself.`,
     )
   }
   if (sourceProduct.perKgLocal == null) reviewReasons.push(`Source (${sourceCountry}): ${sourceProduct.unitComment}`)
@@ -440,7 +449,7 @@ async function resolveCountWeightConversions(pairs) {
 // product identity: every USA chicken cut shares 020713 with Jamaica's necks,
 // feet and backs, and every beef primal shares 020130 with beef mince. Codes
 // can also sit at different depths on each side or be wrong. So beyond an
-// exact/curated name match, each source product is put to Claude Haiku with
+// exact/curated name match, each source product is put to an AI judge (Claude) with
 // the target products in its HS chapter (plus any the classifier couldn't
 // code; every target product when the source has no code yet), and only the
 // ones it judges to be the same product are paired — labelled 'hs_code' when
@@ -487,12 +496,18 @@ async function resolveAiMatches(sourceCountry, targetCountry, sources, pairedByS
     if (!groups.has(groupKey)) groups.set(groupKey, { candidates, sources: [] })
     groups.get(groupKey).sources.push({ key: aiMatchKey(sourceCountry, sp), description: aiMatchDescription(sourceCountry, sp) })
   })
-  if (!groups.size) return []
+  if (!groups.size) return { pairs: [], unjudged: [], error: null }
 
-  const { results } = await requestProductMatches(targetCountry, [...groups.values()])
+  const { results, errors } = await requestProductMatches(targetCountry, [...groups.values()])
   const pairs = []
+  const unjudged = []
   sources.forEach((sp) => {
     const result = results[aiMatchKey(sourceCountry, sp)]
+    if (!result) {
+      // Part of a batch whose AI call failed — handled by the caller's fallback.
+      unjudged.push(sp)
+      return
+    }
     const already = pairedBySource.get(sp) || new Set()
     ;(result?.matches || [])
       .filter((name) => !already.has(name))
@@ -502,7 +517,7 @@ async function resolveAiMatches(sourceCountry, targetCountry, sources, pairedByS
         pairs.push({ sp, tp, matchTier, targetCountry, aiNote: result.note })
       })
   })
-  return pairs
+  return { pairs, unjudged, error: errors?.length ? errors[0] : null }
 }
 
 // Only when the AI judge can't run: the old "every target product sharing the
@@ -549,6 +564,17 @@ export async function computeMarketOpportunity(sourceCountry, targetCountries) {
   })
   const sourceProducts = productsByCountry.get(sourceCountry) || []
 
+  // Each product's price level is its own source's Wholesaler/Retail setting
+  // (Settings ▸ Product analysis sources), so a comparison can say when it's
+  // wholesale against retail rather than like against like.
+  const sourceSettings = await fetchProductSources().catch(() => ({ built_in: [], custom: [] }))
+  const priceLevelBySourceId = new Map([...sourceSettings.built_in, ...sourceSettings.custom].map((row) => [row.id, row.analysis_type]))
+  productsByCountry.forEach((products) => {
+    products.forEach((p) => {
+      p.priceLevel = priceLevelBySourceId.get(p.sourceId) || null
+    })
+  })
+
   const currencies = new Set()
   productsByCountry.forEach((products) => products.forEach((p) => p.priceCurrency && currencies.add(p.priceCurrency)))
   const rates = new Map()
@@ -584,9 +610,14 @@ export async function computeMarketOpportunity(sourceCountry, targetCountries) {
         pairedBySource.set(sp, new Set([nameMatch.displayName.trim()]))
       })
 
+      // Products the AI couldn't judge (a failed batch, or the whole call
+      // failing) fall back to shared-HS-code pairing; everything else keeps
+      // its AI judgement.
       let extraPairs
       try {
-        extraPairs = await resolveAiMatches(sourceCountry, targetCountry, sourceProducts, pairedBySource, targetProducts)
+        const { pairs, unjudged, error } = await resolveAiMatches(sourceCountry, targetCountry, sourceProducts, pairedBySource, targetProducts)
+        if (error) aiMatchErrors[targetCountry] = error
+        extraPairs = [...pairs, ...hsCodeFallbackPairs(unjudged, pairedBySource, targetProducts, targetCountry)]
       } catch (error) {
         aiMatchErrors[targetCountry] = error.message
         extraPairs = hsCodeFallbackPairs(sourceProducts, pairedBySource, targetProducts, targetCountry)

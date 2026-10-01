@@ -77,6 +77,9 @@ function reviewBadges(row) {
   if (row.match_tier === 'curated_override') badges.push({ label: 'Curated Match', className: 'market-analysis__bilateral-badge' })
   if (row.match_tier === 'hs_code') badges.push({ label: 'HS Code Match', className: 'market-analysis__bilateral-badge' })
   if (row.match_tier === 'ai_match') badges.push({ label: 'AI Match', className: 'market-analysis__bilateral-badge' })
+  if (reasons.some((r) => r.startsWith('Different price levels'))) {
+    badges.push({ label: 'Wholesale vs Retail', className: 'market-analysis__estimated-badge' })
+  }
   // A count-based unit converted via a Haiku-estimated pack weight
   // (countWeightConversion.js's 'cached_estimate'/'fresh_haiku_estimate')
   // — never the same treatment as an official USDA-standard egg
@@ -296,7 +299,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
       </p>
       {Object.entries(aiMatchErrors).map(([country, message]) => (
         <p key={country} className="market-analysis__hint">
-          AI matching for {country} didn't run ({message}) — only exact-name, curated and shared-HS-code matches are shown.
+          AI matching for {country} didn't complete ({message}) — products it couldn't judge are paired by shared HS code only.
         </p>
       ))}
 
