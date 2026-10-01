@@ -24,14 +24,50 @@
   gap: 0.5rem;
 }
 
+.revenue-streams-view__stream {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
 .revenue-streams-view__item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-card);
   padding: 0.6rem 0.85rem;
+  cursor: pointer;
+}
+
+.revenue-streams-view__item:hover {
+  background: var(--bg-panel);
+}
+
+.revenue-streams-view__routes {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+.revenue-streams-view__routes th {
+  text-align: left;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  padding: 0.45rem 0.85rem;
+}
+
+.revenue-streams-view__routes td {
+  padding: 0.45rem 0.85rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.revenue-streams-view__routes td:first-child,
+.revenue-streams-view__routes th:first-child {
+  width: 2.5rem;
 }
 
 .revenue-streams-view__item-type {

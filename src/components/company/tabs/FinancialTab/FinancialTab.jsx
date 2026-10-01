@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import RevenueStreamsView from './RevenueStreamsView'
-import ExpensesView from './ExpensesView'
+import CostsExpensesView from './CostsExpensesView'
 import AccountingView from './AccountingView'
 import FinancialModelingView from './FinancialModelingView'
 import StartupInvestmentView from './StartupInvestmentView'
@@ -11,7 +11,7 @@ function FinancialTab() {
 
   switch (sub) {
     case 'expenses':
-      return <ExpensesView />
+      return <CostsExpensesView />
     case 'accounting':
       return <AccountingView />
     case 'financial-modeling':

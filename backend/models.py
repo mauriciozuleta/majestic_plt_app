@@ -1020,3 +1020,67 @@ class ProductMatchCache(Base):
     matches_json = Column(String, nullable=False)
     note = Column(String, nullable=True)
     created_at = Column(String, nullable=False)
+
+
+class RevenueStreamRoute(Base):
+    """An origin -> destination pair (two commercial-structure branches,
+    i.e. airports) added to one revenue stream from Financial ▸ Revenue."""
+
+    __tablename__ = 'revenue_stream_routes'
+
+    id = Column(String, primary_key=True)
+    stream_id = Column(String, index=True, nullable=False)
+    origin_branch_id = Column(String, nullable=False)
+    destination_branch_id = Column(String, nullable=False)
+    created_at = Column(String, nullable=False)
+
+
+class LogisticsAircraft(Base):
+    """An aircraft type a charter provider can fly (COS/Expenses ▸ Providers ▸
+    Air Logistics). Weights are stored in kg and fuel in US gallons; the form
+    shows each alongside its lb equivalent."""
+
+    __tablename__ = 'logistics_aircraft'
+
+    id = Column(String, primary_key=True)
+    company_id = Column(String, index=True, nullable=False)
+    manufacturer = Column(String, nullable=False)
+    model = Column(String, nullable=False)
+    short_name = Column(String, nullable=False)
+    mtow_kg = Column(Float, nullable=False)
+    mldgw_kg = Column(Float, nullable=True)
+    max_ramp_kg = Column(Float, nullable=True)
+    empty_weight_kg = Column(Float, nullable=False)
+    max_payload_kg = Column(Float, nullable=False)
+    zero_fuel_kg = Column(Float, nullable=False)
+    fuel_capacity_gal = Column(Float, nullable=False)
+    fuel_burn_gal_hr = Column(Float, nullable=False)
+    min_fuel_landed_gal = Column(Float, nullable=True)
+    min_fuel_alternate_gal = Column(Float, nullable=True)
+    cargo_positions_main_deck = Column(Integer, nullable=False)
+    cargo_positions_lower_deck = Column(Integer, nullable=False)
+    cruise_speed_kt = Column(Float, nullable=False)
+    max_range_at_max_payload_nm = Column(Float, nullable=True)
+    max_range_with_max_fuel_nm = Column(Float, nullable=True)
+    created_at = Column(String, nullable=False)
+
+
+class CharterProvider(Base):
+    """An air charter provider (COS/Expenses ▸ Providers ▸ Air Logistics).
+    The main base is an airport identified by IATA code, with its name and
+    city filled from the airport lookup."""
+
+    __tablename__ = 'charter_providers'
+
+    id = Column(String, primary_key=True)
+    company_id = Column(String, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    country_name = Column(String, nullable=False)
+    main_base_iata = Column(String, nullable=False)
+    main_base_name = Column(String, nullable=True)
+    main_base_city = Column(String, nullable=True)
+    main_base_country = Column(String, nullable=True)
+    aircraft_id = Column(String, nullable=False)
+    block_hour_cost = Column(Float, nullable=False)  # USD
+    provider_type = Column(String, nullable=False)  # 'charter' | 'acmi' | 'by_kg'
+    created_at = Column(String, nullable=False)

@@ -15,6 +15,7 @@ from .accounting_audit_scheduler import start_accounting_audit_scheduler
 from .database import Base, engine
 from .routers import (
     accounting_audit,
+    air_logistics,
     bank_accounts,
     commercial_operations,
     commercial_structure,
@@ -547,6 +548,7 @@ app.include_router(market_opportunities.router)
 app.include_router(unit_weight_estimates.router)
 app.include_router(species_gallery.router)
 app.include_router(product_matches.router)
+app.include_router(air_logistics.router)
 
 
 @app.on_event('startup')

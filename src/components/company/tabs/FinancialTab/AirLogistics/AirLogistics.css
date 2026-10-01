@@ -1,0 +1,181 @@
+.providers-view__categories {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.25rem 0 1rem;
+}
+
+.providers-view__category {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.providers-view__category.is-active {
+  border-color: rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}
+
+.air-logistics__section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  padding: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.air-logistics__section h4 {
+  margin: 0 0 0.25rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.air-logistics__section > p {
+  margin: 0 0 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.air-logistics__table-wrap {
+  overflow-x: auto;
+}
+
+.air-logistics__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.air-logistics__table th {
+  text-align: left;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  padding: 0.45rem 0.6rem;
+  white-space: nowrap;
+}
+
+.air-logistics__table td {
+  padding: 0.45rem 0.6rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.air-logistics__table td.num,
+.air-logistics__table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.air-logistics__table tbody tr {
+  cursor: pointer;
+}
+
+.air-logistics__table tbody tr:hover td {
+  background: var(--bg-panel);
+}
+
+.air-logistics__table tbody tr.is-selected td {
+  background: rgba(249, 115, 22, 0.1);
+  color: var(--text-primary);
+}
+
+.air-logistics__empty {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-style: italic;
+  padding: 0.6rem;
+}
+
+.air-logistics__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.air-logistics__btn {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.air-logistics__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.air-logistics__btn--primary {
+  border-color: rgba(251, 146, 60, 0.65);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+}
+
+.air-logistics__btn--danger {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+.air-logistics__error {
+  color: #fca5a5;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* Wider variant of the app's standard modal, for multi-section forms */
+.air-logistics-modal {
+  width: min(44rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+
+.air-logistics-modal__section-title {
+  margin: 0.4rem 0 0.1rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.air-logistics-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.air-logistics-modal__grid--pairs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1.5rem;
+}
+
+.air-logistics-modal__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+.air-logistics-modal__hint {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  margin: 0;
+}
+
+.air-logistics-modal__airport {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 640px) {
+  .air-logistics-modal__grid,
+  .air-logistics-modal__grid--pairs {
+    grid-template-columns: 1fr;
+  }
+}

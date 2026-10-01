@@ -15,7 +15,8 @@ function CompanyIndexRedirect() {
 }
 
 const subTabLabels = {
-  'revenue-streams': 'Revenue/COS',
+  'revenue-streams': 'Revenue',
+  expenses: 'COS/Expenses',
   'commercial-operations': 'Commercial Operations',
   accounting: 'Accounting',
   'financial-modeling': 'Financial Modeling',
