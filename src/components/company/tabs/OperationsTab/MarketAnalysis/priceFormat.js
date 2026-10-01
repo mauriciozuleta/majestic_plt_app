@@ -30,3 +30,11 @@ export function formatPriceLine(usdValue, localValue, currencyCode) {
   }
   return '—'
 }
+
+// Exchange rates are always shown as how much one US dollar buys
+// ("1 USD = 3,334.28 COP"). `localToUsdRate` is the multiplier the tables
+// convert with: USD per one unit of the local currency.
+export function formatOneUsdEquals(localToUsdRate, currencyCode) {
+  const perUsd = (1 / localToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `1 USD = ${perUsd} ${currencyCode}`
+}

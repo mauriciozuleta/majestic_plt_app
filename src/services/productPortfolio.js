@@ -167,7 +167,16 @@ export async function buildProductPortfolio() {
     hsByName = results
     const uncached = rows.filter((row) => !(row.name.toLowerCase() in hsByName))
     if (uncached.length > 0) {
-      startProductClassification(uncached.map((row) => ({ key: row.name.toLowerCase(), name: row.name }))).catch(() => {})
+      // Category and country go along as context: a cut name alone ("Primal
+      // Belly", "Drumsticks") doesn't say which animal it is, and a regional
+      // name ("coco" in Jamaica = cocoyam) depends on where it's sold.
+      startProductClassification(
+        uncached.map((row) => ({
+          key: row.name.toLowerCase(),
+          name: row.name,
+          context: `${categoryInfo(row.category).label}; sold in ${row.countries.join(', ')}`,
+        })),
+      ).catch(() => {})
     }
   } catch {
     // Couldn't even read the cache (offline, etc.) — every row falls back

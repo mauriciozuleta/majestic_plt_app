@@ -59,6 +59,7 @@ import {
 import { lookupCrossCountryOverride } from '../data/crossCountryMatchOverrides'
 import { fetchProductHsCodes } from './productHsCodes'
 import { requestUnitWeightEstimates } from './unitWeightEstimates'
+import { requestProductMatches } from './productMatches'
 
 async function fetchJson(path, options) {
   const response = await fetch(`${API_BASE}${path}`, options)
@@ -204,8 +205,8 @@ async function collectCustomComparisonProducts(countryName) {
         priceValue: product.price,
         priceUnit: product.unit,
         priceCurrency: currency,
-        perKgLocal: genericPricePerKg(product.price, product.unit),
-        unitComment: explainGenericConversion(product.unit),
+        perKgLocal: genericPricePerKg(product.price, product.unit, product.name),
+        unitComment: explainGenericConversion(product.unit, product.name),
         translated: false,
         rawUnit: product.unit,
       }
@@ -213,15 +214,18 @@ async function collectCustomComparisonProducts(countryName) {
   )
 }
 
+// A country's built-in pipeline and any sources added for it in Settings are
+// combined — an added source never replaces, or is hidden by, the built-in one.
 async function collectCountryComparisonProducts(countryName) {
-  if (countryName === 'Colombia') return collectColombiaComparisonProducts()
-  if (countryName === 'United States') return collectUsaComparisonProducts()
-  return collectCustomComparisonProducts(countryName)
+  const builtIn =
+    countryName === 'Colombia' ? collectColombiaComparisonProducts() : countryName === 'United States' ? collectUsaComparisonProducts() : []
+  const [builtInProducts, customProducts] = await Promise.all([builtIn, collectCustomComparisonProducts(countryName)])
+  return [...builtInProducts, ...customProducts]
 }
 
 // ---------------------------------------------------------------- matching + scoring
 
-function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCountry, targetCountry, rates) {
+function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCountry, targetCountry, rates, aiNote = null) {
   const sourceRate = sourceProduct.priceCurrency ? rates.get(sourceProduct.priceCurrency) : null
   const targetRate = targetProduct.priceCurrency ? rates.get(targetProduct.priceCurrency) : null
   // Both sides convert independently to USD — DIVIDE by the stored rate
@@ -238,8 +242,16 @@ function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCount
     reviewReasons.push('Matched via a curated name override, not an identical name after translation/normalization — see crossCountryMatchOverrides.js.')
   }
   if (matchTier === 'hs_code') {
+    const code = `${sourceProduct.hsCode}${sourceProduct.hsDescription ? `: ${sourceProduct.hsDescription}` : ''}`
     reviewReasons.push(
-      `Matched by shared HS code (${sourceProduct.hsCode}${sourceProduct.hsDescription ? `: ${sourceProduct.hsDescription}` : ''}), not an identical/translated name or a curated override — other product variants on either side may share this same code, so this pairing is one of possibly several.`,
+      aiNote
+        ? `Shares HS code ${code}, and AI (Claude Haiku) confirmed it as the same product — ${aiNote}`
+        : `Matched by shared HS code (${code}) only — the AI check couldn't run, and other products on either side may share this same code, so this pairing is one of possibly several.`,
+    )
+  }
+  if (matchTier === 'ai_match') {
+    reviewReasons.push(
+      `Matched by AI (Claude Haiku) as the same product${aiNote ? ` — ${aiNote}` : ''}. Not an identical name or a shared HS code; check the pairing before relying on it.`,
     )
   }
   if (sourceProduct.perKgLocal == null) reviewReasons.push(`Source (${sourceCountry}): ${sourceProduct.unitComment}`)
@@ -424,6 +436,95 @@ async function resolveCountWeightConversions(pairs) {
 // POST to saveMarketOpportunityComparisons) and, separately, every source
 // product that found no match in a given target market — never dropped,
 // never blended into the matched table, per spec.
+// Tiers 3/4 — AI-judged matching. A shared HS code is a customs category, not
+// product identity: every USA chicken cut shares 020713 with Jamaica's necks,
+// feet and backs, and every beef primal shares 020130 with beef mince. Codes
+// can also sit at different depths on each side or be wrong. So beyond an
+// exact/curated name match, each source product is put to Claude Haiku with
+// the target products in its HS chapter (plus any the classifier couldn't
+// code; every target product when the source has no code yet), and only the
+// ones it judges to be the same product are paired — labelled 'hs_code' when
+// they also share the exact code, 'ai_match' otherwise. Cached server-side per
+// source product × target country × candidate list.
+function aiMatchKey(sourceCountry, product) {
+  return `${sourceCountry}|${product.category}|${product.displayName}`.toLowerCase()
+}
+
+function aiMatchDescription(sourceCountry, product) {
+  return `"${product.displayName}" — category: ${product.category}; priced ${product.priceUnit}; source: ${product.sourceLabel} (${sourceCountry})`
+}
+
+// `pairedBySource`: Map(source product -> Set of target display names it was
+// already paired with by name), so the AI never re-emits those.
+async function resolveAiMatches(sourceCountry, targetCountry, sources, pairedBySource, targetProducts) {
+  const targetsByName = new Map()
+  targetProducts.forEach((tp) => {
+    const name = tp.displayName.trim()
+    if (!targetsByName.has(name)) targetsByName.set(name, [])
+    targetsByName.get(name).push(tp)
+  })
+  // A target product the classifier couldn't code (Jamaica's "Chilled Leg
+  // Quarter", say) could belong to any chapter, so it joins every chapter's
+  // candidate list rather than being invisible to coded source products.
+  const namesByChapter = new Map()
+  const uncodedNames = []
+  targetsByName.forEach((products, name) => {
+    const chapter = products[0].hsCode?.slice(0, 2)
+    if (!chapter) {
+      uncodedNames.push(name)
+      return
+    }
+    if (!namesByChapter.has(chapter)) namesByChapter.set(chapter, [])
+    namesByChapter.get(chapter).push(name)
+  })
+
+  const groups = new Map()
+  sources.forEach((sp) => {
+    const chapter = sp.hsCode?.slice(0, 2) || null
+    const candidates = chapter ? [...(namesByChapter.get(chapter) || []), ...uncodedNames] : [...targetsByName.keys()]
+    if (!candidates.length) return
+    const groupKey = chapter || 'unclassified'
+    if (!groups.has(groupKey)) groups.set(groupKey, { candidates, sources: [] })
+    groups.get(groupKey).sources.push({ key: aiMatchKey(sourceCountry, sp), description: aiMatchDescription(sourceCountry, sp) })
+  })
+  if (!groups.size) return []
+
+  const { results } = await requestProductMatches(targetCountry, [...groups.values()])
+  const pairs = []
+  sources.forEach((sp) => {
+    const result = results[aiMatchKey(sourceCountry, sp)]
+    const already = pairedBySource.get(sp) || new Set()
+    ;(result?.matches || [])
+      .filter((name) => !already.has(name))
+      .flatMap((name) => targetsByName.get(name) || [])
+      .forEach((tp) => {
+        const matchTier = sp.hsCode && tp.hsCode === sp.hsCode ? 'hs_code' : 'ai_match'
+        pairs.push({ sp, tp, matchTier, targetCountry, aiNote: result.note })
+      })
+  })
+  return pairs
+}
+
+// Only when the AI judge can't run: the old "every target product sharing the
+// exact HS code" pairing, so a comparison still shows what it can.
+function hsCodeFallbackPairs(sources, pairedBySource, targetProducts, targetCountry) {
+  const byCode = new Map()
+  targetProducts.forEach((tp) => {
+    if (!tp.hsCode) return
+    if (!byCode.has(tp.hsCode)) byCode.set(tp.hsCode, [])
+    byCode.get(tp.hsCode).push(tp)
+  })
+  const pairs = []
+  sources.forEach((sp) => {
+    const already = pairedBySource.get(sp) || new Set()
+    ;(byCode.get(sp.hsCode) || []).forEach((tp) => {
+      if (already.has(tp.displayName.trim())) return
+      pairs.push({ sp, tp, matchTier: 'hs_code', targetCountry })
+    })
+  })
+  return pairs
+}
+
 export async function computeMarketOpportunity(sourceCountry, targetCountries) {
   const allCountries = [sourceCountry, ...targetCountries.filter((name) => name !== sourceCountry)]
   const [productsByCountry, hsCache] = await Promise.all([
@@ -463,52 +564,40 @@ export async function computeMarketOpportunity(sourceCountry, targetCountries) {
 
   const matchedPairs = []
   const unmatchedByTarget = {}
-  targetCountries.forEach((targetCountry) => {
-    const targetProducts = productsByCountry.get(targetCountry) || []
-    const targetByName = new Map(targetProducts.map((p) => [p.matchName, p]))
-    // Every target product sharing a given (real, classified) HS code —
-    // tier 3's candidate pool. A product with no resolved code (not yet
-    // classified) simply never appears in any group here.
-    const targetByHsCode = new Map()
-    targetProducts.forEach((p) => {
-      if (!p.hsCode) return
-      if (!targetByHsCode.has(p.hsCode)) targetByHsCode.set(p.hsCode, [])
-      targetByHsCode.get(p.hsCode).push(p)
-    })
+  // A failed AI call never fails the whole comparison — that target falls
+  // back to shared-HS-code pairing, and the reason is returned for the panel.
+  const aiMatchErrors = {}
+  await Promise.all(
+    targetCountries.map(async (targetCountry) => {
+      const targetProducts = productsByCountry.get(targetCountry) || []
+      const targetByName = new Map(targetProducts.map((p) => [p.matchName, p]))
 
-    const unmatched = []
-    sourceProducts.forEach((sp) => {
-      // A single source product's own set of (sourceCountry, targetCountry)
-      // pairs already produced, so tier 3 below never re-emits the exact
-      // same pairing tier 1/2 already did — every OTHER same-code target
-      // candidate still gets its own row (the user's explicit choice: every
-      // combination shown, nothing picked for them).
-      const pairedTargetNames = new Set()
-      let matchedAny = false
-
-      const overrideName = lookupCrossCountryOverride(sourceCountry, targetCountry, sp.matchName)
-      const nameMatch = (overrideName && targetByName.get(overrideName)) || targetByName.get(sp.matchName)
-      if (nameMatch) {
+      // Tiers 1/2: an exact (or translated-exact) name, or a curated override.
+      const namePairs = []
+      const pairedBySource = new Map()
+      sourceProducts.forEach((sp) => {
+        const overrideName = lookupCrossCountryOverride(sourceCountry, targetCountry, sp.matchName)
+        const nameMatch = (overrideName && targetByName.get(overrideName)) || targetByName.get(sp.matchName)
+        if (!nameMatch) return
         const matchTier = overrideName ? 'curated_override' : sp.translated ? 'translated_exact' : 'exact'
-        matchedPairs.push({ sp, tp: nameMatch, matchTier, targetCountry })
-        pairedTargetNames.add(nameMatch.matchName)
-        matchedAny = true
+        namePairs.push({ sp, tp: nameMatch, matchTier, targetCountry })
+        pairedBySource.set(sp, new Set([nameMatch.displayName.trim()]))
+      })
+
+      let extraPairs
+      try {
+        extraPairs = await resolveAiMatches(sourceCountry, targetCountry, sourceProducts, pairedBySource, targetProducts)
+      } catch (error) {
+        aiMatchErrors[targetCountry] = error.message
+        extraPairs = hsCodeFallbackPairs(sourceProducts, pairedBySource, targetProducts, targetCountry)
       }
 
-      if (sp.hsCode) {
-        const candidates = targetByHsCode.get(sp.hsCode) || []
-        candidates.forEach((tp) => {
-          if (pairedTargetNames.has(tp.matchName)) return
-          matchedPairs.push({ sp, tp, matchTier: 'hs_code', targetCountry })
-          pairedTargetNames.add(tp.matchName)
-          matchedAny = true
-        })
-      }
-
-      if (!matchedAny) unmatched.push(sp)
-    })
-    unmatchedByTarget[targetCountry] = unmatched
-  })
+      const allPairs = [...namePairs, ...extraPairs]
+      const matchedSources = new Set(allPairs.map((pair) => pair.sp))
+      matchedPairs.push(...allPairs)
+      unmatchedByTarget[targetCountry] = sourceProducts.filter((sp) => !matchedSources.has(sp))
+    }),
+  )
 
   // Count-vs-weight conversion (countWeightConversion.js) runs AFTER
   // matching, on the real matched pairs only — never speculatively on
@@ -517,7 +606,9 @@ export async function computeMarketOpportunity(sourceCountry, targetCountries) {
   // mechanism's own stated scope (see that module's header).
   await resolveCountWeightConversions(matchedPairs)
 
-  const rows = matchedPairs.map(({ sp, tp, matchTier, targetCountry }) => buildComparisonRow(sp, tp, matchTier, sourceCountry, targetCountry, rates))
+  const rows = matchedPairs.map(({ sp, tp, matchTier, targetCountry, aiNote }) =>
+    buildComparisonRow(sp, tp, matchTier, sourceCountry, targetCountry, rates, aiNote),
+  )
 
-  return { rows, unmatchedByTarget, sourceProductCount: sourceProducts.length }
+  return { rows, unmatchedByTarget, sourceProductCount: sourceProducts.length, aiMatchErrors }
 }

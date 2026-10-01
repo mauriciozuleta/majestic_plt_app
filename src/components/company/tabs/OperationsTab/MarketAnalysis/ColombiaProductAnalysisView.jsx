@@ -13,7 +13,7 @@ import {
 } from './priceComparisonFetchers'
 import { normalizeProductName, translateProductName } from './productTranslations'
 import { exportProductsToCsv, exportProductsToPdf } from './priceComparisonExport'
-import { formatPriceLine } from './priceFormat'
+import { formatOneUsdEquals, formatPriceLine } from './priceFormat'
 import {
   applyCustomOverride,
   applyResearchedWeight,
@@ -610,7 +610,7 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
     if (exportingPdf) return
     setExportingPdf(true)
     try {
-      const rateLabel = typeof rateSync.rate === 'number' ? `${LOCAL_CURRENCY}→USD: ${rateSync.rate.toFixed(8)}` : `${LOCAL_CURRENCY} only`
+      const rateLabel = typeof rateSync.rate === 'number' ? formatOneUsdEquals(rateSync.rate, LOCAL_CURRENCY) : `${LOCAL_CURRENCY} only`
       await exportProductsToPdf(
         buildExportRows(),
         { generatedAt: new Date().toLocaleString(), rateLabel },
@@ -686,7 +686,7 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
         <div className="price-comparison__rate-label">
           {typeof rateSync.rate === 'number' ? (
             <>
-              {LOCAL_CURRENCY}→USD: <span className="price-comparison__rate-value">{rateSync.rate.toFixed(8)}</span>
+              <span className="price-comparison__rate-value">{formatOneUsdEquals(rateSync.rate, LOCAL_CURRENCY)}</span>
               {rateSync.status === 'stale' && <span className="price-comparison__rate-stale"> (last known rate — refresh failed)</span>}
             </>
           ) : (

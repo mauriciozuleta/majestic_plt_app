@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { fetchChatHistory, saveChatMessage } from '../services/chatHistory'
 
 const ACTIVE_COMPANY_KEY = 'majestic-active-company-id'
 const COMPANY_ORDER_KEY = 'majestic-company-order'
@@ -148,8 +149,22 @@ export const useAppStore = create((set, get) => ({
   // competitiveness analysis) keeps polling after the triggering panel is
   // navigated away from, and posts its result here when done, since this
   // store — unlike component state — survives that navigation.
-  addAssistantMessage: (text) =>
-    set((state) => ({
-      assistantMessages: [...state.assistantMessages, { id: Date.now() + Math.random(), sender: 'bot', text }],
-    })),
+  addAssistantMessage: (text) => get().appendAssistantMessage({ sender: 'bot', text }),
+  // Every message is saved server-side as it's added, so the log survives a
+  // reload and is sent back to Claude as context (see useChatbox).
+  appendAssistantMessage: (message) => {
+    const stored = { ...message, id: crypto.randomUUID() }
+    set((state) => ({ assistantMessages: [...state.assistantMessages, stored] }))
+    saveChatMessage(stored).catch(() => {})
+    return stored
+  },
+  // Anything already added in this session before the history arrives (e.g. a
+  // background-job notice) is kept after the saved log, never dropped.
+  loadAssistantMessages: async () => {
+    const saved = await fetchChatHistory()
+    set((state) => {
+      const savedIds = new Set(saved.map((message) => message.id))
+      return { assistantMessages: [...saved, ...state.assistantMessages.filter((message) => !savedIds.has(message.id))] }
+    })
+  },
 }))

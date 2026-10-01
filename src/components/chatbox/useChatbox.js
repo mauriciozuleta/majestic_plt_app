@@ -1,27 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { runAssistantAction, sendChatMessage } from '../../services/chat'
 import { useAppStore } from '../../store/useAppStore'
 
 // Messages live in the global store, not local state — background-job
 // completions (see services/backgroundJobs.js) are pushed here from
 // wherever they finish, not just from this mounted component, so they need
-// to land somewhere that survives navigation.
+// to land somewhere that survives navigation. The store also persists them
+// server-side, so the log (and Claude's context) survives a reload.
 export function useChatbox() {
   const messages = useAppStore((state) => state.assistantMessages)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
 
-  const push = (message) =>
-    useAppStore.setState((state) => ({
-      assistantMessages: [...state.assistantMessages, { id: Date.now() + Math.random(), ...message }],
-    }))
+  useEffect(() => {
+    useAppStore.getState().loadAssistantMessages().catch(() => {})
+  }, [])
+
+  const push = (message) => useAppStore.getState().appendAssistantMessage(message)
 
   const handleSend = async () => {
     const trimmed = draft.trim()
     if (!trimmed || sending) return
 
-    const history = [...useAppStore.getState().assistantMessages, { sender: 'user', text: trimmed }]
     push({ sender: 'user', text: trimmed })
+    const history = useAppStore.getState().assistantMessages
     setDraft('')
     setSending(true)
 

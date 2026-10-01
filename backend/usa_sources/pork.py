@@ -40,7 +40,7 @@ def fetch_pork_products():
         products.append(
             {
                 'category': 'Pork',
-                'product_en': f'Primal {label}',
+                'product_en': f'Pork Primal {label}',
                 'price': float(value),
                 'unit': 'USD/cwt (100lb)',
                 'source_date': source_date or report_date,

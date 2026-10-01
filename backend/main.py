@@ -42,6 +42,7 @@ from .routers import (
     roadmap,
     settings,
     sim_parameters,
+    product_matches,
     species_gallery,
     startup_investment,
     unit_weight_estimates,
@@ -545,6 +546,7 @@ app.include_router(comtrade.router)
 app.include_router(market_opportunities.router)
 app.include_router(unit_weight_estimates.router)
 app.include_router(species_gallery.router)
+app.include_router(product_matches.router)
 
 
 @app.on_event('startup')

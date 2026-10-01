@@ -40,7 +40,13 @@ function weightUnitToKgFactor(word) {
 // ignored (it's packaging language, not part of the weight itself).
 const PACKAGE_WEIGHT_RE = /(\d+(?:\.\d+)?)\s*(kg|kilograms?|g|grams?|lbs?|pounds?|oz|ounces?)\b/i
 
-export function resolveGenericWeightKg(unit) {
+// `productName` matters for a bare weight unit: a retail source (Saint
+// Lucia's Massy Stores) reports unit "g" or "kg" for a fixed pack whose net
+// weight is in the name — "Picsweet Green Peas 340G" at XCD 12.15 is the
+// price of one 340 g pack, not of one gram, and "Imported Apple Red Bag
+// Prepacked 1.4KG" is the price of the 1.4 kg bag. A pack weight stated in
+// the name therefore wins over the bare unit.
+export function resolveGenericWeightKg(unit, productName = '') {
   if (!unit || !unit.trim()) {
     return { weightKg: null, comment: 'No unit reported by the source — cannot determine a weight.' }
   }
@@ -48,6 +54,18 @@ export function resolveGenericWeightKg(unit) {
   const lower = trimmed.toLowerCase()
 
   const bareFactor = weightUnitToKgFactor(lower)
+  const namePackMatch = bareFactor !== null ? (productName || '').match(PACKAGE_WEIGHT_RE) : null
+  if (namePackMatch) {
+    const amount = parseFloat(namePackMatch[1])
+    const perUnitKg = weightUnitToKgFactor(namePackMatch[2])
+    if (perUnitKg !== null && amount > 0) {
+      const kg = amount * perUnitKg
+      return {
+        weightKg: kg,
+        comment: `Priced per pack — the product name states its net weight ("${namePackMatch[0]}" = ${kg.toFixed(3)} kg).`,
+      }
+    }
+  }
   if (bareFactor !== null) {
     return {
       weightKg: bareFactor,
@@ -78,14 +96,14 @@ export function resolveGenericWeightKg(unit) {
   }
 }
 
-export function genericPricePerKg(price, unit) {
+export function genericPricePerKg(price, unit, productName = '') {
   if (price === null || price === undefined) return null
-  const { weightKg } = resolveGenericWeightKg(unit)
+  const { weightKg } = resolveGenericWeightKg(unit, productName)
   return weightKg !== null ? price / weightKg : null
 }
 
-export function explainGenericConversion(unit) {
-  return resolveGenericWeightKg(unit).comment
+export function explainGenericConversion(unit, productName = '') {
+  return resolveGenericWeightKg(unit, productName).comment
 }
 
 // Same AI-weight-research fallback item shape as

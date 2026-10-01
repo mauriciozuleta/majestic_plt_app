@@ -99,14 +99,21 @@ export function explainColombiaConversion(unit, unitLabel) {
 // USA (USDA AMS reports). Beef/Pork (cwt), Poultry (lb), Eggs (dozen, by
 // graded size), and Grains (bushel, by grain) all convert via a fixed,
 // official unit definition. Produce (CA/FL shipping-point reports) is
-// priced per carton/pack, and this app's scraper does not capture that
-// pack's actual net weight from the source PDF's "Basis" line (a real
-// figure exists there, e.g. "19 lb containers bagged", but reliably
-// attributing it per price row across that report's layout isn't done yet)
-// — so no per-kg figure is offered for Produce rather than assuming a
-// carton weight.
+// priced per carton/pack, converted with the net weight USDA prints on that
+// pack's own container line ("25 lb cartons loose", "flats 8 1-lb
+// containers") — backend/usa_sources/common.py stores it as
+// pack_net_weight_lb and never stores a produce row whose container states
+// no weight. The generic fallback below only covers snapshots saved before
+// that field existed.
 function resolveUsaWeightKg(product) {
   const { unit, product_en: productEn } = product
+  if (typeof product.pack_net_weight_lb === 'number') {
+    const kg = product.pack_net_weight_lb * LB_TO_KG
+    return {
+      weightKg: kg,
+      comment: `Official: net weight stated in the USDA report ("${product.pack}") = ${product.pack_net_weight_lb} lb = ${kg.toFixed(3)} kg.`,
+    }
+  }
   if (unit === 'USD/cwt (100lb)') {
     return { weightKg: CWT_TO_KG, comment: `Official: 1 cwt = 100 lb = ${CWT_TO_KG.toFixed(3)} kg.` }
   }

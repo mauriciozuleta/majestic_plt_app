@@ -19,7 +19,7 @@ export async function fetchProductHsCodes() {
   return response.json()
 }
 
-// items: [{ key, name }]. Starts classifying whatever isn't already cached,
+// items: [{ key, name, context }] — context is the product's category. Starts classifying whatever isn't already cached,
 // in the background, and returns immediately — never awaited by callers
 // that just want today's best-available codes.
 export async function startProductClassification(items) {

@@ -63,9 +63,13 @@ async function buildCustomCategorySummary(countryNameLower) {
   return rows.length ? summarizeByCategory(rows) : null
 }
 
+// A country's built-in pipeline (Colombia/USA) and any sources added for it in
+// Settings are combined, never one in place of the other. Each is summarized
+// separately so a category's average never mixes units or currencies.
 export async function getCategorySummary(countryName) {
   const name = countryName.trim().toLowerCase()
-  if (name === 'colombia') return buildColombiaCategorySummary()
-  if (name === 'united states') return buildUsaCategorySummary()
-  return buildCustomCategorySummary(name)
+  const builtIn = name === 'colombia' ? buildColombiaCategorySummary() : name === 'united states' ? buildUsaCategorySummary() : null
+  const [builtInSummary, customSummary] = await Promise.all([builtIn, buildCustomCategorySummary(name)])
+  if (!builtInSummary) return customSummary
+  return customSummary ? [...builtInSummary, ...customSummary] : builtInSummary
 }

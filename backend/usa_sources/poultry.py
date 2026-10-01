@@ -37,7 +37,7 @@ def fetch_poultry_products():
         products.append(
             {
                 'category': 'Poultry',
-                'product_en': 'Whole Bird (National Composite)',
+                'product_en': 'Whole Chicken (National Composite)',
                 'price': round(float(wtd_avg) / 100, 4),
                 'unit': 'USD/lb',
                 'source_date': source_date,
@@ -54,7 +54,7 @@ def fetch_poultry_products():
         products.append(
             {
                 'category': 'Poultry',
-                'product_en': name.strip(),
+                'product_en': f'Chicken {name.strip()}',
                 'price': round(float(wtd_avg) / 100, 4),
                 'unit': 'USD/lb',
                 'source_date': source_date,

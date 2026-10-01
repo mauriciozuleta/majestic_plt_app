@@ -76,6 +76,7 @@ function reviewBadges(row) {
   const badges = []
   if (row.match_tier === 'curated_override') badges.push({ label: 'Curated Match', className: 'market-analysis__bilateral-badge' })
   if (row.match_tier === 'hs_code') badges.push({ label: 'HS Code Match', className: 'market-analysis__bilateral-badge' })
+  if (row.match_tier === 'ai_match') badges.push({ label: 'AI Match', className: 'market-analysis__bilateral-badge' })
   // A count-based unit converted via a Haiku-estimated pack weight
   // (countWeightConversion.js's 'cached_estimate'/'fresh_haiku_estimate')
   // — never the same treatment as an official USDA-standard egg
@@ -102,6 +103,7 @@ function reviewBadges(row) {
 function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, region }) {
   const [runStatus, setRunStatus] = useState('idle')
   const [runError, setRunError] = useState(null)
+  const [aiMatchErrors, setAiMatchErrors] = useState({})
   const [rows, setRows] = useState([])
   const [unmatchedByTarget, setUnmatchedByTarget] = useState({})
   const [calculatedAt, setCalculatedAt] = useState(null)
@@ -160,8 +162,9 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
     setRunStatus('running')
     setRunError(null)
     computeMarketOpportunity(sourceCountry, targetCountries)
-      .then(async ({ rows: computedRows, unmatchedByTarget: unmatched }) => {
+      .then(async ({ rows: computedRows, unmatchedByTarget: unmatched, aiMatchErrors: aiErrors }) => {
         if (cancelled) return
+        setAiMatchErrors(aiErrors || {})
         if (computedRows.length === 0) {
           setRows([])
           setUnmatchedByTarget(unmatched)
@@ -291,6 +294,11 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
         {rows.length} matched product{rows.length === 1 ? '' : 's'} compared, {totalUnmatched} with no match found in
         the target market. {calculatedAt && `Last computed: ${new Date(calculatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.`}
       </p>
+      {Object.entries(aiMatchErrors).map(([country, message]) => (
+        <p key={country} className="market-analysis__hint">
+          AI matching for {country} didn't run ({message}) — only exact-name, curated and shared-HS-code matches are shown.
+        </p>
+      ))}
 
       {rows.length > 0 && (
         <>

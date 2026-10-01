@@ -15,6 +15,7 @@ executes with the existing code path.
 
 import json
 import os
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -33,7 +34,7 @@ router = APIRouter()
 
 MAX_TOKENS = 2000
 MAX_TOOL_ROUNDS = 6
-MAX_HISTORY = 16
+MAX_HISTORY = 30
 
 SYSTEM_PROMPT = """You are the assistant built into a multi-company portfolio app for a food/agricultural \
 import-export business. You can consult the shared knowledge base (the client's own uploaded documents, such as \
@@ -154,6 +155,52 @@ class ChatTurn(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatTurn]
+
+
+class StoredMessageIn(BaseModel):
+    id: str
+    sender: str
+    text: str
+    sources: list[str] = []
+
+
+HISTORY_LIMIT = 500
+
+
+def _serialize_message(row: models.AssistantMessage) -> dict:
+    return {
+        'id': row.id,
+        'sender': row.sender,
+        'text': row.text,
+        'sources': json.loads(row.sources_json) if row.sources_json else [],
+        'created_at': row.created_at,
+    }
+
+
+@router.get('/assistant/messages')
+def list_assistant_messages(db: Session = Depends(get_db)):
+    """The most recent HISTORY_LIMIT messages, oldest first."""
+    rows = db.query(models.AssistantMessage).order_by(models.AssistantMessage.created_at.desc()).limit(HISTORY_LIMIT).all()
+    return [_serialize_message(row) for row in reversed(rows)]
+
+
+@router.post('/assistant/messages')
+def save_assistant_message(payload: StoredMessageIn, db: Session = Depends(get_db)):
+    if payload.sender not in ('user', 'bot'):
+        raise HTTPException(status_code=400, detail="sender must be 'user' or 'bot'.")
+    existing = db.query(models.AssistantMessage).filter_by(id=payload.id).first()
+    if existing:
+        return _serialize_message(existing)
+    row = models.AssistantMessage(
+        id=payload.id,
+        sender=payload.sender,
+        text=payload.text,
+        sources_json=json.dumps(payload.sources) if payload.sources else None,
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+    db.add(row)
+    db.commit()
+    return _serialize_message(row)
 
 
 def _api_key() -> str | None:

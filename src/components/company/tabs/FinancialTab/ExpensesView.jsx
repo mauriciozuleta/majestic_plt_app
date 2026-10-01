@@ -365,7 +365,9 @@ function ExpensesView() {
             .forEach((row) => {
               const rate = (row.percentValue || 0) / 100
               const base = row.percentOfMetric === 'gross_revenue' ? grossRevenueTotal : netProfitBeforePercentTotal
-              row.totalsByYear[yearIndex] = base * rate
+              // A loss-making period has no profit to take a percentage of —
+              // never a negative expense that silently shrinks the total.
+              row.totalsByYear[yearIndex] = Math.max(0, base) * rate
             })
         })
 
@@ -468,7 +470,9 @@ function ExpensesView() {
   percentEntries.forEach((entry) => {
     const rate = (entry.percent_value || 0) / 100
     const base = entry.percent_of_metric === 'gross_revenue' ? grossRevenueMonthly : netProfitBeforePercentMonthly
-    computedMonthsByCategory[entry.name] = base.map((value) => value * rate)
+    // A loss-making month has no profit to take a percentage of — never a
+    // negative expense that silently shrinks the total.
+    computedMonthsByCategory[entry.name] = base.map((value) => Math.max(0, value) * rate)
   })
 
   // The blended rate actually driving each computed row this year — shown

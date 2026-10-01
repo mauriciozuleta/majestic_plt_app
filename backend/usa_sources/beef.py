@@ -28,7 +28,7 @@ def fetch_beef_products():
         products.append(
             {
                 'category': 'Beef',
-                'product_en': f'Primal {name.strip()}',
+                'product_en': f'Beef Primal {name.strip()}',
                 'price': float(choice),
                 'unit': 'USD/cwt (100lb)',
                 'source_date': source_date,

@@ -58,7 +58,7 @@ def fetch_egg_products():
         products.append(
             {
                 'category': 'Eggs',
-                'product_en': f'{scope.title()} {housing} - {color} {size}',
+                'product_en': f'Shell Eggs, {scope.title()} {housing} - {color} {size}',
                 'price': round(wtd_avg / 100, 4),
                 'unit': f'USD/dozen (30-dozen case, {basis.get(scope, "FOB")})',
                 'source_date': source_date,
