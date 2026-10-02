@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, UniqueConstraint, JSON
 from .database import Base
 
 
@@ -1032,6 +1032,16 @@ class RevenueStreamRoute(Base):
     stream_id = Column(String, index=True, nullable=False)
     origin_branch_id = Column(String, nullable=False)
     destination_branch_id = Column(String, nullable=False)
+    # Where the aircraft flies after the destination (the second leg).
+    return_branch_id = Column(String, nullable=True)
+    # The air logistics provider record (Providers ▸ Air Logistics) and the
+    # aircraft flying the route; the names are kept too so the route still
+    # reads correctly if that provider record is later removed.
+    charter_provider_id = Column(String, nullable=True)
+    aircraft_id = Column(String, nullable=True)
+    provider_name = Column(String, nullable=True)
+    aircraft_name = Column(String, nullable=True)
+    return_type = Column(String, nullable=True)  # 'full' | 'compensated'
     created_at = Column(String, nullable=False)
 
 
@@ -1041,9 +1051,13 @@ class LogisticsAircraft(Base):
     shows each alongside its lb equivalent."""
 
     __tablename__ = 'logistics_aircraft'
+    __table_args__ = (UniqueConstraint('company_id', 'source_aircraft_id', name='uq_logistics_aircraft_source'),)
 
     id = Column(String, primary_key=True)
     company_id = Column(String, index=True, nullable=False)
+    in_fleet = Column(Boolean, nullable=False, default=False)
+    source_aircraft_id = Column(String, nullable=True)
+    source_data = Column(JSON, nullable=True)
     manufacturer = Column(String, nullable=False)
     model = Column(String, nullable=False)
     short_name = Column(String, nullable=False)
@@ -1076,11 +1090,26 @@ class CharterProvider(Base):
     company_id = Column(String, index=True, nullable=False)
     name = Column(String, nullable=False)
     country_name = Column(String, nullable=False)
-    main_base_iata = Column(String, nullable=False)
+    main_base_iata = Column(String, nullable=True)
     main_base_name = Column(String, nullable=True)
     main_base_city = Column(String, nullable=True)
     main_base_country = Column(String, nullable=True)
     aircraft_id = Column(String, nullable=False)
-    block_hour_cost = Column(Float, nullable=False)  # USD
+    block_hour_cost = Column(Float, nullable=True)  # USD; unknown until configured
+    source_company_id = Column(String, nullable=True)
     provider_type = Column(String, nullable=False)  # 'charter' | 'acmi' | 'by_kg'
+    created_at = Column(String, nullable=False)
+
+
+class ExpenseProvider(Base):
+    """A provider added by hand under an expense category (COS/Expenses ▸
+    Providers ▸ Expenses). Providers named on saved expenses (an entry's
+    paid_to) are listed alongside these without being copied here."""
+
+    __tablename__ = 'expense_providers'
+
+    id = Column(String, primary_key=True)
+    company_id = Column(String, index=True, nullable=False)
+    category_name = Column(String, nullable=False)
+    name = Column(String, nullable=False)
     created_at = Column(String, nullable=False)

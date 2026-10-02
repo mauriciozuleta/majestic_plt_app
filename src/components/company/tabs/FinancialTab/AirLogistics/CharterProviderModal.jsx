@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { lookupAirportByIata } from '../../../../../services/airports'
 import { PROVIDER_TYPES } from './providerTypes'
 
-function CharterProviderModal({ provider, countries, aircraftList, onSave, onCancel }) {
+function CharterProviderModal({ provider, countries, aircraftList, fleetLinked = false, onSave, onCancel }) {
   const [form, setForm] = useState({
     name: provider?.name ?? '',
     country_name: provider?.country_name ?? '',
     main_base_iata: provider?.main_base_iata ?? '',
-    aircraft_id: provider?.aircraft_id ?? '',
+    aircraft_id: provider?.aircraft_id ?? (fleetLinked && aircraftList.length === 1 ? aircraftList[0].id : ''),
     block_hour_cost: provider?.block_hour_cost ?? '',
     provider_type: provider?.provider_type ?? 'charter',
   })
@@ -15,9 +15,10 @@ function CharterProviderModal({ provider, countries, aircraftList, onSave, onCan
   const [airport, setAirport] = useState(
     provider ? { name: provider.main_base_name, city: provider.main_base_city, country: provider.main_base_country } : null,
   )
-  const [airportStatus, setAirportStatus] = useState(provider ? 'found' : 'idle')
+  const [airportStatus, setAirportStatus] = useState(provider?.main_base_iata ? 'found' : 'idle')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const selectedAircraft = aircraftList.find(item => item.id === form.aircraft_id)
 
   const setField = (field) => (event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))
 
@@ -43,11 +44,11 @@ function CharterProviderModal({ provider, countries, aircraftList, onSave, onCan
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    if (!form.name.trim() || !form.country_name || !form.aircraft_id || form.block_hour_cost === '') {
+    if (!form.name.trim() || !form.country_name || !form.aircraft_id || (!provider?.source_company_id && form.block_hour_cost === '')) {
       setError('Name, country, aircraft and block hour cost are required.')
       return
     }
-    if (airportStatus !== 'found') {
+    if (airportStatus !== 'found' && (form.main_base_iata || !provider?.source_company_id)) {
       setError('Enter the 3-letter IATA code of a real airport for the main base.')
       return
     }
@@ -57,12 +58,12 @@ function CharterProviderModal({ provider, countries, aircraftList, onSave, onCan
       await onSave({
         name: form.name.trim(),
         country_name: form.country_name,
-        main_base_iata: form.main_base_iata,
+        main_base_iata: form.main_base_iata || null,
         main_base_name: airport?.name ?? null,
         main_base_city: airport?.city ?? null,
         main_base_country: airport?.country ?? null,
         aircraft_id: form.aircraft_id,
-        block_hour_cost: Number(form.block_hour_cost),
+        block_hour_cost: form.block_hour_cost === '' ? null : Number(form.block_hour_cost),
         provider_type: form.provider_type,
       })
     } catch (err) {
@@ -75,6 +76,7 @@ function CharterProviderModal({ provider, countries, aircraftList, onSave, onCan
     <div className="revenue-stream-modal__overlay">
       <div className="revenue-stream-modal air-logistics-modal">
         <h3>{provider ? 'Edit Charter Provider' : 'Add Charter Provider'}</h3>
+        {fleetLinked && <p className="air-logistics-modal__hint">Choose from all aircraft created in the Aircraft Database. Specifications stay synchronized with Fleet Management.</p>}
         <form className="revenue-stream-modal__form" onSubmit={handleSubmit}>
           <div className="air-logistics-modal__grid">
             <label>
@@ -102,7 +104,7 @@ function CharterProviderModal({ provider, countries, aircraftList, onSave, onCan
               </span>
             </label>
             <label>
-              Aircraft
+              {fleetLinked ? 'Aircraft — Aircraft Database' : 'Aircraft'}
               <select value={form.aircraft_id} onChange={setField('aircraft_id')} disabled={aircraftList.length === 0}>
                 <option value="">{aircraftList.length ? 'Select an aircraft…' : 'Add an aircraft first'}</option>
                 {aircraftList.map((item) => (
@@ -127,6 +129,8 @@ function CharterProviderModal({ provider, countries, aircraftList, onSave, onCan
               </select>
             </label>
           </div>
+
+          {selectedAircraft && fleetLinked && <p className="air-logistics-modal__hint">{selectedAircraft.short_name} · Max payload: {Number(selectedAircraft.max_payload_kg).toLocaleString()} kg · Main / lower deck positions: {selectedAircraft.cargo_positions_main_deck} / {selectedAircraft.cargo_positions_lower_deck} · Fuel burn: {Number(selectedAircraft.fuel_burn_gal_hr).toLocaleString()} gal/h</p>}
 
           {airport && form.country_name && airport.country && airport.country !== form.country_name && (
             <p className="air-logistics-modal__hint">

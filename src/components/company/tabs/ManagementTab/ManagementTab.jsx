@@ -4,11 +4,14 @@ import RoadmapView from './RoadmapView/RoadmapView'
 import OrgChartView from './OrgChartView/OrgChartView'
 import PayrollView from './PayrollView/PayrollView'
 import RiskAnalysisView from './RiskAnalysisView/RiskAnalysisView'
+import AirOperationsManagement from './AirOperationsManagement'
 
 function ManagementTab() {
   const { companyId, sub } = useParams()
 
   switch (sub) {
+    case 'air-operations-management':
+      return <AirOperationsManagement />
     case 'org-chart':
       return <OrgChartView companyId={companyId} />
     case 'payroll':

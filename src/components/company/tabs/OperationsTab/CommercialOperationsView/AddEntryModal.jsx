@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import SimulationDatePicker from '../../../../shared/SimulationCalendar/SimulationDatePicker'
 import { fetchExpenseCategories } from '../../../../../services/expenses'
+import { fetchExpenseProviders, providersForCategory } from '../../../../../services/expenseProviders'
 import { fetchBankAccounts, fetchBankTransactions, normalizeBankName } from '../../../../../services/bankAccounts'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 import { CATEGORIES } from './categories'
@@ -37,6 +38,9 @@ function AddEntryModal({
   const [paidTo, setPaidTo] = useState(initialEntry?.paid_to ?? '')
   const [amount, setAmount] = useState(initialEntry ? String(initialEntry.amount) : '')
   const [expenseCategories, setExpenseCategories] = useState([])
+  const [providerGroups, setProviderGroups] = useState([])
+  // true = type a provider name instead of picking one from the category's list
+  const [typingNewProvider, setTypingNewProvider] = useState(false)
   const [bankAccounts, setBankAccounts] = useState([])
   const [selectedBankName, setSelectedBankName] = useState('')
   const [selectedAccountId, setSelectedAccountId] = useState('')
@@ -95,7 +99,22 @@ function AddEntryModal({
     fetchExpenseCategories()
       .then(setExpenseCategories)
       .catch(() => setExpenseCategories([]))
-  }, [category])
+    if (companyId) {
+      fetchExpenseProviders(companyId)
+        .then(setProviderGroups)
+        .catch(() => setProviderGroups([]))
+    }
+  }, [category, companyId])
+
+  // The selected expense category's known providers (from Providers ▸
+  // Expenses and from earlier expenses); when there are any, Provider is a
+  // dropdown, with the option to type a new one instead.
+  const categoryProviders = useMemo(
+    () => (category === 'expenses' ? providersForCategory(providerGroups, description) : []),
+    [category, providerGroups, description],
+  )
+  const providerIsKnown = categoryProviders.some((item) => item.name.toLowerCase() === paidTo.trim().toLowerCase())
+  const showProviderDropdown = categoryProviders.length > 0 && !typingNewProvider && (paidTo === '' || providerIsKnown)
 
   useEffect(() => {
     if (!companyId) return
@@ -174,11 +193,11 @@ function AddEntryModal({
       return
     }
     if (category === 'expenses' && !description) {
-      setError('Pick an expense category.')
+      setError('Pick a category.')
       return
     }
     if (category === 'cos' && !description.trim()) {
-      setError('Description is required.')
+      setError('Category is required.')
       return
     }
     if (category === 'expenses' && !entryType.trim()) {
@@ -198,7 +217,7 @@ function AddEntryModal({
       return
     }
     if (isDebitCategory && !paidTo.trim()) {
-      setError('Paid To is required.')
+      setError('Provider is required.')
       return
     }
     if (!selectedAccountId) {
@@ -397,8 +416,15 @@ function AddEntryModal({
           {category === 'expenses' && (
             <>
               <label>
-                Description
-                <select value={description} onChange={(event) => setDescription(event.target.value)}>
+                Category
+                <select
+                  value={description}
+                  onChange={(event) => {
+                    setDescription(event.target.value)
+                    setPaidTo('')
+                    setTypingNewProvider(false)
+                  }}
+                >
                   <option value="">-- Select an expense category --</option>
                   {expenseCategories.map((item) => (
                     <option key={item.id} value={item.name} disabled={item.percent_of_enabled}>
@@ -422,7 +448,7 @@ function AddEntryModal({
 
           {category === 'cos' && (
             <label>
-              Description
+              Category
               <input
                 type="text"
                 value={description}
@@ -467,13 +493,47 @@ function AddEntryModal({
 
           {isDebitCategory && (
             <label>
-              Paid To
-              <input
-                type="text"
-                value={paidTo}
-                onChange={(event) => setPaidTo(event.target.value)}
-                placeholder="Who is receiving the payment"
-              />
+              Provider
+              {showProviderDropdown ? (
+                <select
+                  value={paidTo}
+                  onChange={(event) => {
+                    if (event.target.value === '__new__') {
+                      setTypingNewProvider(true)
+                      setPaidTo('')
+                    } else {
+                      setPaidTo(event.target.value)
+                    }
+                  }}
+                >
+                  <option value="">-- Select a provider --</option>
+                  {categoryProviders.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                  <option value="__new__">+ New provider…</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={paidTo}
+                  onChange={(event) => setPaidTo(event.target.value)}
+                  placeholder="Who is receiving the payment"
+                />
+              )}
+              {categoryProviders.length > 0 && !showProviderDropdown && (
+                <button
+                  type="button"
+                  className="commercial-ops-modal__transfer-link"
+                  onClick={() => {
+                    setTypingNewProvider(false)
+                    setPaidTo('')
+                  }}
+                >
+                  Choose from this category's providers instead
+                </button>
+              )}
             </label>
           )}
 

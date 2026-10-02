@@ -18,11 +18,13 @@ const subTabLabels = {
   'revenue-streams': 'Revenue',
   expenses: 'COS/Expenses',
   'commercial-operations': 'Commercial Operations',
+  'cargo-load-operations': 'Cargo Load Operations',
   accounting: 'Accounting',
   'financial-modeling': 'Financial Modeling',
   'startup-investment': 'Start-up Investment',
   'bank-accounts': 'Bank Accounts',
   'risk-analysis': 'Risk Analysis',
+  'air-operations-management': 'Air Operations Management',
 }
 
 function slugify(value) {
@@ -39,11 +41,11 @@ const tabConfig = {
   },
   operations: {
     label: 'Operations',
-    subTabs: ['commercial-operations'],
+    subTabs: ['commercial-operations', 'cargo-load-operations'],
   },
   management: {
     label: 'Management',
-    subTabs: ['roadmap', 'org-chart', 'payroll', 'risk-analysis'],
+    subTabs: ['roadmap', 'org-chart', 'payroll', 'risk-analysis', 'air-operations-management'],
   },
   financial: {
     label: 'Financial',
@@ -151,7 +153,7 @@ function CompanyWorkspace() {
 
       <div className="company-workspace__subtabs">
         {['management', 'financial', 'operations'].includes(activeTab) ? (
-          tabConfig[activeTab].subTabs.map((entry) => (
+          tabConfig[activeTab].subTabs.filter((entry) => !['cargo-load-operations', 'air-operations-management'].includes(entry) || /majestic.*cargo/i.test(company.name)).map((entry) => (
             <NavLink
               key={entry}
               to={`/company/${companyId}/${activeTab}/${entry}`}

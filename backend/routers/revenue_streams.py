@@ -53,11 +53,26 @@ def create_revenue_stream(company_id: str, payload: RevenueStreamCreate, db: Ses
 class RevenueStreamRouteCreate(BaseModel):
     origin_branch_id: str
     destination_branch_id: str
+    return_branch_id: str
+    charter_provider_id: str
+    aircraft_id: str
+    return_type: str
 
 
-class RevenueStreamRouteOut(RevenueStreamRouteCreate):
+RETURN_TYPES = {'full', 'compensated'}
+
+
+class RevenueStreamRouteOut(BaseModel):
     id: str
     stream_id: str
+    origin_branch_id: str
+    destination_branch_id: str
+    return_branch_id: str | None = None
+    charter_provider_id: str | None = None
+    aircraft_id: str | None = None
+    provider_name: str | None = None
+    aircraft_name: str | None = None
+    return_type: str | None = None
     created_at: str
 
     class Config:
@@ -76,24 +91,79 @@ def list_revenue_stream_routes(company_id: str, db: Session = Depends(get_db)):
     )
 
 
+def _validated_route_fields(db: Session, company_id: str, payload: RevenueStreamRouteCreate) -> dict:
+    """Checks the two branches and the provider/aircraft pair, and returns the
+    column values to store (including the provider/aircraft display names)."""
+    if payload.origin_branch_id == payload.destination_branch_id:
+        raise HTTPException(status_code=400, detail='Origin and destination must be different branches.')
+    if payload.return_branch_id == payload.destination_branch_id:
+        raise HTTPException(status_code=400, detail='The return airport must differ from the destination.')
+    # The return airport may be the origin itself (a round trip).
+    branch_ids = {payload.origin_branch_id, payload.destination_branch_id, payload.return_branch_id}
+    found = db.query(models.CommercialBranch.id).filter(models.CommercialBranch.id.in_(branch_ids)).count()
+    if found != len(branch_ids):
+        raise HTTPException(status_code=400, detail='Origin, destination and return must all be branches in the commercial structure.')
+    if payload.return_type not in RETURN_TYPES:
+        raise HTTPException(status_code=400, detail="Type of return must be 'full' or 'compensated'.")
+    provider = db.query(models.CharterProvider).filter_by(id=payload.charter_provider_id, company_id=company_id).first()
+    if not provider:
+        raise HTTPException(status_code=400, detail='Choose an air logistics provider from Providers ▸ Air Logistics.')
+    # A provider record flies exactly one aircraft; a provider with several
+    # aircraft has one record per aircraft.
+    if provider.aircraft_id != payload.aircraft_id:
+        raise HTTPException(status_code=400, detail='That aircraft is not assigned to this provider.')
+    aircraft = db.query(models.LogisticsAircraft).filter_by(id=payload.aircraft_id).first()
+    return {
+        'origin_branch_id': payload.origin_branch_id,
+        'destination_branch_id': payload.destination_branch_id,
+        'return_branch_id': payload.return_branch_id,
+        'charter_provider_id': provider.id,
+        'aircraft_id': payload.aircraft_id,
+        'provider_name': provider.name,
+        'aircraft_name': f'{aircraft.short_name} ({aircraft.model})' if aircraft else None,
+        'return_type': payload.return_type,
+    }
+
+
+def _get_route(db: Session, company_id: str, stream_id: str, route_id: str) -> models.RevenueStreamRoute:
+    if not db.query(models.RevenueStream).filter_by(id=stream_id, company_id=company_id).first():
+        raise HTTPException(status_code=404, detail='Revenue stream not found')
+    route = db.query(models.RevenueStreamRoute).filter_by(id=route_id, stream_id=stream_id).first()
+    if not route:
+        raise HTTPException(status_code=404, detail='Route not found')
+    return route
+
+
 @router.post('/companies/{company_id}/revenue-streams/{stream_id}/routes', response_model=RevenueStreamRouteOut)
 def create_revenue_stream_route(company_id: str, stream_id: str, payload: RevenueStreamRouteCreate, db: Session = Depends(get_db)):
     if not db.query(models.RevenueStream).filter_by(id=stream_id, company_id=company_id).first():
         raise HTTPException(status_code=404, detail='Revenue stream not found')
-    branch_ids = {payload.origin_branch_id, payload.destination_branch_id}
-    if len(branch_ids) != 2:
-        raise HTTPException(status_code=400, detail='Origin and destination must be different branches.')
-    found = db.query(models.CommercialBranch.id).filter(models.CommercialBranch.id.in_(branch_ids)).count()
-    if found != 2:
-        raise HTTPException(status_code=400, detail='Origin and destination must both be branches in the commercial structure.')
     route = models.RevenueStreamRoute(
         id=str(uuid.uuid4()),
         stream_id=stream_id,
-        origin_branch_id=payload.origin_branch_id,
-        destination_branch_id=payload.destination_branch_id,
         created_at=datetime.now(timezone.utc).isoformat(),
+        **_validated_route_fields(db, company_id, payload),
     )
     db.add(route)
     db.commit()
     db.refresh(route)
     return route
+
+
+@router.put('/companies/{company_id}/revenue-streams/{stream_id}/routes/{route_id}', response_model=RevenueStreamRouteOut)
+def update_revenue_stream_route(
+    company_id: str, stream_id: str, route_id: str, payload: RevenueStreamRouteCreate, db: Session = Depends(get_db)
+):
+    route = _get_route(db, company_id, stream_id, route_id)
+    for field, value in _validated_route_fields(db, company_id, payload).items():
+        setattr(route, field, value)
+    db.commit()
+    db.refresh(route)
+    return route
+
+
+@router.delete('/companies/{company_id}/revenue-streams/{stream_id}/routes/{route_id}', status_code=204)
+def delete_revenue_stream_route(company_id: str, stream_id: str, route_id: str, db: Session = Depends(get_db)):
+    route = _get_route(db, company_id, stream_id, route_id)
+    db.delete(route)
+    db.commit()

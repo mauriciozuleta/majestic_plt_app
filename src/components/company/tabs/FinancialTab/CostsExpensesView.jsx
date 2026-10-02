@@ -3,6 +3,7 @@ import FinancialSubNav from './FinancialSubNav'
 import ExpensesView from './ExpensesView'
 import StubSection from './StubSection'
 import ProvidersView from './ProvidersView'
+import CostOfSalesView from './CostOfSalesView'
 
 const SECTIONS = [
   { slug: 'cost-of-sales', label: 'Cost of Sales', description: 'The direct costs of delivering each revenue stream.' },
@@ -23,7 +24,9 @@ function CostsExpensesView() {
     <div className="panel-surface">
       <h3>COS/Expenses</h3>
       <FinancialSubNav basePath={`/company/${companyId}/financial/expenses`} items={SECTIONS} />
-      {activeSection.slug === 'expenses' ? (
+      {activeSection.slug === 'cost-of-sales' ? (
+        <CostOfSalesView />
+      ) : activeSection.slug === 'expenses' ? (
         <ExpensesView />
       ) : activeSection.slug === 'providers' ? (
         <ProvidersView />

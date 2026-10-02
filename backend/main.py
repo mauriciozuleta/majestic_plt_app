@@ -13,11 +13,14 @@ load_dotenv()
 
 from .accounting_audit_scheduler import start_accounting_audit_scheduler
 from .database import Base, engine
+from .aircraft_catalog import migrate_aircraft_to_cargo
+from .charter_defaults import migrate_provider_fields
 from .routers import (
     accounting_audit,
     air_logistics,
     bank_accounts,
     commercial_operations,
+    packer,
     commercial_structure,
     companies,
     competitiveness,
@@ -25,6 +28,7 @@ from .routers import (
     country_profile,
     currency,
     expense_categories,
+    expense_providers,
     general_ledger,
     assistant,
     knowledge_base,
@@ -59,6 +63,18 @@ EXTERNAL_COUNTRY_DB = r'D:\OneDrive\0. software Lab\AI_FRESH24\db.sqlite3'
 def _ensure_schema_migrations():
     inspector = inspect(engine)
     with engine.begin() as connection:
+        migrate_provider_fields(connection)
+        if 'logistics_aircraft' in inspector.get_table_names():
+            aircraft_columns = {c['name'] for c in inspector.get_columns('logistics_aircraft')}
+            # Existing aircraft remain selected. Imported/new catalogue records opt in explicitly.
+            for column, definition in [('in_fleet', 'BOOLEAN NOT NULL DEFAULT 1'), ('source_aircraft_id', 'VARCHAR'), ('source_data', 'JSON')]:
+                if column not in aircraft_columns:
+                    connection.execute(text(f'ALTER TABLE logistics_aircraft ADD COLUMN {column} {definition}'))
+            connection.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS uq_logistics_aircraft_source ON logistics_aircraft(company_id, source_aircraft_id)'))
+            migrate_aircraft_to_cargo(connection)
+        if 'packer_aircraft' in inspector.get_table_names():
+            if 'hidden' not in {c['name'] for c in inspector.get_columns('packer_aircraft')}:
+                connection.execute(text('ALTER TABLE packer_aircraft ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT 0'))
         # Start-up investment moved from one flat months-array per category to
         # per-record entries (with name/description/installments) grouped by
         # category — the old table only ever held zero-filled placeholder
@@ -497,6 +513,11 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE market_opportunity_comparisons ADD COLUMN conversion_note VARCHAR'))
             if 'hs_code' not in comparison_columns:
                 connection.execute(text('ALTER TABLE market_opportunity_comparisons ADD COLUMN hs_code VARCHAR'))
+        if 'revenue_stream_routes' in inspector.get_table_names():
+            route_columns = {column['name'] for column in inspector.get_columns('revenue_stream_routes')}
+            for column in ('return_branch_id', 'charter_provider_id', 'aircraft_id', 'provider_name', 'aircraft_name', 'return_type'):
+                if column not in route_columns:
+                    connection.execute(text(f'ALTER TABLE revenue_stream_routes ADD COLUMN {column} VARCHAR'))
 
 
 _ensure_schema_migrations()
@@ -528,6 +549,7 @@ app.include_router(product_classification.router)
 app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)
 app.include_router(commercial_operations.router)
+app.include_router(packer.router)
 app.include_router(startup_investment.router)
 app.include_router(sim_parameters.router)
 app.include_router(revenue_streams.router)
@@ -549,6 +571,7 @@ app.include_router(unit_weight_estimates.router)
 app.include_router(species_gallery.router)
 app.include_router(product_matches.router)
 app.include_router(air_logistics.router)
+app.include_router(expense_providers.router)
 
 
 @app.on_event('startup')

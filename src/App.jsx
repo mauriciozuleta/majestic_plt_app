@@ -67,6 +67,7 @@ function Layout() {
               <Route path="/company/:companyId" element={<CompanyWorkspace />}>
                 <Route path="overview" element={<OverviewTab />} />
                 <Route path="management/:sub" element={<ManagementTab />} />
+                <Route path="management/:sub/:section" element={<ManagementTab />} />
                 <Route path="financial/:sub" element={<FinancialTab />} />
                 <Route path="financial/:sub/:section" element={<FinancialTab />} />
                 <Route path="operations/market-analysis" element={<Navigate to="/market-analysis" replace />} />

@@ -1,0 +1,18 @@
+.fleet-search { width: min(100%, 420px); box-sizing: border-box; background: var(--bg-panel); color: var(--text-primary); border: 1px solid var(--border-strong); border-radius: 6px; padding: .6rem .75rem; margin: .4rem 0 .8rem; font: inherit; font-size: .78rem; }
+.fleet-notice { color: var(--accent-teal-text); background: rgba(53,211,153,.07); border: 1px solid var(--border); border-radius: 6px; padding: .7rem; font-size: .8rem; }
+.fleet-selection-dialog { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-strong); border-radius: 12px; padding: 1.4rem; width: min(600px, 85vw); max-height: 80vh; }
+.fleet-selection-dialog::backdrop { background: rgba(0,0,0,.7); }
+.fleet-selection-dialog h3 { margin-top: 0; color: var(--text-primary); }
+.fleet-selection-dialog p { font-size: .8rem; line-height: 1.6; }
+.fleet-selection-list { display: flex; flex-direction: column; gap: .4rem; max-height: 40vh; overflow-y: auto; }
+.fleet-selection-list label { display: flex; gap: .7rem; align-items: center; padding: .8rem; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; font-size: .8rem; cursor: pointer; }
+.fleet-management input[type=checkbox], .fleet-selection-dialog input[type=checkbox] { accent-color: var(--accent-amber); }
+.fleet-management .air-logistics__table td { white-space: nowrap; }
+.fleet-database-heading { display: flex; align-items: center; gap: .8rem; margin-bottom: .6rem; flex-wrap: wrap; }
+.fleet-database-heading h4 { margin: 0; }
+.fleet-database-toggle { display: inline-flex; align-items: center; gap: .4rem; border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.fleet-database-toggle:focus-visible { outline: 2px solid var(--accent-amber); outline-offset: 4px; border-radius: 2px; }
+.fleet-database-heading .fleet-database-triangle { color: inherit; font-size: .85rem; }
+.fleet-database-heading span { color: var(--text-muted); font-size: .78rem; }
+.fleet-database-heading .fleet-database-refresh { margin-left: auto; }
+.fleet-database-description { margin: 0 0 .6rem; color: var(--text-muted); font-size: .78rem; }

@@ -14,6 +14,11 @@ async function request(path, options) {
 const json = (method, payload) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
 
 export const fetchAircraft = (companyId) => request(`/companies/${companyId}/air-logistics/aircraft`)
+export const fetchAircraftCatalogue = (companyId) => request(`/companies/${companyId}/air-logistics/aircraft-catalogue`)
+export const addAircraftToFleet = (companyId, aircraftIds) =>
+  request(`/companies/${companyId}/air-logistics/fleet`, json('POST', { aircraft_ids: aircraftIds }))
+export const removeAircraftFromFleet = (companyId, aircraftId) =>
+  request(`/companies/${companyId}/air-logistics/fleet/${aircraftId}`, { method: 'DELETE' })
 export const saveAircraft = (companyId, aircraftId, payload) =>
   aircraftId
     ? request(`/companies/${companyId}/air-logistics/aircraft/${aircraftId}`, json('PUT', payload))

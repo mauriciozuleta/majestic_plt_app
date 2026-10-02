@@ -61,11 +61,17 @@ function AircraftModal({ aircraft, onSave, onCancel }) {
   const [form, setForm] = useState(() => initialState(aircraft))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const ranges = useMemo(() => computeRanges(form), [form])
+  const [rangesDirty, setRangesDirty] = useState(!aircraft)
+  const computedRanges = useMemo(() => computeRanges(form), [form])
+  const ranges = rangesDirty ? computedRanges : { atMaxPayload: aircraft.max_range_at_max_payload_nm, withMaxFuel: aircraft.max_range_with_max_fuel_nm }
 
-  const setField = (field) => (event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))
+  const setField = (field) => (event) => {
+    if (field === 'cruise_speed_kt') setRangesDirty(true)
+    setForm((prev) => ({ ...prev, [field]: event.target.value }))
+  }
   // Editing either side of a pair updates the other, like the original form.
   const setPair = (field, factor, side) => (event) => {
+    setRangesDirty(true)
     const text = event.target.value
     setForm((prev) =>
       side === 'base'

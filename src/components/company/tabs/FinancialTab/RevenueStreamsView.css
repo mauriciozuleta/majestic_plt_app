@@ -183,3 +183,116 @@
   background: rgba(249, 115, 22, 0.18);
   color: var(--accent-amber-text);
 }
+
+.revenue-streams-view__actions-col {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.revenue-streams-view__row-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  margin-left: 0.35rem;
+}
+
+.revenue-streams-view__row-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.revenue-streams-view__row-btn--danger {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+.revenue-streams-view__toggle-col {
+  width: 1.75rem;
+  padding-right: 0 !important;
+}
+
+.revenue-streams-view__toggle {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.25rem;
+}
+
+.revenue-streams-view__toggle:hover {
+  color: var(--text-primary);
+}
+
+.revenue-streams-view__code {
+  color: var(--text-primary);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: underline dotted var(--text-dim);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.revenue-streams-view__routes tr.is-expanded td {
+  background: var(--bg-panel);
+}
+
+.revenue-streams-view__details-row td {
+  background: var(--bg-panel);
+  border-top: none !important;
+}
+
+/* width: 0 + min-width: 100% keeps the cards from widening the table cell,
+   so the cell keeps the table's width and the cards scroll inside it. */
+.revenue-streams-view__details {
+  box-sizing: border-box;
+  width: 0;
+  min-width: 100%;
+  overflow-x: auto;
+  padding: 0.2rem 0 0.5rem 1.75rem;
+}
+
+/* Two rows (outbound, return) of six aligned columns; scrolls sideways when narrow */
+.revenue-streams-view__legs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(10.5rem, 1fr));
+  gap: 0.6rem;
+  min-width: calc(6 * 10.5rem + 5 * 0.6rem);
+}
+
+.revenue-streams-view__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  padding: 0.5rem 0.65rem;
+}
+
+.revenue-streams-view__metric-label {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.revenue-streams-view__metric-value {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.revenue-streams-view__metric-note {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.revenue-streams-view__metric-note.is-warn {
+  color: #fca5a5;
+}

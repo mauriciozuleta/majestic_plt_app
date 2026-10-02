@@ -39,3 +39,24 @@ export async function createRevenueStreamRoute(companyId, streamId, payload) {
   }
   return response.json()
 }
+
+export async function updateRevenueStreamRoute(companyId, streamId, routeId, payload) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null)
+    throw new Error(detail?.detail || 'Failed to update the route')
+  }
+  return response.json()
+}
+
+export async function deleteRevenueStreamRoute(companyId, streamId, routeId) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}`, { method: 'DELETE' })
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null)
+    throw new Error(detail?.detail || 'Failed to delete the route')
+  }
+}
