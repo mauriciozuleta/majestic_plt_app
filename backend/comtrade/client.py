@@ -158,18 +158,35 @@ def fetch_subheadings(db: Session, reporter_code: int, year: int, flow: str, hea
     if cached:
         return cached[0]['products']
 
-    rows = _call({'reporterCode': reporter_code, 'period': year, 'partnerCode': 0, 'cmdCode': 'AG6', 'flowCode': flow})
-    # Same shape as fetch_products above: one call returns every 6-digit
-    # subheading for the country/year, filtered here to the requested
-    # heading.
+    # One call returns every 6-digit subheading for the country/year (see
+    # fetch_all_subheadings, which caches that whole set), filtered here to
+    # the requested heading.
     results = [
-        {'hs_code': row['cmdCode'], 'description': classification.subheading_description(row['cmdCode']), 'value': _value_of(row)}
-        for row in rows
-        if row.get('cmdCode') and str(row['cmdCode'])[:4] == heading
+        {'hs_code': code, 'description': classification.subheading_description(code), 'value': value}
+        for code, value in fetch_all_subheadings(db, reporter_code, year, flow).items()
+        if code[:4] == heading
     ]
     results.sort(key=lambda item: item['value'], reverse=True)
     snapshot_store.save_snapshot(db, cache_key, results)
     return results
+
+
+def fetch_all_subheadings(db: Session, reporter_code: int, year: int, flow: str) -> dict[str, float]:
+    """{hs6_code: value} for every 6-digit subheading one country reported
+    for one year/flow — a single Comtrade call (AG6 has no per-heading
+    filter, so this is what every subheading lookup costs anyway), cached
+    indefinitely as a whole so any later lookup for that country/year, for
+    any product, costs nothing (see product-level SAM in
+    routers/comtrade.py)."""
+    cache_key = f'comtrade_all_subheadings_{flow}_{reporter_code}_{year}'
+    cached = snapshot_store.list_snapshots(db, [cache_key])
+    if cached:
+        return cached[0]['products']
+
+    rows = _call({'reporterCode': reporter_code, 'period': year, 'partnerCode': 0, 'cmdCode': 'AG6', 'flowCode': flow})
+    values = {str(row['cmdCode']): _value_of(row) for row in rows if row.get('cmdCode')}
+    snapshot_store.save_snapshot(db, cache_key, values)
+    return values
 
 
 def fetch_global_total(db: Session, chapter: str, year: int, flow: str) -> list[dict]:

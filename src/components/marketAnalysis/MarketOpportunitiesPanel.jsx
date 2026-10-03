@@ -1,9 +1,8 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMarketAnalysisRegions } from '../../services/commercialStructure'
 import { fetchProductSources } from '../../services/productSources'
-import { computeMarketOpportunity, saveMarketOpportunityComparisons } from '../../services/marketOpportunities'
-import { buildCategoryCoverage } from '../../services/productPortfolio'
-import { fetchSamOverview } from '../../services/globalTradeData'
+import { fetchMarketOpportunityPairs, getOrComputeComparison } from '../../services/marketOpportunities'
+import { fetchProductSam } from '../../services/globalTradeData'
 import { formatCurrencyValue } from '../../utils/currencyFormat'
 
 const TARGET_OPTIONS = [
@@ -16,9 +15,15 @@ const RATING_ORDER = ['Very High', 'High', 'Challenging', 'Complex', 'Difficult'
 const SORT_OPTIONS = [
   { key: 'rating', label: 'Opportunity Rating' },
   { key: 'diff_pct', label: 'Diff %' },
-  { key: 'sam_desc', label: 'SAM (High to Low)' },
-  { key: 'sam_asc', label: 'SAM (Low to High)' },
+  { key: 'sam_desc', label: 'Country SAM (High to Low)' },
+  { key: 'sam_asc', label: 'Country SAM (Low to High)' },
 ]
+
+// SAM here is product-level: UN Comtrade imports of the row's exact 6-digit
+// HS code, each country at its latest reported year.
+const SAM_SCOPE_NOTE = "Imports of the product's exact 6-digit HS code (UN Comtrade), each country's latest reported year."
+
+const formatDateTime = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 function ratingRank(rating) {
   const index = RATING_ORDER.indexOf(rating)
@@ -94,63 +99,53 @@ function reviewBadges(row) {
   return badges
 }
 
-// Results: runs computeMarketOpportunity() (src/services/marketOpportunities.js)
-// for the current source/target selection, persists the scored rows (Step
-// 3/5 of the spec — backend computes diff_pct/opportunity_rating/
-// match_confidence, this just merges the display-only target product name
-// back in by array position, since the POST preserves row order), and
-// renders a sortable/filterable table plus the separate "no match found in
-// target market" list. Recomputes whenever the selection actually changes
-// (source/targetCountries) — a fresh run each time, not an incremental
-// patch, same convention the backend's own overwrite-on-save already uses.
-function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, region }) {
+// Results: when every target country in the selection already has a saved
+// comparison, that saved run is shown as-is (no recompute, no AI calls);
+// otherwise — or on Recompute — runs computeMarketOpportunity()
+// (src/services/marketOpportunities.js), persists the scored rows (Step 3/5
+// of the spec — backend computes diff_pct/opportunity_rating/
+// match_confidence) together with the target product names and the
+// unmatched list, and renders a sortable/filterable table plus the separate
+// "no match found in target market" list. A run is a full recompute of its
+// scope, same convention the backend's own overwrite-on-save already uses.
+function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, region, onSaved }) {
   const [runStatus, setRunStatus] = useState('idle')
   const [runError, setRunError] = useState(null)
   const [aiMatchErrors, setAiMatchErrors] = useState({})
   const [rows, setRows] = useState([])
   const [unmatchedByTarget, setUnmatchedByTarget] = useState({})
   const [calculatedAt, setCalculatedAt] = useState(null)
+  // 'saved' when the rows were loaded from a saved run, 'computed' after a fresh run
+  const [resultOrigin, setResultOrigin] = useState(null)
+  // true when a saved run predates saving the unmatched list
+  const [unmatchedUnknown, setUnmatchedUnknown] = useState(false)
+  // { key, at } — set by the Recompute button; `at` tells a new click apart
+  const [recomputeRequest, setRecomputeRequest] = useState(null)
+  const handledRecomputeRef = useRef(null)
   const [sortKey, setSortKey] = useState('rating')
   const [search, setSearch] = useState('')
   const [targetFilter, setTargetFilter] = useState('')
-  // SAM, by 2-digit HS chapter, scoped to the region this run's countries
-  // actually belong to (both Target modes only ever draw from one region —
-  // Select Country only lists countries inside the already-selected
-  // region). `regionTotal` is SAM's own region-level chapter total; `byCountry`
-  // is that same chapter's per-country breakdown within it — which one a
-  // row shows depends on whether this run is "By Region" or "By Country"
-  // (see the SAM cell below), never both blended into one figure.
-  const [samByChapter, setSamByChapter] = useState(new Map())
+  // Product-level SAM for the run's region: every 6-digit HS code in the
+  // rows, per country and summed for the region (both Target modes only ever
+  // draw from one region). Fetched once the rows are in; costs at most one
+  // Comtrade call per country the first time (cached after).
+  const [productSam, setProductSam] = useState({ status: 'idle', data: null, error: null })
+  const hsKey = useMemo(
+    () => [...new Set(rows.map((row) => row.hs_code).filter((code) => /^\d{6}$/.test(code || '')))].sort().join(','),
+    [rows],
+  )
 
   useEffect(() => {
+    if (!region || !hsKey) return undefined
     let cancelled = false
-    buildCategoryCoverage()
-      .then((coverage) => {
-        const chapterList = Object.keys(coverage)
-        if (chapterList.length === 0) return null
-        return fetchSamOverview(chapterList)
-      })
-      .then((data) => {
-        if (cancelled || !data) return
-        const regionData = (data.regions || []).find((row) => row.region === region)
-        const map = new Map()
-        ;(regionData?.categories || []).forEach((category) => {
-          map.set(category.chapter, {
-            regionTotal: category.value,
-            byCountry: new Map((category.countries || []).map((c) => [c.name, c.value])),
-          })
-        })
-        setSamByChapter(map)
-      })
-      .catch(() => {
-        // SAM is a supplementary figure here — its own tab already surfaces
-        // load errors; this column just shows "—" rather than blocking the
-        // comparison table over it.
-      })
+    setProductSam({ status: 'loading', data: null, error: null })
+    fetchProductSam(region, hsKey.split(','))
+      .then((data) => !cancelled && setProductSam({ status: 'ready', data, error: null }))
+      .catch((err) => !cancelled && setProductSam({ status: 'error', data: null, error: err?.message || 'Could not load SAM.' }))
     return () => {
       cancelled = true
     }
-  }, [region])
+  }, [region, hsKey])
   // Which rating groups are expanded — same "starts collapsed, click to
   // open" convention as this app's other collapsible sections
   // (AvailableCategoriesPanel's HS sections, GlobalTamPanel's category
@@ -158,30 +153,28 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   const [expandedRatings, setExpandedRatings] = useState(() => new Set())
 
   const targetKey = targetCountries.join('|')
+  const runKey = `${sourceCountry}>${targetKey}`
 
   useEffect(() => {
     if (!sourceCountry || targetCountries.length === 0) return undefined
     let cancelled = false
+    const forceRecompute = recomputeRequest?.key === runKey && recomputeRequest.at !== handledRecomputeRef.current
+    handledRecomputeRef.current = recomputeRequest?.at ?? null
+
     setRunStatus('running')
     setRunError(null)
-    computeMarketOpportunity(sourceCountry, targetCountries)
-      .then(async ({ rows: computedRows, unmatchedByTarget: unmatched, aiMatchErrors: aiErrors }) => {
+    getOrComputeComparison(sourceCountry, targetCountries, { force: forceRecompute })
+      .then((result) => {
+        // A fresh run is saved even if the selection changed meanwhile, so the
+        // saved list still needs refreshing.
+        if (result.origin === 'computed' && result.rows.length > 0) onSaved?.()
         if (cancelled) return
-        setAiMatchErrors(aiErrors || {})
-        if (computedRows.length === 0) {
-          setRows([])
-          setUnmatchedByTarget(unmatched)
-          setCalculatedAt(new Date().toISOString())
-          setRunStatus('ready')
-          return
-        }
-        const payload = computedRows.map(({ _target_display_name, ...rest }) => rest)
-        const saved = await saveMarketOpportunityComparisons(payload)
-        if (cancelled) return
-        const merged = saved.rows.map((row, index) => ({ ...row, _target_display_name: computedRows[index]?._target_display_name }))
-        setRows(merged)
-        setUnmatchedByTarget(unmatched)
-        setCalculatedAt(saved.calculated_at)
+        setAiMatchErrors(result.aiMatchErrors)
+        setRows(result.rows)
+        setUnmatchedByTarget(result.unmatchedByTarget)
+        setUnmatchedUnknown(result.unmatchedUnknown)
+        setCalculatedAt(result.calculatedAt)
+        setResultOrigin(result.origin)
         setRunStatus('ready')
       })
       .catch((err) => {
@@ -193,27 +186,41 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- targetKey is targetCountries' own stable identity
-  }, [sourceCountry, targetKey])
+  }, [sourceCountry, targetKey, recomputeRequest])
 
-  // SAM for this row's own 2-digit chapter — the REGION total in a "By
-  // Region" run (every target country in the run belongs to it), or that
-  // specific target country's own contribution to it in a "By Country" run
-  // — never both, matching whichever scope the current selection is
-  // actually in. Null when the product isn't classified yet, or SAM hasn't
-  // been computed for this region/chapter at all. Defined before
-  // filteredSortedRows below (not just for readability — its useMemo
+  // SAM for this row's own 6-digit HS code, two ways: the REGION total (all
+  // countries of the run's region that reported it) and the row's own TARGET
+  // COUNTRY's figure. Null when the product has no 6-digit code yet, or no
+  // country reported it. Defined before filteredSortedRows below (its useMemo
   // callback runs synchronously this render and would otherwise reference
-  // this function before it's assigned).
-  const getSamValue = useCallback(
-    (row) => {
-      const chapter = row.hs_code ? row.hs_code.slice(0, 2) : null
-      if (!chapter) return null
-      const entry = samByChapter.get(chapter)
-      if (!entry) return null
-      return isRegion ? entry.regionTotal : (entry.byCountry.get(row.target_country) ?? null)
-    },
-    [samByChapter, isRegion],
-  )
+  // these before they're assigned).
+  const samProductFor = useCallback((row) => productSam.data?.products?.[row.hs_code] ?? null, [productSam])
+  const getRegionSam = useCallback((row) => samProductFor(row)?.region_total ?? null, [samProductFor])
+  const getSamValue = useCallback((row) => samProductFor(row)?.countries?.[row.target_country]?.value ?? null, [samProductFor])
+  const samCountryStatus = (name) => productSam.data?.countries?.find((item) => item.name === name) ?? null
+  const samTitle = (row, scope) => {
+    if (productSam.status === 'loading') return 'Loading product-level SAM…'
+    if (productSam.status === 'error') return productSam.error
+    if (!/^\d{6}$/.test(row.hs_code || '')) return 'Product has no 6-digit HS code yet'
+    const product = samProductFor(row)
+    if (scope === 'region') {
+      const reported = Object.entries(product?.countries || {})
+      const total = productSam.data?.countries?.length ?? 0
+      if (!reported.length) return `No country in ${region} reported imports of HS ${row.hs_code}`
+      return `HS ${row.hs_code} imports — ${region}, ${reported.length} of ${total} countries reported: ${reported
+        .map(([name, item]) => `${name} ${item.year}`)
+        .join(', ')}`
+    }
+    const country = product?.countries?.[row.target_country]
+    if (country) return `HS ${row.hs_code} imports — ${row.target_country}, ${country.year}`
+    const status = samCountryStatus(row.target_country)
+    if (status?.status === 'error') return `Couldn't load ${row.target_country}'s figures: ${status.error}`
+    if (status?.status === 'no_product_data') return `${row.target_country} has no 6-digit trade data`
+    if (status?.status === 'no_data' || status?.status === 'not_in_comtrade') return `${row.target_country} has no UN Comtrade data`
+    return `${row.target_country} reported no imports of HS ${row.hs_code}${status?.year ? ` in ${status.year}` : ''}`
+  }
+  const formatSamCell = (value) => (productSam.status === 'loading' ? '…' : formatSam(value))
+  const samProblems = (productSam.data?.countries || []).filter((item) => item.status === 'error')
 
   const filteredSortedRows = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -271,6 +278,9 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
     [unmatchedByTarget],
   )
   const totalUnmatched = unmatchedEntries.reduce((sum, [, list]) => sum + list.length, 0)
+  // Source products found in the target market — one row each (per target
+  // country); a run saved before that rule may still have several.
+  const matchedProductCount = useMemo(() => new Set(rows.map((row) => `${row.target_country}|${row.product_name}`)).size, [rows])
 
   // Same "collapsed by default, click to open" treatment as the rating
   // groups above — grouped by target country, its own natural key (a
@@ -286,6 +296,8 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
     })
   }
 
+  const recompute = () => setRecomputeRequest({ key: runKey, at: Date.now() })
+
   if (runStatus === 'idle' || runStatus === 'running') {
     return <p className="market-analysis__hint">Comparing {sourceCountry}'s prices against {targetCountries.length > 1 ? `${targetCountries.length} countries` : targetCountries[0]}…</p>
   }
@@ -293,10 +305,24 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
 
   return (
     <div className="market-opportunities__results">
-      <p className="market-analysis__hint">
-        {rows.length} matched product{rows.length === 1 ? '' : 's'} compared, {totalUnmatched} with no match found in
-        the target market. {calculatedAt && `Last computed: ${new Date(calculatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.`}
-      </p>
+      <div className="market-opportunities__run-info">
+        <p className="market-analysis__hint">
+          {matchedProductCount} {sourceCountry} product{matchedProductCount === 1 ? '' : 's'} found in the target market
+          {rows.length !== matchedProductCount && ` (${rows.length} rows — recompute for one row per product)`},{' '}
+          {unmatchedUnknown ? 'unmatched products not saved with this run' : `${totalUnmatched} with no match found in the target market`}.{' '}
+          {calculatedAt && (resultOrigin === 'saved' ? `Saved comparison, computed ${formatDateTime(calculatedAt)}.` : `Last computed: ${formatDateTime(calculatedAt)}.`)}
+        </p>
+        <button type="button" className="market-opportunities__recompute" onClick={recompute}>
+          Recompute
+        </button>
+      </div>
+      {productSam.status === 'error' && <p className="market-analysis__hint">Product-level SAM didn't load ({productSam.error}).</p>}
+      {samProblems.length > 0 && (
+        <p className="market-analysis__hint">
+          Product-level SAM is missing {samProblems.map((item) => `${item.name} (${item.error})`).join(', ')} — the region totals leave
+          {samProblems.length === 1 ? ' it' : ' them'} out.
+        </p>
+      )}
       {Object.entries(aiMatchErrors).map(([country, message]) => (
         <p key={country} className="market-analysis__hint">
           AI matching for {country} didn't complete ({message}) — products it couldn't judge are paired by shared HS code only.
@@ -345,7 +371,8 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                   {isRegion && <th>Target Country</th>}
                   <th>Source Price</th>
                   <th>Target Price</th>
-                  <th>SAM</th>
+                  <th title={SAM_SCOPE_NOTE}>Region SAM</th>
+                  <th title={SAM_SCOPE_NOTE}>Country SAM</th>
                   <th>Diff %</th>
                   <th>Opportunity</th>
                   <th>Confidence</th>
@@ -362,7 +389,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                   return (
                     <Fragment key={rating}>
                       <tr className="market-opportunities__rating-row" onClick={() => toggleRating(rating)}>
-                        <td colSpan={isRegion ? 10 : 9}>
+                        <td colSpan={isRegion ? 11 : 10}>
                           <div className="market-opportunities__rating-row-inner">
                             <button
                               type="button"
@@ -400,7 +427,8 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                                 {formatOriginal(row.target_price_original)}
                               </span>
                             </td>
-                            <td>{formatSam(getSamValue(row))}</td>
+                            <td title={samTitle(row, 'region')}>{formatSamCell(getRegionSam(row))}</td>
+                            <td title={samTitle(row, 'country')}>{formatSamCell(getSamValue(row))}</td>
                             <td>{formatDiffPct(row.diff_pct)}</td>
                             <td>{row.opportunity_rating || '—'}</td>
                             <td>
@@ -423,7 +451,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                 })}
                 {filteredSortedRows.length === 0 && (
                   <tr>
-                    <td colSpan={isRegion ? 10 : 9} className="market-analysis__empty-row">
+                    <td colSpan={isRegion ? 11 : 10} className="market-analysis__empty-row">
                       No product matches "{search}".
                     </td>
                   </tr>
@@ -496,6 +524,17 @@ function MarketOpportunitiesPanel() {
   const [target, setTarget] = useState('')
   const [region, setRegion] = useState('')
   const [country, setCountry] = useState('')
+  const [savedPairs, setSavedPairs] = useState([])
+
+  const loadSavedPairs = useCallback(() => {
+    fetchMarketOpportunityPairs()
+      .then((data) => setSavedPairs(data.pairs || []))
+      .catch(() => setSavedPairs([]))
+  }, [])
+
+  useEffect(() => {
+    loadSavedPairs()
+  }, [loadSavedPairs])
 
   useEffect(() => {
     let cancelled = false
@@ -555,6 +594,26 @@ function MarketOpportunitiesPanel() {
     setCountry('')
   }
 
+  // A saved pair opens as a By Country selection, in the region its target
+  // country belongs to — null when that's not selectable here any more.
+  const savedPairSelection = (pair) => {
+    if (!sourceCountries.includes(pair.source_country)) return null
+    for (const row of regions) {
+      const match = row.countries.find((item) => item.name === pair.target_country)
+      if (match && portfolioCountryNames.has(match.name.trim().toLowerCase())) return { region: row.region, countryId: match.id }
+    }
+    return null
+  }
+
+  const openSavedPair = (pair) => {
+    const selection = savedPairSelection(pair)
+    if (!selection) return
+    setSource(pair.source_country)
+    setTarget('country')
+    setRegion(selection.region)
+    setCountry(selection.countryId)
+  }
+
   const countriesInRegion = useMemo(() => {
     const all = regions.find((row) => row.region === region)?.countries || []
     return all.filter((row) => portfolioCountryNames.has(row.name.trim().toLowerCase()))
@@ -583,6 +642,35 @@ function MarketOpportunitiesPanel() {
         Pick a wholesaler-sourced country to sell from, then narrow the target market to a whole region or one
         specific country in it.
       </p>
+
+      {savedPairs.length > 0 && (
+        <div className="market-opportunities__saved">
+          <span className="market-opportunities__saved-label">Saved comparisons</span>
+          <div className="market-opportunities__saved-list">
+            {savedPairs.map((pair) => {
+              const selectable = Boolean(savedPairSelection(pair))
+              const active = selectable && source === pair.source_country && target === 'country' && savedPairSelection(pair)?.countryId === country
+              return (
+                <button
+                  key={`${pair.source_country}>${pair.target_country}`}
+                  type="button"
+                  className={`market-opportunities__saved-pair ${active ? 'is-active' : ''}`}
+                  onClick={() => openSavedPair(pair)}
+                  disabled={!selectable}
+                  title={
+                    selectable
+                      ? `${pair.row_count} products compared — computed ${formatDateTime(pair.calculated_at)}`
+                      : 'No longer selectable: the country is no longer an active source or target'
+                  }
+                >
+                  {pair.source_country} › {pair.target_country}
+                  <span className="market-opportunities__saved-date">{new Date(pair.calculated_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="market-opportunities__controls">
         <label className="market-opportunities__field">
@@ -649,7 +737,13 @@ function MarketOpportunitiesPanel() {
         </p>
       )}
       {selectionComplete && targetCountryNames.length > 0 && (
-        <MarketOpportunityResults sourceCountry={source} targetCountries={targetCountryNames} isRegion={target === 'region'} region={region} />
+        <MarketOpportunityResults
+          sourceCountry={source}
+          targetCountries={targetCountryNames}
+          isRegion={target === 'region'}
+          region={region}
+          onSaved={loadSavedPairs}
+        />
       )}
     </div>
   )

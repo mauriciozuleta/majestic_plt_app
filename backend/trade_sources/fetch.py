@@ -52,3 +52,10 @@ def fetch_subheadings(db, catalog_row, reporter_code: int, year: int, flow: str,
     if source in (None, 'comtrade'):
         return comtrade_client.fetch_subheadings(db, reporter_code, year, flow, heading)
     return []
+
+
+def fetch_all_subheadings(db, catalog_row, reporter_code: int, year: int, flow: str) -> dict[str, float]:
+    source = catalog_row.trade_data_source if catalog_row else None
+    if source in (None, 'comtrade'):
+        return comtrade_client.fetch_all_subheadings(db, reporter_code, year, flow)
+    return {}

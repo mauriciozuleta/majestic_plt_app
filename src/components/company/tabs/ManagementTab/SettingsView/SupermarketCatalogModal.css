@@ -1,0 +1,214 @@
+.supermarket-catalog__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.supermarket-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(44rem, 100%);
+  max-height: calc(100vh - 2rem);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1.1rem;
+}
+
+.supermarket-catalog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.supermarket-catalog__header h3 {
+  margin: 0.1rem 0 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.supermarket-catalog__eyebrow {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.supermarket-catalog__close {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.supermarket-catalog__form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.supermarket-catalog__form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.supermarket-catalog__form input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.supermarket-catalog__wide,
+.supermarket-catalog__actions {
+  grid-column: 1 / -1;
+}
+
+.supermarket-catalog__actions,
+.supermarket-catalog__footer {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.supermarket-catalog__footer {
+  justify-content: flex-end;
+}
+
+.supermarket-catalog__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.supermarket-catalog__toolbar span {
+  margin-right: auto;
+}
+
+.supermarket-catalog__toolbar button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.74rem;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+}
+
+.supermarket-catalog__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem;
+  overflow: auto;
+  min-height: 6rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  columns: 2 17rem;
+  column-gap: 1rem;
+}
+
+.supermarket-catalog__list li {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  break-inside: avoid;
+}
+
+.supermarket-catalog__list li > label {
+  flex: 1;
+  min-width: 0;
+}
+
+.supermarket-catalog__list em {
+  color: var(--text-dim);
+  font-style: normal;
+}
+
+.supermarket-catalog__sub-btn {
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  padding: 0.1rem 0.35rem;
+  cursor: pointer;
+}
+
+.supermarket-catalog__list li:hover .supermarket-catalog__sub-btn,
+.supermarket-catalog__sub-btn:focus-visible {
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.supermarket-catalog__list label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.supermarket-catalog__list label:hover {
+  background: var(--bg-card);
+}
+
+.supermarket-catalog__progress {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.supermarket-catalog__progress p {
+  margin: 0 0 0.35rem;
+}
+
+.supermarket-catalog__progress ul {
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--text-muted);
+}
+
+.supermarket-catalog__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.supermarket-catalog__error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #fca5a5;
+}
+
+.supermarket-catalog__done p {
+  margin: 0 0 0.3rem;
+  color: var(--text-primary);
+}
+
+@media (max-width: 540px) {
+  .supermarket-catalog__form {
+    grid-template-columns: 1fr;
+  }
+}

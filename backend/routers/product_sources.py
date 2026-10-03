@@ -127,6 +127,11 @@ def _restamp_currency(db: Session, source: models.ProductSource) -> None:
 def _analyze(db: Session, source: models.ProductSource) -> None:
     """Reads the source's site. On failure the source keeps whatever
     products it already had and asks for a file instead."""
+    if source.origin == 'catalog':
+        # Built by the supermarket catalog service (routers/supermarket_catalog.py)
+        # across many category pages — re-reading just its address here would
+        # replace that whole catalog with one page's worth.
+        return
     if not source.url:
         if source.product_count == 0:
             source.status, source.status_message = 'empty', 'No web address — load a products file.'
@@ -240,6 +245,8 @@ def refresh_product_source(source_id: str, db: Session = Depends(get_db)):
     source = _get(db, source_id)
     if not source.url:
         raise HTTPException(status_code=400, detail='This source has no web address — load a products file instead.')
+    if source.origin == 'catalog':
+        raise HTTPException(status_code=400, detail='This source is a supermarket catalog — use Rebuild catalog to download it again.')
     _analyze(db, source)
     db.commit()
     return _serialize(source)

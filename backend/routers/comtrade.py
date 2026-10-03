@@ -24,7 +24,7 @@ from ..comtrade.countries import list_tracked_countries
 from ..database import get_db
 from ..estimation import regression
 from ..trade_sources import discovery, worldbank
-from ..trade_sources.fetch import fetch_categories, fetch_products, fetch_subheadings
+from ..trade_sources.fetch import fetch_all_subheadings, fetch_categories, fetch_products, fetch_subheadings
 from .commercial_structure import get_market_analysis_regions
 
 router = APIRouter()
@@ -389,6 +389,74 @@ def _compute_sam_overview_data(db: Session, chapter_list: list[str], flow: str) 
         result_regions.append({'region': region['region'], 'categories': categories})
 
     return {'flow': flow, 'default_year': default_year, 'regions': result_regions}
+
+
+@router.get('/api/trade/product-sam')
+def product_sam(
+    region: str = Query(..., description='Market Analysis region name, as in /api/trade/sam-overview'),
+    hs_codes: str = Query(..., description='Comma-separated 6-digit HS codes'),
+    flow: str = Query('M', description='M = imports, X = exports — SAM uses M.'),
+    db: Session = Depends(get_db),
+):
+    """Product-level SAM: each 6-digit HS code's import value for every
+    active country of one region — per country, and summed for the region —
+    rather than SAM Overview's whole 2-digit chapter. Each country uses its
+    own most recent year with reported data (resolved exactly as SAM
+    Overview does, from the cached chapter totals), and all of that
+    country's 6-digit figures come from one cached Comtrade call
+    (fetch_all_subheadings), so a region costs at most one call per country
+    the first time and nothing after.
+
+    A country that reported no imports of a code is left out of that code's
+    figures (never counted as 0). `countries` lists every country of the
+    region with its year and a status — 'ok', 'no_data' (nothing reported
+    in any probed year), 'no_product_data' (no 6-digit breakdown, e.g. a
+    fallback source with only a total), 'not_in_comtrade' or 'error' (with
+    the reason, e.g. the daily call limit) — so a partial total says so."""
+    flow = _flow(flow)
+    codes = sorted({code.strip() for code in hs_codes.split(',') if code.strip().isdigit() and len(code.strip()) == 6})
+    region_row = next((row for row in get_market_analysis_regions(db) if row['region'] == region), None)
+    if not region_row:
+        raise HTTPException(status_code=404, detail=f'Region not found: {region}')
+
+    default_year = datetime.now(timezone.utc).year - DEFAULT_YEAR_LAG
+    reporter_by_iso2 = {row['iso2']: row['reporter_code'] for row in list_tracked_countries() if row.get('iso2')}
+    products = {code: {'region_total': 0.0, 'countries': {}} for code in codes}
+    countries = []
+    for country in region_row['countries']:
+        entry = {'name': country['name'], 'year': None, 'status': 'ok'}
+        countries.append(entry)
+        iso2 = (country['country_code'] or '').upper()
+        reporter_code = reporter_by_iso2.get(iso2)
+        if not reporter_code:
+            entry['status'] = 'not_in_comtrade'
+            continue
+        catalog_row = db.query(models.CountryReferenceCatalog).filter_by(country_code=iso2).first()
+        year, _rows = _resolve_year_and_rows(db, catalog_row, reporter_code, flow, default_year)
+        if year is None:
+            entry['status'] = 'no_data'
+            continue
+        entry['year'] = year
+        try:
+            values = fetch_all_subheadings(db, catalog_row, reporter_code, year, flow)
+        except client.ComtradeError as error:
+            entry['status'] = 'error'
+            entry['error'] = str(error)
+            continue
+        if not values:
+            entry['status'] = 'no_product_data'
+            continue
+        for code in codes:
+            value = values.get(code)
+            if value is None:
+                continue
+            products[code]['countries'][country['name']] = {'value': value, 'year': year}
+            products[code]['region_total'] += value
+
+    for product in products.values():
+        if not product['countries']:
+            product['region_total'] = None
+    return {'region': region, 'flow': flow, 'countries': countries, 'products': products}
 
 
 def refresh_sam_overview(db: Session, chapters: str | None = None, flow: str = 'M') -> dict:

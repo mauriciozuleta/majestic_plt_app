@@ -87,12 +87,61 @@ export async function fetchMarketOpportunityExchangeRate(fromCurrency) {
   return fetchJson(`/api/market-opportunities/exchange-rate?${params.toString()}`)
 }
 
-export async function saveMarketOpportunityComparisons(rows) {
+// `unmatchedByTarget` ({target country: [source products]}) is saved with
+// the rows — just each product's name and category — so a saved comparison
+// reopens complete.
+export async function saveMarketOpportunityComparisons(rows, unmatchedByTarget = {}) {
+  const unmatched = Object.fromEntries(
+    Object.entries(unmatchedByTarget).map(([target, products]) => [
+      target,
+      products.map(({ displayName, matchName, category }) => ({ displayName, matchName, category })),
+    ]),
+  )
   return fetchJson('/api/market-opportunities/comparisons', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rows }),
+    body: JSON.stringify({ rows, unmatched_by_target: unmatched }),
   })
+}
+
+// A comparison of one source country against target countries: the saved
+// one when every target already has one (no recompute, no AI calls),
+// otherwise — or with `force` — a fresh run, saved before it's returned.
+// `onStatus('checking' | 'computing')` reports which is happening.
+// -> { rows (with _target_display_name), unmatchedByTarget, unmatchedUnknown,
+//      calculatedAt, origin: 'saved' | 'computed', aiMatchErrors }
+export async function getOrComputeComparison(sourceCountry, targetCountries, { force = false, onStatus } = {}) {
+  const withDisplayName = (rows) => rows.map((row) => ({ ...row, _target_display_name: row.target_product_name }))
+  if (!force) {
+    onStatus?.('checking')
+    const saved = await fetchMarketOpportunityComparisons(sourceCountry, targetCountries).catch(() => null)
+    const savedTargets = new Set((saved?.rows || []).map((row) => row.target_country))
+    if (saved && targetCountries.every((name) => savedTargets.has(name))) {
+      const unmatched = saved.unmatched_by_target || {}
+      return {
+        rows: withDisplayName(saved.rows),
+        unmatchedByTarget: unmatched,
+        // a saved run from before the unmatched list was stored
+        unmatchedUnknown: targetCountries.some((name) => !(name in unmatched)),
+        // the oldest of the targets' runs — the whole result is at least that old
+        calculatedAt: saved.rows.map((row) => row.calculated_at).sort()[0] ?? null,
+        origin: 'saved',
+        aiMatchErrors: {},
+      }
+    }
+  }
+  onStatus?.('computing')
+  const { rows: computedRows, unmatchedByTarget, aiMatchErrors } = await computeMarketOpportunity(sourceCountry, targetCountries)
+  const result = { unmatchedByTarget, unmatchedUnknown: false, origin: 'computed', aiMatchErrors: aiMatchErrors || {} }
+  if (computedRows.length === 0) return { ...result, rows: [], calculatedAt: new Date().toISOString() }
+  const payload = computedRows.map(({ _target_display_name, ...rest }) => ({ ...rest, target_product_name: _target_display_name ?? null }))
+  const saved = await saveMarketOpportunityComparisons(payload, unmatchedByTarget)
+  return { ...result, rows: withDisplayName(saved.rows), calculatedAt: saved.calculated_at }
+}
+
+// Every saved source -> target comparison: [{source_country, target_country, row_count, calculated_at}]
+export async function fetchMarketOpportunityPairs() {
+  return fetchJson('/api/market-opportunities/comparisons/pairs')
 }
 
 export async function fetchMarketOpportunityComparisons(sourceCountry, targetCountries) {
@@ -217,13 +266,42 @@ async function collectCustomComparisonProducts(countryName) {
   )
 }
 
+// A source that reports the same product many times — Jamaica's Ministry of
+// Agriculture report has a row per parish/market, 680 rows for 154 products
+// — would otherwise turn every match into one comparison row per listing.
+// Listings of the same product from the same source, at the same price level
+// (category), unit and currency become one product: the MEDIAN listing's own
+// recorded price (the lower middle one for an even count — never an average,
+// the same "one real recorded price" rule collectColombiaComparisonProducts
+// follows), keeping how many listings there were and their price range for
+// the row's note.
+function consolidateListings(products) {
+  const groups = new Map()
+  products.forEach((product) => {
+    const key = [product.sourceId, product.displayName.trim().toLowerCase(), product.category ?? '', product.priceUnit ?? '', product.priceCurrency ?? ''].join('|')
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(product)
+  })
+  return [...groups.values()].map((listings) => {
+    if (listings.length === 1) return listings[0]
+    const sorted = [...listings].sort((a, b) => (a.priceValue ?? Infinity) - (b.priceValue ?? Infinity))
+    const prices = sorted.map((product) => product.priceValue).filter((value) => value != null)
+    return {
+      ...sorted[Math.floor((sorted.length - 1) / 2)],
+      listingCount: listings.length,
+      listingLow: prices[0] ?? null,
+      listingHigh: prices.at(-1) ?? null,
+    }
+  })
+}
+
 // A country's built-in pipeline and any sources added for it in Settings are
 // combined — an added source never replaces, or is hidden by, the built-in one.
 async function collectCountryComparisonProducts(countryName) {
   const builtIn =
     countryName === 'Colombia' ? collectColombiaComparisonProducts() : countryName === 'United States' ? collectUsaComparisonProducts() : []
   const [builtInProducts, customProducts] = await Promise.all([builtIn, collectCustomComparisonProducts(countryName)])
-  return [...builtInProducts, ...customProducts]
+  return consolidateListings([...builtInProducts, ...customProducts])
 }
 
 // ---------------------------------------------------------------- matching + scoring
@@ -286,6 +364,11 @@ function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCount
     ['source', sourceProduct, sourceCountry],
     ['target', targetProduct, targetCountry],
   ].forEach(([side, product, countryName]) => {
+    if (product.listingCount > 1) {
+      const amount = (value) => Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })
+      const range = product.listingLow != null ? ` (${product.priceCurrency ?? ''} ${amount(product.listingLow)}–${amount(product.listingHigh)} / ${product.priceUnit ?? '—'})` : ''
+      conversionNotes.push(`${side === 'source' ? 'Source' : 'Target'} (${countryName}): median of ${product.listingCount} listings${range}.`)
+    }
     if (!product.conversionNote) return
     conversionNotes.push(`${side === 'source' ? 'Source' : 'Target'} (${countryName}): ${product.conversionNote}`)
     if (product.conversionMethod === 'cached_estimate' || product.conversionMethod === 'fresh_haiku_estimate') {
@@ -540,6 +623,42 @@ function hsCodeFallbackPairs(sources, pairedBySource, targetProducts, targetCoun
   return pairs
 }
 
+// The comparison is directional — which SOURCE products have a market in
+// the target country — so it has one row per source product per target
+// country. A source product matched to several target prices (several
+// target products, price levels or sources) gets one reference price: the
+// median matched price by USD/kg, the matched row's own real recorded price
+// (the lower middle one for an even count — never an average). The row's
+// note lists what it was drawn from.
+function referenceRow(candidates) {
+  if (candidates.length === 1) return candidates[0]
+  const priced = candidates
+    .filter((row) => row.target_price_normalized != null)
+    .sort((a, b) => a.target_price_normalized - b.target_price_normalized)
+  const pool = priced.length ? priced : candidates
+  const chosen = pool[Math.floor((pool.length - 1) / 2)]
+  const usd = (value) => `USD ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const names = [...new Set(candidates.map((row) => row._target_display_name))]
+  const range = priced.length > 1 ? ` (${usd(priced[0].target_price_normalized)}–${usd(priced.at(-1).target_price_normalized)}/kg)` : ''
+  const note = `Target (${chosen.target_country}): reference price is the median of ${candidates.length} matched prices${range}, from ${names.length} product${names.length === 1 ? '' : 's'}: ${names.join('; ')}.`
+  return { ...chosen, conversion_note: [chosen.conversion_note, note].filter(Boolean).join(' ') }
+}
+
+// `rows[i]` is `pairs[i]`'s comparison row. Grouped by the source product's
+// name, as the portfolio shows it: two source listings that end up with the
+// same name (Colombia's two "Red Tilapia" entries) are one product here.
+function oneRowPerSourceProduct(pairs, rows) {
+  const groups = new Map()
+  pairs.forEach((pair, index) => {
+    const key = pair.sp.displayName.trim().toLowerCase()
+    if (!groups.has(key)) groups.set(key, new Map())
+    const byTarget = groups.get(key)
+    if (!byTarget.has(pair.targetCountry)) byTarget.set(pair.targetCountry, [])
+    byTarget.get(pair.targetCountry).push(rows[index])
+  })
+  return [...groups.values()].flatMap((byTarget) => [...byTarget.values()].map(referenceRow))
+}
+
 export async function computeMarketOpportunity(sourceCountry, targetCountries) {
   const allCountries = [sourceCountry, ...targetCountries.filter((name) => name !== sourceCountry)]
   const [productsByCountry, hsCache] = await Promise.all([
@@ -637,9 +756,10 @@ export async function computeMarketOpportunity(sourceCountry, targetCountries) {
   // mechanism's own stated scope (see that module's header).
   await resolveCountWeightConversions(matchedPairs)
 
-  const rows = matchedPairs.map(({ sp, tp, matchTier, targetCountry, aiNote }) =>
+  const pairRows = matchedPairs.map(({ sp, tp, matchTier, targetCountry, aiNote }) =>
     buildComparisonRow(sp, tp, matchTier, sourceCountry, targetCountry, rates, aiNote),
   )
+  const rows = oneRowPerSourceProduct(matchedPairs, pairRows)
 
   return { rows, unmatchedByTarget, sourceProductCount: sourceProducts.length, aiMatchErrors }
 }

@@ -847,6 +847,9 @@ class MarketOpportunityComparison(Base):
 
     id = Column(String, primary_key=True)
     product_name = Column(String, nullable=False)
+    # The matched product's name in the target market, so a saved
+    # comparison can be shown again without recomputing it.
+    target_product_name = Column(String, nullable=True)
     source_country = Column(String, nullable=False, index=True)
     target_country = Column(String, nullable=False, index=True)
 
@@ -888,6 +891,20 @@ class MarketOpportunityComparison(Base):
     # conversion, unchanged from before this field existed.
     conversion_note = Column(String, nullable=True)
 
+    calculated_at = Column(String, nullable=False)
+
+
+class MarketOpportunityUnmatched(Base):
+    """The source products with no match in the target market, from the
+    last saved run of one (source_country, target_country) pair — saved
+    alongside that run's MarketOpportunityComparison rows so a saved
+    comparison reopens complete, without recomputing it."""
+    __tablename__ = 'market_opportunity_unmatched'
+
+    source_country = Column(String, primary_key=True)
+    target_country = Column(String, primary_key=True)
+    # [{displayName, matchName, category}]
+    products_json = Column(String, nullable=False, default='[]')
     calculated_at = Column(String, nullable=False)
 
 
@@ -1042,6 +1059,14 @@ class RevenueStreamRoute(Base):
     provider_name = Column(String, nullable=True)
     aircraft_name = Column(String, nullable=True)
     return_type = Column(String, nullable=True)  # 'full' | 'compensated'
+    # Target cargo load per leg, 0–100 %.
+    outbound_target_cargo_pct = Column(Float, nullable=True)
+    return_target_cargo_pct = Column(Float, nullable=True)
+    # Entered by hand; the outbound price per kg is calculated.
+    return_price_per_kg = Column(Float, nullable=True)
+    # Share of the whole flight's cost each leg assumes, 0–100 %.
+    outbound_leg_cost_pct = Column(Float, nullable=True)
+    return_leg_cost_pct = Column(Float, nullable=True)
     created_at = Column(String, nullable=False)
 
 

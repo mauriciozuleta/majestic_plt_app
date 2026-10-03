@@ -10,6 +10,7 @@ import {
 } from '../../../../../services/productSources'
 import { fetchCommercialCountries } from '../../../../../services/commercialStructure'
 import { useAppStore } from '../../../../../store/useAppStore'
+import SupermarketCatalogModal from './SupermarketCatalogModal'
 import './ProductSourcesCard.css'
 
 const EMPTY_FORM = { country_name: '', name: '', url: '', currency: '', analysis_type: 'wholesaler' }
@@ -92,7 +93,7 @@ function SourceForm({ initial, countries, busy, submitLabel, onSubmit, onCancel 
   )
 }
 
-function SourceRow({ source, busy, rowError, onRefresh, onLoadFile, onEdit, onDelete, onSetAnalysisType }) {
+function SourceRow({ source, busy, rowError, onRefresh, onRebuild, onLoadFile, onEdit, onDelete, onSetAnalysisType }) {
   const status = statusOf(source)
   return (
     <div className="product-sources__row">
@@ -100,6 +101,7 @@ function SourceRow({ source, busy, rowError, onRefresh, onLoadFile, onEdit, onDe
         <div className="product-sources__title">
           <strong>{source.name}</strong>
           {source.built_in && <span className="product-sources__badge">Built-in</span>}
+          {source.origin === 'catalog' && <span className="product-sources__badge">Supermarket catalog</span>}
           <div className="product-sources__direction product-sources__direction--inline">
             <label className="product-sources__checkbox">
               <input
@@ -141,10 +143,16 @@ function SourceRow({ source, busy, rowError, onRefresh, onLoadFile, onEdit, onDe
 
       {!source.built_in && (
         <div className="product-sources__actions">
-          {source.url && (
-            <button type="button" className="settings-view__btn" onClick={() => onRefresh(source)} disabled={busy}>
-              {busy ? 'Working…' : 'Refresh'}
+          {source.origin === 'catalog' ? (
+            <button type="button" className="settings-view__btn" onClick={() => onRebuild(source)} disabled={busy}>
+              Rebuild catalog
             </button>
+          ) : (
+            source.url && (
+              <button type="button" className="settings-view__btn" onClick={() => onRefresh(source)} disabled={busy}>
+                {busy ? 'Working…' : 'Refresh'}
+              </button>
+            )
           )}
           <button type="button" className="settings-view__btn" onClick={() => onLoadFile(source)} disabled={busy}>
             {busy ? 'Loading…' : 'Load file'}
@@ -172,6 +180,8 @@ function ProductSourcesCard() {
   const [errorId, setErrorId] = useState(null)
   const fileInputRef = useRef(null)
   const fileTargetRef = useRef(null)
+  // null, or the initial { country, url, name } of the supermarket catalog being built
+  const [catalogBuild, setCatalogBuild] = useState(null)
 
   const reload = () =>
     fetchProductSources()
@@ -280,9 +290,14 @@ function ProductSourcesCard() {
               onCancel={() => setMode(null)}
             />
           ) : (
-            <button type="button" className="settings-view__btn" onClick={() => setMode('add')}>
-              + Add source
-            </button>
+            <div className="product-sources__add-actions">
+              <button type="button" className="settings-view__btn" onClick={() => setMode('add')}>
+                + Add source
+              </button>
+              <button type="button" className="settings-view__btn" onClick={() => setCatalogBuild({})}>
+                + Build supermarket catalog
+              </button>
+            </div>
           )}
 
           {error && <p className="product-sources__note product-sources__note--warn">{error}</p>}
@@ -300,6 +315,7 @@ function ProductSourcesCard() {
                     busy={busyId === source.id}
                     rowError={errorId === source.id ? error : null}
                     onRefresh={(item) => run(item.id, () => refreshProductSource(item.id))}
+                    onRebuild={(item) => setCatalogBuild({ country: item.country_name, url: item.url || '', name: item.name })}
                     onLoadFile={pickFile}
                     onEdit={setMode}
                     onDelete={handleDelete}
@@ -309,6 +325,14 @@ function ProductSourcesCard() {
               </section>
             ))}
         </>
+      )}
+      {catalogBuild && (
+        <SupermarketCatalogModal
+          countries={countrySuggestions}
+          initial={catalogBuild}
+          onClose={() => setCatalogBuild(null)}
+          onImported={reload}
+        />
       )}
     </div>
   )

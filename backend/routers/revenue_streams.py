@@ -56,7 +56,17 @@ class RevenueStreamRouteCreate(BaseModel):
     return_branch_id: str
     charter_provider_id: str
     aircraft_id: str
-    return_type: str
+
+
+# Set from the route's expanded card, not the route form. Only the fields
+# sent are changed; null clears one.
+class RevenueStreamRouteSettings(BaseModel):
+    return_type: str | None = None
+    outbound_target_cargo_pct: float | None = None
+    return_target_cargo_pct: float | None = None
+    return_price_per_kg: float | None = None
+    outbound_leg_cost_pct: float | None = None
+    return_leg_cost_pct: float | None = None
 
 
 RETURN_TYPES = {'full', 'compensated'}
@@ -73,6 +83,11 @@ class RevenueStreamRouteOut(BaseModel):
     provider_name: str | None = None
     aircraft_name: str | None = None
     return_type: str | None = None
+    outbound_target_cargo_pct: float | None = None
+    return_target_cargo_pct: float | None = None
+    return_price_per_kg: float | None = None
+    outbound_leg_cost_pct: float | None = None
+    return_leg_cost_pct: float | None = None
     created_at: str
 
     class Config:
@@ -103,8 +118,6 @@ def _validated_route_fields(db: Session, company_id: str, payload: RevenueStream
     found = db.query(models.CommercialBranch.id).filter(models.CommercialBranch.id.in_(branch_ids)).count()
     if found != len(branch_ids):
         raise HTTPException(status_code=400, detail='Origin, destination and return must all be branches in the commercial structure.')
-    if payload.return_type not in RETURN_TYPES:
-        raise HTTPException(status_code=400, detail="Type of return must be 'full' or 'compensated'.")
     provider = db.query(models.CharterProvider).filter_by(id=payload.charter_provider_id, company_id=company_id).first()
     if not provider:
         raise HTTPException(status_code=400, detail='Choose an air logistics provider from Providers ▸ Air Logistics.')
@@ -121,7 +134,6 @@ def _validated_route_fields(db: Session, company_id: str, payload: RevenueStream
         'aircraft_id': payload.aircraft_id,
         'provider_name': provider.name,
         'aircraft_name': f'{aircraft.short_name} ({aircraft.model})' if aircraft else None,
-        'return_type': payload.return_type,
     }
 
 
@@ -156,6 +168,27 @@ def update_revenue_stream_route(
 ):
     route = _get_route(db, company_id, stream_id, route_id)
     for field, value in _validated_route_fields(db, company_id, payload).items():
+        setattr(route, field, value)
+    db.commit()
+    db.refresh(route)
+    return route
+
+
+@router.patch('/companies/{company_id}/revenue-streams/{stream_id}/routes/{route_id}/settings', response_model=RevenueStreamRouteOut)
+def update_revenue_stream_route_settings(
+    company_id: str, stream_id: str, route_id: str, payload: RevenueStreamRouteSettings, db: Session = Depends(get_db)
+):
+    changes = payload.model_dump(include=payload.model_fields_set)
+    if changes.get('return_type') is not None and changes['return_type'] not in RETURN_TYPES:
+        raise HTTPException(status_code=400, detail="Type of return must be 'full' or 'compensated'.")
+    for field in ('outbound_target_cargo_pct', 'return_target_cargo_pct', 'outbound_leg_cost_pct', 'return_leg_cost_pct'):
+        value = changes.get(field)
+        if value is not None and not 0 <= value <= 100:
+            raise HTTPException(status_code=400, detail='Percentages must be between 0 and 100.')
+    if changes.get('return_price_per_kg') is not None and changes['return_price_per_kg'] < 0:
+        raise HTTPException(status_code=400, detail='Price per kg cannot be negative.')
+    route = _get_route(db, company_id, stream_id, route_id)
+    for field, value in changes.items():
         setattr(route, field, value)
     db.commit()
     db.refresh(route)

@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -78,6 +79,7 @@ def _rating(diff_pct: float) -> str:
 
 class ComparisonIn(BaseModel):
     product_name: str
+    target_product_name: str | None = None
     source_country: str
     target_country: str
     hs_code: str | None = None
@@ -98,14 +100,23 @@ class ComparisonIn(BaseModel):
     conversion_note: str | None = None
 
 
+class UnmatchedProductIn(BaseModel):
+    displayName: str | None = None
+    matchName: str | None = None
+    category: str | None = None
+
+
 class ComparisonsIn(BaseModel):
     rows: list[ComparisonIn]
+    # {target_country: [source products with no match there]}
+    unmatched_by_target: dict[str, list[UnmatchedProductIn]] = {}
 
 
 def _serialize(row: models.MarketOpportunityComparison) -> dict:
     return {
         'id': row.id,
         'product_name': row.product_name,
+        'target_product_name': row.target_product_name,
         'source_country': row.source_country,
         'target_country': row.target_country,
         'hs_code': row.hs_code,
@@ -162,6 +173,7 @@ def save_comparisons(payload: ComparisonsIn, db: Session = Depends(get_db)):
         record = models.MarketOpportunityComparison(
             id=str(uuid.uuid4()),
             product_name=row.product_name,
+            target_product_name=row.target_product_name,
             source_country=row.source_country,
             target_country=row.target_country,
             hs_code=row.hs_code,
@@ -187,8 +199,41 @@ def save_comparisons(payload: ComparisonsIn, db: Session = Depends(get_db)):
         )
         db.add(record)
         saved.append(record)
+
+    # Each pair's unmatched list, replaced along with its rows — only when the
+    # caller sent one (an older client that doesn't must not blank it).
+    for source_country, target_country in pairs if 'unmatched_by_target' in payload.model_fields_set else ():
+        db.query(models.MarketOpportunityUnmatched).filter_by(source_country=source_country, target_country=target_country).delete()
+        products = payload.unmatched_by_target.get(target_country, [])
+        db.add(
+            models.MarketOpportunityUnmatched(
+                source_country=source_country,
+                target_country=target_country,
+                products_json=json.dumps([product.model_dump() for product in products]),
+                calculated_at=calculated_at,
+            )
+        )
     db.commit()
     return {'rows': [_serialize(row) for row in saved], 'calculated_at': calculated_at}
+
+
+@router.get('/api/market-opportunities/comparisons/pairs')
+def list_comparison_pairs(db: Session = Depends(get_db)):
+    """Every saved (source_country, target_country) comparison, with its row
+    count and when it was last computed, newest first — what Market
+    Opportunities lists as its saved comparisons."""
+    Comparison = models.MarketOpportunityComparison
+    rows = (
+        db.query(Comparison.source_country, Comparison.target_country, func.count(Comparison.id), func.max(Comparison.calculated_at))
+        .group_by(Comparison.source_country, Comparison.target_country)
+        .all()
+    )
+    pairs = [
+        {'source_country': source, 'target_country': target, 'row_count': count, 'calculated_at': calculated_at}
+        for source, target, count, calculated_at in rows
+    ]
+    pairs.sort(key=lambda pair: pair['calculated_at'] or '', reverse=True)
+    return {'pairs': pairs}
 
 
 @router.get('/api/market-opportunities/comparisons')
@@ -206,4 +251,10 @@ def list_comparisons(
     if targets:
         query = query.filter(models.MarketOpportunityComparison.target_country.in_(targets))
     rows = query.all()
-    return {'rows': [_serialize(row) for row in rows]}
+    # Unmatched lists saved with each pair's last run; a pair saved before
+    # these were stored has none (null, not an empty list).
+    unmatched_query = db.query(models.MarketOpportunityUnmatched).filter_by(source_country=source_country)
+    if targets:
+        unmatched_query = unmatched_query.filter(models.MarketOpportunityUnmatched.target_country.in_(targets))
+    unmatched = {row.target_country: json.loads(row.products_json or '[]') for row in unmatched_query}
+    return {'rows': [_serialize(row) for row in rows], 'unmatched_by_target': unmatched}

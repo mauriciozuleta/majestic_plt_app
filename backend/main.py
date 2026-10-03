@@ -42,6 +42,7 @@ from .routers import (
     product_classification,
     product_sources,
     product_overrides,
+    supermarket_catalog,
     revenue_streams,
     risk_analysis,
     roadmap,
@@ -513,11 +514,16 @@ def _ensure_schema_migrations():
                 connection.execute(text('ALTER TABLE market_opportunity_comparisons ADD COLUMN conversion_note VARCHAR'))
             if 'hs_code' not in comparison_columns:
                 connection.execute(text('ALTER TABLE market_opportunity_comparisons ADD COLUMN hs_code VARCHAR'))
+            if 'target_product_name' not in comparison_columns:
+                connection.execute(text('ALTER TABLE market_opportunity_comparisons ADD COLUMN target_product_name VARCHAR'))
         if 'revenue_stream_routes' in inspector.get_table_names():
             route_columns = {column['name'] for column in inspector.get_columns('revenue_stream_routes')}
             for column in ('return_branch_id', 'charter_provider_id', 'aircraft_id', 'provider_name', 'aircraft_name', 'return_type'):
                 if column not in route_columns:
                     connection.execute(text(f'ALTER TABLE revenue_stream_routes ADD COLUMN {column} VARCHAR'))
+            for column in ('outbound_target_cargo_pct', 'return_target_cargo_pct', 'return_price_per_kg', 'outbound_leg_cost_pct', 'return_leg_cost_pct'):
+                if column not in route_columns:
+                    connection.execute(text(f'ALTER TABLE revenue_stream_routes ADD COLUMN {column} FLOAT'))
 
 
 _ensure_schema_migrations()
@@ -545,6 +551,7 @@ app.include_router(expense_categories.router)
 app.include_router(knowledge_base.router)
 app.include_router(assistant.router)
 app.include_router(product_sources.router)
+app.include_router(supermarket_catalog.router)
 app.include_router(product_classification.router)
 app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)

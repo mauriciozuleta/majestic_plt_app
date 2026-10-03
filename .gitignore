@@ -57,3 +57,8 @@ backend/comtrade/hs_reference_cache.json
 # UN Comtrade's own reporter-country reference, fetched once and cached
 # (see backend/comtrade/countries.py) — regenerated automatically
 backend/comtrade/reporters_cache.json
+
+# Supermarket catalog exports downloaded by the Supermarket_data_fetch service
+# (see backend/routers/supermarket_catalog.py) — their products are stored in
+# the database; the files are kept locally as the download record
+backend/supermarket_catalogs/

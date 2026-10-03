@@ -123,10 +123,25 @@ def judge_matches(sources, candidates, target_country):
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"Could not parse Claude's response as JSON: {exc}") from exc
 
+    # The prompt asks for a bare array, but a reply wrapped in an object
+    # ({"results": [...]}) is taken too, and anything in it that isn't a
+    # product object is ignored — iterating a dict yields its string keys,
+    # which used to fail the whole batch ("'str' object has no attribute 'get'").
+    if isinstance(parsed, dict):
+        parsed = next((value for value in parsed.values() if isinstance(value, list)), [])
+    rows_by_index = {}
+    for item in parsed if isinstance(parsed, list) else []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            rows_by_index.setdefault(int(item.get('index')), item)
+        except (TypeError, ValueError):
+            continue
+
     allowed = set(candidates)
     results = []
     for i in range(len(sources)):
-        row = next((item for item in parsed if item.get('index') == i + 1), None)
+        row = rows_by_index.get(i + 1)
         if row is None:
             results.append({'matches': [], 'note': "Claude's response did not include this product."})
             continue

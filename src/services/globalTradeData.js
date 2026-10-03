@@ -53,6 +53,12 @@ export const fetchTradeSubheadings = (country, year, heading, flow) =>
 // -> { flow, default_year, regions: [{ region, categories: [{ chapter, value, bilateral, countries: [{ id, name, country_code, value, bilateral, year }] }] }], computed_at }
 export const fetchSamOverview = (chapters) => request('/api/trade/sam-overview', { chapters: chapters.join(',') })
 
+// Product-level SAM: each 6-digit HS code's imports for every active country
+// of one region (backend/routers/comtrade.py's product_sam).
+// -> { region, flow, countries: [{ name, year, status, error? }],
+//      products: { [hs6]: { region_total, countries: { [name]: { value, year } } } } }
+export const fetchProductSam = (region, hsCodes) => request('/api/trade/product-sam', { region, hs_codes: hsCodes.join(',') })
+
 // Home page's SAM card: the stored snapshot's grand total across every
 // region/category + how many qualifying categories contributed — a plain
 // DB read, never live Comtrade work, so Home stays instant even if SAM has

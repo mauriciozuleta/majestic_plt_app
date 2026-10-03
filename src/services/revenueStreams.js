@@ -53,6 +53,21 @@ export async function updateRevenueStreamRoute(companyId, streamId, routeId, pay
   return response.json()
 }
 
+// Settings edited from the route's expanded card (type of return, target
+// cargo % per leg); only the fields in `changes` are updated.
+export async function updateRevenueStreamRouteSettings(companyId, streamId, routeId, changes) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}/settings`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  })
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null)
+    throw new Error(detail?.detail || 'Failed to update the route')
+  }
+  return response.json()
+}
+
 export async function deleteRevenueStreamRoute(companyId, streamId, routeId) {
   const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}`, { method: 'DELETE' })
   if (!response.ok) {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { RETURN_TYPES, aircraftLabel, branchLabel } from './branchLabel'
+import { aircraftLabel, branchLabel } from './branchLabel'
 
 // Origin and destination are both chosen from the airports added as branches
 // in the commercial structure (the destination list disables whichever
@@ -13,7 +13,6 @@ function AddRouteModal({ streamName, branches, providers, aircraftById, initialR
   const [returnId, setReturnId] = useState(initialRoute?.return_branch_id ?? '')
   const [providerName, setProviderName] = useState(initialProvider?.name ?? '')
   const [providerRecordId, setProviderRecordId] = useState(initialProvider?.id ?? '')
-  const [returnType, setReturnType] = useState(initialRoute?.return_type ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -41,8 +40,8 @@ function AddRouteModal({ streamName, branches, providers, aircraftById, initialR
   const handleSubmit = async (event) => {
     event.preventDefault()
     const record = providers.find((item) => item.id === providerRecordId)
-    if (!originId || !destinationId || !returnId || !record || !returnType) {
-      setError('Select an origin, a destination, a return airport, a provider, an aircraft and the type of return.')
+    if (!originId || !destinationId || !returnId || !record) {
+      setError('Select an origin, a destination, a return airport, a provider and an aircraft.')
       return
     }
     setSaving(true)
@@ -54,7 +53,6 @@ function AddRouteModal({ streamName, branches, providers, aircraftById, initialR
         return_branch_id: returnId,
         charter_provider_id: record.id,
         aircraft_id: record.aircraft_id,
-        return_type: returnType,
       })
     } catch (err) {
       setError(err.message || 'Could not save the route.')
@@ -123,18 +121,6 @@ function AddRouteModal({ streamName, branches, providers, aircraftById, initialR
             </select>
           </label>
 
-          <label>
-            Type of return
-            <select value={returnType} onChange={(event) => setReturnType(event.target.value)}>
-              <option value="">Select the type of return…</option>
-              {RETURN_TYPES.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
           {branches.length === 0 && (
             <div className="revenue-stream-modal__error">No airports have been added as branches in the commercial structure yet.</div>
           )}
@@ -144,7 +130,7 @@ function AddRouteModal({ streamName, branches, providers, aircraftById, initialR
             <button type="button" className="revenue-stream-modal__cancel" onClick={onCancel} disabled={saving}>
               Cancel
             </button>
-            <button type="submit" className="revenue-stream-modal__save" disabled={saving || !originId || !destinationId || !returnId || !providerRecordId || !returnType}>
+            <button type="submit" className="revenue-stream-modal__save" disabled={saving || !originId || !destinationId || !returnId || !providerRecordId}>
               {saving ? 'Saving…' : initialRoute ? 'Save Changes' : 'Save and Create'}
             </button>
           </div>
