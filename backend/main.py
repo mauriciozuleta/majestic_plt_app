@@ -521,6 +521,8 @@ def _ensure_schema_migrations():
             for column in ('return_branch_id', 'charter_provider_id', 'aircraft_id', 'provider_name', 'aircraft_name', 'return_type'):
                 if column not in route_columns:
                     connection.execute(text(f'ALTER TABLE revenue_stream_routes ADD COLUMN {column} VARCHAR'))
+            if 'outbound_shipment' not in route_columns:
+                connection.execute(text('ALTER TABLE revenue_stream_routes ADD COLUMN outbound_shipment VARCHAR'))
             for column in ('outbound_target_cargo_pct', 'return_target_cargo_pct', 'return_price_per_kg', 'outbound_leg_cost_pct', 'return_leg_cost_pct'):
                 if column not in route_columns:
                     connection.execute(text(f'ALTER TABLE revenue_stream_routes ADD COLUMN {column} FLOAT'))

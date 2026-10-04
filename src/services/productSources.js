@@ -40,3 +40,5 @@ export const loadProductSourceFile = async (id, file) => {
 
 // Every custom source that has products: [{ source_id, source_name, country_name, currency, fetched_at, products }]
 export const fetchCustomSourceProducts = () => request('/product-sources/products')
+// -> { source, fetched_at, products: [{ id, name, category, price, unit, currency }] }
+export const fetchProductSourceProducts = (id) => request(`/product-sources/${id}/products`)

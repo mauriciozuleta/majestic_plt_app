@@ -11,6 +11,7 @@ import {
 import { fetchCommercialCountries } from '../../../../../services/commercialStructure'
 import { useAppStore } from '../../../../../store/useAppStore'
 import SupermarketCatalogModal from './SupermarketCatalogModal'
+import SourceProductsModal from './SourceProductsModal'
 import './ProductSourcesCard.css'
 
 const EMPTY_FORM = { country_name: '', name: '', url: '', currency: '', analysis_type: 'wholesaler' }
@@ -89,11 +90,17 @@ function SourceForm({ initial, countries, busy, submitLabel, onSubmit, onCancel 
         </button>
       </div>
       {!form.url.trim() && <p className="product-sources__hint product-sources__form-wide">Without a web address you'll load a products file (csv, xlsx or pdf) instead.</p>}
+      {form.url.trim() && (
+        <p className="product-sources__hint product-sources__form-wide">
+          This reads only the one page at that address. For a supermarket website, use + Build supermarket catalog instead — it downloads every
+          category you select.
+        </p>
+      )}
     </form>
   )
 }
 
-function SourceRow({ source, busy, rowError, onRefresh, onRebuild, onLoadFile, onEdit, onDelete, onSetAnalysisType }) {
+function SourceRow({ source, busy, rowError, onRefresh, onRebuild, onLoadFile, onEdit, onDelete, onSetAnalysisType, onShowProducts }) {
   const status = statusOf(source)
   return (
     <div className="product-sources__row">
@@ -122,7 +129,18 @@ function SourceRow({ source, busy, rowError, onRefresh, onRebuild, onLoadFile, o
               Retail
             </label>
           </div>
-          <span className={`product-sources__status product-sources__status--${status.tone}`}>{status.label}</span>
+          {!source.built_in && source.product_count > 0 ? (
+            <button
+              type="button"
+              className={`product-sources__status product-sources__status--${status.tone} product-sources__status--button`}
+              onClick={() => onShowProducts(source)}
+              title="Show the products this source holds"
+            >
+              {status.label} ▸
+            </button>
+          ) : (
+            <span className={`product-sources__status product-sources__status--${status.tone}`}>{status.label}</span>
+          )}
         </div>
         <div className="product-sources__meta">
           {source.url ? (
@@ -182,6 +200,8 @@ function ProductSourcesCard() {
   const fileTargetRef = useRef(null)
   // null, or the initial { country, url, name } of the supermarket catalog being built
   const [catalogBuild, setCatalogBuild] = useState(null)
+  // id of the source whose products are being listed
+  const [productsSourceId, setProductsSourceId] = useState(null)
 
   const reload = () =>
     fetchProductSources()
@@ -316,6 +336,7 @@ function ProductSourcesCard() {
                     rowError={errorId === source.id ? error : null}
                     onRefresh={(item) => run(item.id, () => refreshProductSource(item.id))}
                     onRebuild={(item) => setCatalogBuild({ country: item.country_name, url: item.url || '', name: item.name })}
+                    onShowProducts={(item) => setProductsSourceId(item.id)}
                     onLoadFile={pickFile}
                     onEdit={setMode}
                     onDelete={handleDelete}
@@ -332,8 +353,10 @@ function ProductSourcesCard() {
           initial={catalogBuild}
           onClose={() => setCatalogBuild(null)}
           onImported={reload}
+          onShowProducts={setProductsSourceId}
         />
       )}
+      {productsSourceId && <SourceProductsModal sourceId={productsSourceId} onClose={() => setProductsSourceId(null)} />}
     </div>
   )
 }

@@ -1,0 +1,126 @@
+.source-products__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 110;
+  padding: 1rem;
+}
+
+.source-products {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(52rem, 100%);
+  max-height: calc(100vh - 2rem);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1.1rem;
+}
+
+.source-products__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.source-products__header h3 {
+  margin: 0.1rem 0 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.source-products__eyebrow {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.source-products__close {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.source-products__meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.source-products__error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #fca5a5;
+}
+
+.source-products__search {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.source-products__table-wrap {
+  overflow: auto;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.source-products__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.source-products__table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  text-align: left;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  padding: 0.5rem 0.7rem;
+}
+
+.source-products__table td {
+  padding: 0.4rem 0.7rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.source-products__table .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.source-products__index,
+.source-products__dim {
+  color: var(--text-dim);
+}
+
+.source-products__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.source-products__markets {
+  display: block;
+  font-size: 0.66rem;
+  color: var(--text-dim);
+}

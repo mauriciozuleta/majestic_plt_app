@@ -1476,3 +1476,41 @@
   border-top: none;
   padding-top: 0;
 }
+
+.market-opportunities__priority-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-self: flex-end;
+}
+
+.market-opportunities__priority-actions .market-analysis__hint {
+  margin: 0;
+}
+
+.market-opportunities__priority-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.market-opportunities__check-col {
+  width: 2rem;
+  text-align: center;
+}
+
+.market-opportunities__table tr.is-priority td {
+  background: rgba(20, 184, 166, 0.07);
+}
+
+.market-opportunities__priority-add:not(:disabled) {
+  background: #14b8a6;
+  border-color: #14b8a6;
+  color: #042f2b;
+  font-weight: 600;
+}
+
+.market-opportunities__priority-add:not(:disabled):hover {
+  background: #2dd4bf;
+  border-color: #2dd4bf;
+}

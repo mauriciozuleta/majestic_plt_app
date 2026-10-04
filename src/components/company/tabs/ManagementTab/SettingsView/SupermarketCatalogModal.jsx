@@ -23,7 +23,7 @@ const categoryLabel = (category) => (category.path?.length ? category.path : [ca
 // Build a supermarket's catalog with the Supermarket_data_fetch service:
 // web address + country -> its categories -> download the chosen ones; the
 // exported file is then added to that country's product sources (Retail).
-function SupermarketCatalogModal({ countries, initial, onClose, onImported }) {
+function SupermarketCatalogModal({ countries, initial, onClose, onImported, onShowProducts }) {
   const [service, setService] = useState({ status: 'checking' })
   const [form, setForm] = useState({ country: initial?.country ?? '', url: initial?.url ?? '', name: initial?.name ?? '' })
   const [step, setStep] = useState('form') // form | preparing | categories | downloading | done
@@ -36,6 +36,11 @@ function SupermarketCatalogModal({ countries, initial, onClose, onImported }) {
   const [notice, setNotice] = useState('')
   // url of the category whose page is being checked for subcategories
   const [checkingUrl, setCheckingUrl] = useState(null)
+  // Product names reported while downloading, oldest first: what the service
+  // was on at each check while collecting (fast — some are skipped), then
+  // every product again as its image is saved (one at a time). The full list
+  // opens when it's done.
+  const [collected, setCollected] = useState([])
   const timerRef = useRef(null)
   const mountedRef = useRef(true)
 
@@ -88,6 +93,10 @@ function SupermarketCatalogModal({ countries, initial, onClose, onImported }) {
   const follow = (snapshot) => {
     if (!mountedRef.current) return
     setJob(snapshot)
+    const current = snapshot.kind === 'download' ? snapshot.progress?.current : null
+    if (current) {
+      setCollected((prev) => (prev.includes(current) ? prev : [...prev, current]))
+    }
     if (snapshot.status !== 'running') {
       finish(snapshot)
       return
@@ -139,8 +148,9 @@ function SupermarketCatalogModal({ countries, initial, onClose, onImported }) {
     }
   }
 
-  const download = () =>
-    start('downloading', () =>
+  const download = () => {
+    setCollected([])
+    return start('downloading', () =>
       downloadSupermarketCatalog({
         url: form.url.trim(),
         country: form.country.trim(),
@@ -153,6 +163,7 @@ function SupermarketCatalogModal({ countries, initial, onClose, onImported }) {
           .map((category) => ({ name: categoryLabel(category).replaceAll(' → ', ' > '), url: category.url })),
       }),
     )
+  }
 
   const cancel = () => job && cancelSupermarketCatalogJob(job.id).catch((err) => setError(err.message))
 
@@ -238,7 +249,17 @@ function SupermarketCatalogModal({ countries, initial, onClose, onImported }) {
           </form>
         )}
 
-        {(step === 'categories' || step === 'downloading') && prepared && (
+        {step === 'downloading' && prepared && (
+          <p className="supermarket-catalog__downloading">
+            Downloading {selected.size} categor{selected.size === 1 ? 'y' : 'ies'} into <strong>{form.name || prepared.store_name}</strong>:{' '}
+            {prepared.categories
+              .filter((category) => selected.has(category.url))
+              .map(categoryLabel)
+              .join(' · ')}
+          </p>
+        )}
+
+        {step === 'categories' && prepared && (
           <>
             <div className="supermarket-catalog__form">
               <label>
@@ -313,6 +334,19 @@ function SupermarketCatalogModal({ countries, initial, onClose, onImported }) {
           </div>
         )}
 
+        {step === 'downloading' && collected.length > 0 && (
+          <div className="supermarket-catalog__collected">
+            <span className="supermarket-catalog__collected-label">
+              Products being collected <em>(latest first — the full list opens when it's done)</em>
+            </span>
+            <ol reversed>
+              {[...collected].reverse().map((name) => (
+                <li key={name}>{name}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+
         {step === 'done' && imported && (
           <div className="supermarket-catalog__done">
             <p>
@@ -324,6 +358,11 @@ function SupermarketCatalogModal({ countries, initial, onClose, onImported }) {
               </p>
             )}
             {imported.source.status_message && <p className="supermarket-catalog__hint">{imported.source.status_message}</p>}
+            {onShowProducts && (
+              <button type="button" className="settings-view__btn" onClick={() => onShowProducts(imported.source.id)}>
+                View the {imported.product_count} products
+              </button>
+            )}
           </div>
         )}
 

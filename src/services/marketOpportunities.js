@@ -139,6 +139,29 @@ export async function getOrComputeComparison(sourceCountry, targetCountries, { f
   return { ...result, rows: withDisplayName(saved.rows), calculatedAt: saved.calculated_at }
 }
 
+// Priority list of one source country's comparisons: items are
+// { source_country, target_country, product_name }.
+export async function fetchMarketOpportunityPriority(sourceCountry, targetCountries) {
+  const params = new URLSearchParams({ source_country: sourceCountry, target_countries: targetCountries.join(',') })
+  return fetchJson(`/api/market-opportunities/priority?${params.toString()}`)
+}
+
+export async function addToMarketOpportunityPriority(items) {
+  return fetchJson('/api/market-opportunities/priority', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  })
+}
+
+export async function removeFromMarketOpportunityPriority(items) {
+  return fetchJson('/api/market-opportunities/priority/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  })
+}
+
 // Every saved source -> target comparison: [{source_country, target_country, row_count, calculated_at}]
 export async function fetchMarketOpportunityPairs() {
   return fetchJson('/api/market-opportunities/comparisons/pairs')

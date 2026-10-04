@@ -407,3 +407,78 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.revenue-streams-view__builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+/* The built shipment: a full-width row of small cards under the outbound leg. */
+.revenue-streams-view__shipment {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.revenue-streams-view__shipment-head {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.revenue-streams-view__shipment-head strong {
+  color: #38bdf8;
+}
+
+.revenue-streams-view__shipment-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.35rem;
+}
+
+.revenue-streams-view__shipment-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  padding: 0.3rem 0.45rem;
+}
+
+.revenue-streams-view__shipment-name {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.revenue-streams-view__shipment-kg {
+  font-size: 0.85rem;
+  color: #38bdf8;
+  font-variant-numeric: tabular-nums;
+}
+
+.revenue-streams-view__shipment-meta {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A stream whose company has no product form yet: listed, not clickable. */
+.revenue-streams-view__item.is-static {
+  cursor: default;
+}
+
+.revenue-streams-view__item.is-static:hover {
+  background: none;
+}

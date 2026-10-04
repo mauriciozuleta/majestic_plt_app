@@ -166,3 +166,14 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+.product-sources__status--button {
+  background: none;
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.product-sources__status--button:hover {
+  background: rgba(53, 211, 153, 0.12);
+}

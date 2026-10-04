@@ -236,6 +236,69 @@ def list_comparison_pairs(db: Session = Depends(get_db)):
     return {'pairs': pairs}
 
 
+class PriorityItem(BaseModel):
+    source_country: str
+    target_country: str
+    product_name: str
+
+
+class PriorityItemsIn(BaseModel):
+    items: list[PriorityItem]
+
+
+def _priority_out(row: models.MarketOpportunityPriority) -> dict:
+    return {
+        'source_country': row.source_country,
+        'target_country': row.target_country,
+        'product_name': row.product_name,
+        'created_at': row.created_at,
+    }
+
+
+@router.get('/api/market-opportunities/priority')
+def list_priority(
+    source_country: str = Query(...),
+    target_countries: str = Query(default=''),
+    db: Session = Depends(get_db),
+):
+    """The priority list of one source country's comparisons against one or
+    more target countries (comma-separated), oldest first."""
+    Priority = models.MarketOpportunityPriority
+    query = db.query(Priority).filter_by(source_country=source_country)
+    targets = [item for item in (target_countries or '').split(',') if item]
+    if targets:
+        query = query.filter(Priority.target_country.in_(targets))
+    return {'items': [_priority_out(row) for row in query.order_by(Priority.created_at)]}
+
+
+@router.post('/api/market-opportunities/priority')
+def add_to_priority(payload: PriorityItemsIn, db: Session = Depends(get_db)):
+    """Adds products to their comparisons' priority lists; ones already on
+    a list are left as they are."""
+    now = datetime.now(timezone.utc).isoformat()
+    added = 0
+    for item in payload.items:
+        key = {'source_country': item.source_country, 'target_country': item.target_country, 'product_name': item.product_name}
+        if not db.query(models.MarketOpportunityPriority).filter_by(**key).first():
+            db.add(models.MarketOpportunityPriority(**key, created_at=now))
+            added += 1
+    db.commit()
+    return {'added': added}
+
+
+@router.post('/api/market-opportunities/priority/remove')
+def remove_from_priority(payload: PriorityItemsIn, db: Session = Depends(get_db)):
+    removed = 0
+    for item in payload.items:
+        removed += (
+            db.query(models.MarketOpportunityPriority)
+            .filter_by(source_country=item.source_country, target_country=item.target_country, product_name=item.product_name)
+            .delete()
+        )
+    db.commit()
+    return {'removed': removed}
+
+
 @router.get('/api/market-opportunities/comparisons')
 def list_comparisons(
     source_country: str = Query(...),

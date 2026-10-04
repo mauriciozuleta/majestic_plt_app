@@ -1,7 +1,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../services/commercialStructure'
 import { fetchProductSources } from '../../services/productSources'
-import { fetchMarketOpportunityPairs, getOrComputeComparison } from '../../services/marketOpportunities'
+import {
+  addToMarketOpportunityPriority,
+  fetchMarketOpportunityPairs,
+  fetchMarketOpportunityPriority,
+  getOrComputeComparison,
+  removeFromMarketOpportunityPriority,
+} from '../../services/marketOpportunities'
 import { fetchProductSam } from '../../services/globalTradeData'
 import { formatCurrencyValue } from '../../utils/currencyFormat'
 
@@ -17,7 +24,36 @@ const SORT_OPTIONS = [
   { key: 'diff_pct', label: 'Diff %' },
   { key: 'sam_desc', label: 'Country SAM (High to Low)' },
   { key: 'sam_asc', label: 'Country SAM (Low to High)' },
+  { key: 'priority', label: 'Priority list' },
 ]
+
+// A product on a comparison's priority list: its target country + name.
+const priorityKey = (row) => `${row.target_country}|${row.product_name}`
+const priorityItem = (sourceCountry, key) => {
+  const [targetCountry, ...name] = key.split('|')
+  return { source_country: sourceCountry, target_country: targetCountry, product_name: name.join('|') }
+}
+
+// Ticks not yet added to / removed from the priority list, kept per comparison
+// in this browser so they survive leaving the page. Storage can be
+// unavailable (private window) — the page still works without it.
+const pendingStorageKey = (runKey) => `market-opportunities:priority-pending:${runKey}`
+function readPending(runKey) {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(pendingStorageKey(runKey)) || 'null')
+    return { add: new Set(stored?.add || []), remove: new Set(stored?.remove || []) }
+  } catch {
+    return { add: new Set(), remove: new Set() }
+  }
+}
+function writePending(runKey, pending) {
+  try {
+    if (!pending.add.size && !pending.remove.size) window.localStorage.removeItem(pendingStorageKey(runKey))
+    else window.localStorage.setItem(pendingStorageKey(runKey), JSON.stringify({ add: [...pending.add], remove: [...pending.remove] }))
+  } catch {
+    // not remembered across visits — fine
+  }
+}
 
 // SAM here is product-level: UN Comtrade imports of the row's exact 6-digit
 // HS code, each country at its latest reported year.
@@ -155,6 +191,30 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   const targetKey = targetCountries.join('|')
   const runKey = `${sourceCountry}>${targetKey}`
 
+  // Priority list (saved) and the ticks not yet applied to it (this browser).
+  const [priority, setPriority] = useState(() => new Set())
+  const [pending, setPending] = useState(() => readPending(runKey))
+  const [pendingRunKey, setPendingRunKey] = useState(runKey)
+  const [priorityBusy, setPriorityBusy] = useState(false)
+  const [priorityError, setPriorityError] = useState('')
+  if (pendingRunKey !== runKey) {
+    // Another comparison was opened: its own remembered ticks.
+    setPendingRunKey(runKey)
+    setPending(readPending(runKey))
+  }
+
+  useEffect(() => {
+    if (!sourceCountry || targetCountries.length === 0) return undefined
+    let cancelled = false
+    fetchMarketOpportunityPriority(sourceCountry, targetCountries)
+      .then((data) => !cancelled && setPriority(new Set(data.items.map((item) => `${item.target_country}|${item.product_name}`))))
+      .catch((err) => !cancelled && setPriorityError(err.message))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- targetKey is targetCountries' own stable identity
+  }, [sourceCountry, targetKey])
+
   useEffect(() => {
     if (!sourceCountry || targetCountries.length === 0) return undefined
     let cancelled = false
@@ -232,6 +292,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
         row.target_country.toLowerCase().includes(needle),
     )
     if (targetFilter) filtered = filtered.filter((row) => row.target_country === targetFilter)
+    if (sortKey === 'priority') filtered = filtered.filter((row) => priority.has(priorityKey(row)))
     const sorted = [...filtered]
     if (sortKey === 'diff_pct') {
       sorted.sort((a, b) => (a.diff_pct ?? Infinity) - (b.diff_pct ?? Infinity))
@@ -245,7 +306,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
       sorted.sort((a, b) => ratingRank(a.opportunity_rating) - ratingRank(b.opportunity_rating) || (a.diff_pct ?? Infinity) - (b.diff_pct ?? Infinity))
     }
     return sorted
-  }, [rows, search, targetFilter, sortKey, getSamValue])
+  }, [rows, search, targetFilter, sortKey, getSamValue, priority])
 
   // Grouped by opportunity rating, in the scale's own fixed order
   // (RATING_ORDER) regardless of `sortKey` — sortKey only ever orders rows
@@ -298,6 +359,49 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
 
   const recompute = () => setRecomputeRequest({ key: runKey, at: Date.now() })
 
+  // A row is ticked when it's on the priority list (unless being removed) or
+  // ticked to be added. Only products in this comparison count toward the buttons.
+  const rowKeys = new Set(rows.map(priorityKey))
+  const toAdd = [...pending.add].filter((key) => rowKeys.has(key) && !priority.has(key))
+  const toRemove = [...pending.remove].filter((key) => priority.has(key))
+  const isTicked = (key) => (priority.has(key) && !pending.remove.has(key)) || pending.add.has(key)
+  const updatePending = (next) => {
+    setPending(next)
+    writePending(runKey, next)
+  }
+  const togglePriority = (row) => {
+    const key = priorityKey(row)
+    const add = new Set(pending.add)
+    const remove = new Set(pending.remove)
+    if (priority.has(key)) {
+      if (remove.has(key)) remove.delete(key)
+      else remove.add(key)
+    } else if (add.has(key)) add.delete(key)
+    else add.add(key)
+    updatePending({ add, remove })
+  }
+  const applyPriority = async (keys, action) => {
+    setPriorityBusy(true)
+    setPriorityError('')
+    try {
+      const items = keys.map((key) => priorityItem(sourceCountry, key))
+      if (action === 'add') await addToMarketOpportunityPriority(items)
+      else await removeFromMarketOpportunityPriority(items)
+      const nextPriority = new Set(priority)
+      keys.forEach((key) => (action === 'add' ? nextPriority.add(key) : nextPriority.delete(key)))
+      setPriority(nextPriority)
+      const add = new Set(pending.add)
+      const remove = new Set(pending.remove)
+      keys.forEach((key) => (action === 'add' ? add.delete(key) : remove.delete(key)))
+      updatePending({ add, remove })
+    } catch (err) {
+      setPriorityError(err.message)
+    } finally {
+      setPriorityBusy(false)
+    }
+  }
+  const priorityCount = [...priority].filter((key) => rowKeys.has(key)).length
+
   if (runStatus === 'idle' || runStatus === 'running') {
     return <p className="market-analysis__hint">Comparing {sourceCountry}'s prices against {targetCountries.length > 1 ? `${targetCountries.length} countries` : targetCountries[0]}…</p>
   }
@@ -346,6 +450,22 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                 ))}
               </select>
             </label>
+            <div className="market-opportunities__priority-actions">
+              <button
+                type="button"
+                className="market-opportunities__recompute market-opportunities__priority-add"
+                onClick={() => applyPriority(toAdd, 'add')}
+                disabled={!toAdd.length || priorityBusy}
+              >
+                Add to priority list{toAdd.length ? ` (${toAdd.length})` : ''}
+              </button>
+              {toRemove.length > 0 && (
+                <button type="button" className="market-opportunities__recompute" onClick={() => applyPriority(toRemove, 'remove')} disabled={priorityBusy}>
+                  Remove from priority list ({toRemove.length})
+                </button>
+              )}
+              <span className="market-analysis__hint">{priorityCount} on the priority list</span>
+            </div>
             {isRegion && (
               <label className="global-tam__sort">
                 Target country
@@ -361,10 +481,12 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
             )}
           </div>
 
+          {priorityError && <p className="market-analysis__hint">Priority list: {priorityError}</p>}
           <div className="market-opportunities__table-wrap">
             <table className="market-opportunities__table">
               <thead>
                 <tr>
+                  <th className="market-opportunities__check-col" aria-label="Priority list" title="Tick products, then Add to priority list" />
                   <th>Product</th>
                   <th>Target Product</th>
                   <th>HS Code</th>
@@ -380,7 +502,8 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
               </thead>
               <tbody>
                 {groupedRows.map(({ rating, rows: groupRows }) => {
-                  const isOpen = expandedRatings.has(rating)
+                  // Showing just the priority list opens every group it has.
+                  const isOpen = sortKey === 'priority' || expandedRatings.has(rating)
                   const count = groupRows.length
                   const summary =
                     rating === 'Unrated'
@@ -389,7 +512,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                   return (
                     <Fragment key={rating}>
                       <tr className="market-opportunities__rating-row" onClick={() => toggleRating(rating)}>
-                        <td colSpan={isRegion ? 11 : 10}>
+                        <td colSpan={isRegion ? 12 : 11}>
                           <div className="market-opportunities__rating-row-inner">
                             <button
                               type="button"
@@ -410,7 +533,17 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                       </tr>
                       {isOpen &&
                         groupRows.map((row) => (
-                          <tr key={row.id}>
+                          <tr key={row.id} className={priority.has(priorityKey(row)) ? 'is-priority' : ''}>
+                            <td className="market-opportunities__check-col">
+                              <input
+                                type="checkbox"
+                                checked={isTicked(priorityKey(row))}
+                                onChange={() => togglePriority(row)}
+                                disabled={priorityBusy}
+                                aria-label={`Priority: ${row.product_name}`}
+                                title={priority.has(priorityKey(row)) ? 'On the priority list — untick to remove it' : 'Tick, then Add to priority list'}
+                              />
+                            </td>
                             <td>{row.product_name}</td>
                             <td className="market-analysis__company">{row._target_display_name || '—'}</td>
                             <td className="market-opportunities__hs-code">{row.hs_code || '—'}</td>
@@ -451,8 +584,10 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                 })}
                 {filteredSortedRows.length === 0 && (
                   <tr>
-                    <td colSpan={isRegion ? 11 : 10} className="market-analysis__empty-row">
-                      No product matches "{search}".
+                    <td colSpan={isRegion ? 12 : 11} className="market-analysis__empty-row">
+                      {sortKey === 'priority' && !search
+                        ? 'No products on the priority list yet — tick products, then Add to priority list.'
+                        : `No product matches "${search}".`}
                     </td>
                   </tr>
                 )}
@@ -514,6 +649,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
 // after it — a stale downstream choice (e.g. a region picked under the old
 // Target mode) must never linger once what it depended on has changed.
 function MarketOpportunitiesPanel() {
+  const [searchParams] = useSearchParams()
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState(null)
   const [sourceCountries, setSourceCountries] = useState([])
@@ -558,12 +694,28 @@ function MarketOpportunitiesPanel() {
         // reused here rather than a second check, just widened to either
         // label: a Target country is a destination market, where Retail
         // (not just Wholesaler) is exactly the kind of source that matters.
-        setPortfolioCountryNames(
-          new Set(allSources.filter((row) => row.product_count > 0).map((row) => row.country_name.trim().toLowerCase())),
-        )
+        const portfolioNames = new Set(allSources.filter((row) => row.product_count > 0).map((row) => row.country_name.trim().toLowerCase()))
+        setPortfolioCountryNames(portfolioNames)
         // "Active regions" — only ones with at least one active country;
         // an empty region has nothing to target and would be a dead end.
-        setRegions(regionRows.filter((row) => row.countries.length > 0))
+        const activeRegions = regionRows.filter((row) => row.countries.length > 0)
+        setRegions(activeRegions)
+        // ?source=Colombia&target=Jamaica (e.g. from the Shipment builder)
+        // opens that comparison, By Country.
+        const wantSource = searchParams.get('source')
+        const wantTarget = searchParams.get('target')
+        if (wantSource && wantTarget && wholesalerCountries.includes(wantSource)) {
+          for (const row of activeRegions) {
+            const match = row.countries.find((item) => item.name === wantTarget && portfolioNames.has(item.name.trim().toLowerCase()))
+            if (match) {
+              setSource(wantSource)
+              setTarget('country')
+              setRegion(row.region)
+              setCountry(match.id)
+              break
+            }
+          }
+        }
         setStatus('ready')
       })
       .catch((err) => {
@@ -574,6 +726,7 @@ function MarketOpportunitiesPanel() {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the address only picks the first comparison shown
   }, [])
 
   const handleSourceChange = (value) => {

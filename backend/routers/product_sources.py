@@ -19,6 +19,7 @@ from .. import models
 from ..custom_sources.extract import SourceError, analyze_url, parse_file
 from ..database import get_db
 from ..snapshot_store import list_snapshots, save_snapshot
+from .product_classification import classify_source_products_in_background
 
 router = APIRouter()
 
@@ -113,6 +114,7 @@ def _store(db: Session, source: models.ProductSource, products: list[dict], orig
     source.origin = origin
     source.product_count = len(products)
     source.last_loaded_at = _now()
+    classify_source_products_in_background(products, source.country_name)
 
 
 def _restamp_currency(db: Session, source: models.ProductSource) -> None:
@@ -289,6 +291,20 @@ def delete_product_source(source_id: str, db: Session = Depends(get_db)):
     db.delete(source)
     db.commit()
     return {'ok': True}
+
+
+@router.get('/product-sources/{source_id}/products')
+def source_products(source_id: str, db: Session = Depends(get_db)):
+    """One custom source's products as stored — what the portfolio and the
+    comparisons use from it — for Settings' product list."""
+    source = _get(db, source_id)
+    snapshots = list_snapshots(db, [_snapshot_key(source.id)])
+    snapshot = snapshots[0] if snapshots else None
+    return {
+        'source': _serialize(source),
+        'fetched_at': snapshot['fetched_at'] if snapshot else None,
+        'products': snapshot['products'] if snapshot else [],
+    }
 
 
 @router.get('/product-sources/products')

@@ -68,6 +68,20 @@ export async function updateRevenueStreamRouteSettings(companyId, streamId, rout
   return response.json()
 }
 
+// { capacity_kg, aircraft_name, items: [{ product_name, hs_code, kg, ... }] } -> the updated route
+export async function saveRouteOutboundShipment(companyId, streamId, routeId, shipment) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}/outbound-shipment`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(shipment),
+  })
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null)
+    throw new Error(detail?.detail || 'Failed to save the shipment')
+  }
+  return response.json()
+}
+
 export async function deleteRevenueStreamRoute(companyId, streamId, routeId) {
   const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}`, { method: 'DELETE' })
   if (!response.ok) {

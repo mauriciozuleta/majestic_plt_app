@@ -6,6 +6,7 @@ import {
   deleteRevenueStreamRoute,
   fetchRevenueStreamRoutes,
   fetchRevenueStreams,
+  saveRouteOutboundShipment,
   updateRevenueStreamRoute,
   updateRevenueStreamRouteSettings,
 } from '../../../../services/revenueStreams'
@@ -15,6 +16,7 @@ import { useAppStore } from '../../../../store/useAppStore'
 import AddRevenueStreamModal from './AddRevenueStreamModal'
 import AddRouteModal from './AddRouteModal'
 import ShipmentBuilderModal from './ShipmentBuilder/ShipmentBuilderModal'
+import { revenueProductFormFor } from './companyRevenueForms'
 import { RETURN_TYPES, aircraftLabel, branchCode, branchLabel } from './branchLabel'
 import { computeRouteMetrics } from './routeMetrics'
 import { formatCurrencyValue } from '../../../../utils/currencyFormat'
@@ -136,6 +138,22 @@ function RevenueStreamsView() {
   const [expandedLegKeys, setExpandedLegKeys] = useState(new Set())
   // { origin, destination } branches of the route whose Shipment builder is open
   const [shipmentBuilder, setShipmentBuilder] = useState(null)
+  // ids of the routes whose built shipment is shown
+  const [shownShipments, setShownShipments] = useState(() => new Set())
+  const toggleShipment = (routeId) =>
+    setShownShipments((prev) => {
+      const next = new Set(prev)
+      if (next.has(routeId)) next.delete(routeId)
+      else next.add(routeId)
+      return next
+    })
+  const handleBuildShipment = async (shipment) => {
+    const { route } = shipmentBuilder
+    const updated = await saveRouteOutboundShipment(companyId, route.stream_id, route.id, shipment)
+    setRoutes((prev) => prev.map((item) => (item.id === updated.id ? { ...item, outbound_shipment: updated.outbound_shipment } : item)))
+    setShipmentBuilder(null)
+    setShownShipments((prev) => new Set(prev).add(route.id))
+  }
 
   const reload = async () => {
     if (!companyId) return
@@ -354,14 +372,34 @@ ${label}`)) return
                     {leg.key === 'outbound' ? (
                       <div className="revenue-streams-view__metric is-outbound revenue-streams-view__metric--filled">
                         <span className="revenue-streams-view__metric-label">Shipment builder</span>
-                        <button
-                          type="button"
-                          className="revenue-streams-view__builder-btn"
-                          onClick={() => setShipmentBuilder({ origin, destination })}
-                          disabled={!origin || !destination}
-                        >
-                          Build shipment
-                        </button>
+                        <div className="revenue-streams-view__builder-actions">
+                          <button
+                            type="button"
+                            className="revenue-streams-view__builder-btn"
+                            onClick={() =>
+                              setShipmentBuilder({
+                                route,
+                                origin,
+                                destination,
+                                capacityKg,
+                                aircraftName: aircraft ? aircraftLabel(aircraft) : route.aircraft_name,
+                              })
+                            }
+                            disabled={!origin || !destination}
+                          >
+                            {route.outbound_shipment ? 'Update shipment' : 'Build shipment'}
+                          </button>
+                          {route.outbound_shipment && (
+                            <button
+                              type="button"
+                              className="revenue-streams-view__builder-btn"
+                              onClick={() => toggleShipment(route.id)}
+                              aria-expanded={shownShipments.has(route.id)}
+                            >
+                              {shownShipments.has(route.id) ? 'Hide shipment' : 'View shipment'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       card('Shipment builder', '—', 'revenue-streams-view__metric--filled')
@@ -442,9 +480,49 @@ ${label}`)) return
                     )}
                   </>
                 )}
+                {leg.key === 'outbound' && route.outbound_shipment && shownShipments.has(route.id) && renderShipment(route.outbound_shipment)}
               </Fragment>
             )
           })}
+        </div>
+      </div>
+    )
+  }
+
+  // The built outbound shipment as small cards, across the whole card row.
+  const renderShipment = (shipment) => {
+    const allocated = shipment.items.reduce((sum, item) => sum + item.kg, 0)
+    const kg = (value) => `${Math.round(value).toLocaleString('en-US')} kg`
+    return (
+      <div className="revenue-streams-view__shipment">
+        <div className="revenue-streams-view__shipment-head">
+          <strong>Outbound shipment</strong> · {kg(allocated)} of {kg(shipment.capacity_kg)} ({formatNumber((allocated / shipment.capacity_kg) * 100, 1)}%) ·{' '}
+          {shipment.items.length} products
+          {shipment.aircraft_name && ` · ${shipment.aircraft_name}`}
+          {shipment.built_at && ` · built ${new Date(shipment.built_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`}
+          {shipment.capacity_kg - allocated >= 1 && ` · ${kg(shipment.capacity_kg - allocated)} unallocated (product limits reached)`}
+        </div>
+        <div className="revenue-streams-view__shipment-cards">
+          {shipment.items.map((item) => (
+            <div
+              key={`${item.product_name}|${item.hs_code ?? ''}`}
+              className="revenue-streams-view__shipment-card"
+              title={[
+                item.target_product_name && `Matched: ${item.target_product_name}`,
+                item.hs_code && `HS ${item.hs_code}`,
+                item.rating && `Rating: ${item.rating}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            >
+              <span className="revenue-streams-view__shipment-name">{item.product_name}</span>
+              <span className="revenue-streams-view__shipment-kg">{kg(item.kg)}</span>
+              <span className="revenue-streams-view__shipment-meta">
+                {formatNumber(item.share_pct ?? 0, 1)}% · SAM {item.country_sam != null ? formatCurrencyValue(item.country_sam, 'USD', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—'} · Diff{' '}
+                {item.diff_pct != null ? `${formatNumber(item.diff_pct, 1)}%` : '—'}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     )
@@ -487,10 +565,19 @@ ${label}`)) return
     return branch ? branchLabel(branch) : 'Branch no longer in the commercial structure'
   }
 
+  // The air-cargo route form (and everything built on routes) is FRESH24's;
+  // other companies get their own form once it's set up (companyRevenueForms.js).
+  const hasRouteForm = revenueProductFormFor(companyId) === 'air-cargo-route'
+  const openRouteForm = (stream) => hasRouteForm && setRouteModal({ stream, route: null })
+
   return (
     <div className="panel-surface revenue-streams-view">
       <h3>Revenue</h3>
-      <p>Break revenue down by stream. Click a stream to add an origin and destination to it.</p>
+      <p>
+        {hasRouteForm
+          ? 'Break revenue down by stream. Click a stream to add an origin and destination to it.'
+          : "Break revenue down by stream. This company's product form hasn't been set up yet."}
+      </p>
       <button type="button" className="revenue-streams-view__add-btn" onClick={() => setModalOpen(true)}>
         + Add New Revenue Stream
       </button>
@@ -504,24 +591,26 @@ ${label}`)) return
             return (
               <li key={stream.id} className="revenue-streams-view__stream">
                 <div
-                  className="revenue-streams-view__item"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setRouteModal({ stream, route: null })}
+                  className={`revenue-streams-view__item ${hasRouteForm ? '' : 'is-static'}`}
+                  role={hasRouteForm ? 'button' : undefined}
+                  tabIndex={hasRouteForm ? 0 : undefined}
+                  onClick={() => openRouteForm(stream)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
+                    if (hasRouteForm && (event.key === 'Enter' || event.key === ' ')) {
                       event.preventDefault()
-                      setRouteModal({ stream, route: null })
+                      openRouteForm(stream)
                     }
                   }}
                 >
                   <span className="revenue-streams-view__item-type">{REVENUE_TYPE_LABELS[stream.revenue_type] ?? stream.revenue_type}</span>
                   <span className="revenue-streams-view__item-name">{stream.name}</span>
-                  <button type="button" className="revenue-streams-view__products-btn">
-                    Add Products
-                  </button>
+                  {hasRouteForm && (
+                    <button type="button" className="revenue-streams-view__products-btn">
+                      Add Products
+                    </button>
+                  )}
                 </div>
-                {streamRoutes.length > 0 && (
+                {hasRouteForm && streamRoutes.length > 0 && (
                   <table className="revenue-streams-view__routes">
                     <thead>
                       <tr>
@@ -590,7 +679,15 @@ ${label}`)) return
 
       {modalOpen && <AddRevenueStreamModal onSave={handleSave} onCancel={() => setModalOpen(false)} />}
       {shipmentBuilder && (
-        <ShipmentBuilderModal origin={shipmentBuilder.origin} destination={shipmentBuilder.destination} onClose={() => setShipmentBuilder(null)} />
+        <ShipmentBuilderModal
+          origin={shipmentBuilder.origin}
+          destination={shipmentBuilder.destination}
+          capacityKg={shipmentBuilder.capacityKg}
+          aircraftName={shipmentBuilder.aircraftName}
+          previous={shipmentBuilder.route.outbound_shipment}
+          onBuild={handleBuildShipment}
+          onClose={() => setShipmentBuilder(null)}
+        />
       )}
       {routeModal && (
         <AddRouteModal

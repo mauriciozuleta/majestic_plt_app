@@ -147,6 +147,7 @@
 .shipment-builder__footer {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .shipment-builder__button {
@@ -161,4 +162,44 @@
 
 .shipment-builder__button:hover {
   border-color: #38bdf8;
+}
+
+.shipment-builder__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+}
+
+.shipment-builder__empty p {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.shipment-builder__button--primary {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #04212f;
+  font-weight: 600;
+}
+
+.shipment-builder__button--primary:hover {
+  background: #7dd3fc;
+  border-color: #7dd3fc;
+}
+
+.shipment-builder__link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #38bdf8;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.shipment-builder__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

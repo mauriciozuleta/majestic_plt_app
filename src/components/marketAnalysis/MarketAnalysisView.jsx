@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { IconCheck } from '@tabler/icons-react'
 import { fetchCountryProfile, fetchMarketAnalysisRegions } from '../../services/commercialStructure'
 import { fetchTradeCountries } from '../../services/globalTradeData'
@@ -143,7 +143,9 @@ function MarketAnalysisView() {
   const companies = useAppStore((state) => state.companies)
   const currentUser = useAppStore((state) => state.currentUser)
 
-  const [pageTab, setPageTab] = useState('country-information')
+  // ?tab=market-opportunities (e.g. from the Shipment builder) opens that tab.
+  const [searchParams] = useSearchParams()
+  const [pageTab, setPageTab] = useState(() => searchParams.get('tab') || 'country-information')
   const [marketSizeTab, setMarketSizeTab] = useState('available-categories')
   const [regions, setRegions] = useState([])
   const [status, setStatus] = useState({})

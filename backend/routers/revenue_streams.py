@@ -1,8 +1,9 @@
+import json
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -88,10 +89,38 @@ class RevenueStreamRouteOut(BaseModel):
     return_price_per_kg: float | None = None
     outbound_leg_cost_pct: float | None = None
     return_leg_cost_pct: float | None = None
+    outbound_shipment: dict | None = None
     created_at: str
 
     class Config:
         from_attributes = True
+
+    @field_validator('outbound_shipment', mode='before')
+    @classmethod
+    def _parse_shipment(cls, value):
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except ValueError:
+                return None
+        return value
+
+
+class ShipmentItemIn(BaseModel):
+    product_name: str
+    hs_code: str | None = None
+    target_product_name: str | None = None
+    kg: float
+    share_pct: float | None = None
+    country_sam: float | None = None
+    diff_pct: float | None = None
+    rating: str | None = None
+
+
+class ShipmentIn(BaseModel):
+    capacity_kg: float
+    aircraft_name: str | None = None
+    items: list[ShipmentItemIn]
 
 
 @router.get('/companies/{company_id}/revenue-streams/routes', response_model=list[RevenueStreamRouteOut])
@@ -190,6 +219,25 @@ def update_revenue_stream_route_settings(
     route = _get_route(db, company_id, stream_id, route_id)
     for field, value in changes.items():
         setattr(route, field, value)
+    db.commit()
+    db.refresh(route)
+    return route
+
+
+@router.put('/companies/{company_id}/revenue-streams/{stream_id}/routes/{route_id}/outbound-shipment', response_model=RevenueStreamRouteOut)
+def save_outbound_shipment(company_id: str, stream_id: str, route_id: str, payload: ShipmentIn, db: Session = Depends(get_db)):
+    """Saves the outbound shipment the Shipment builder distributed across
+    the route's priority products (replacing any earlier one)."""
+    if payload.capacity_kg <= 0:
+        raise HTTPException(status_code=400, detail='The aircraft has no cargo capacity to fill.')
+    if not payload.items:
+        raise HTTPException(status_code=400, detail='Select at least one product.')
+    if any(item.kg < 0 for item in payload.items):
+        raise HTTPException(status_code=400, detail='A product cannot have a negative weight.')
+    if sum(item.kg for item in payload.items) > payload.capacity_kg + 0.5:
+        raise HTTPException(status_code=400, detail='The shipment is heavier than the aircraft can carry.')
+    route = _get_route(db, company_id, stream_id, route_id)
+    route.outbound_shipment = json.dumps({**payload.model_dump(), 'built_at': datetime.now(timezone.utc).isoformat()})
     db.commit()
     db.refresh(route)
     return route

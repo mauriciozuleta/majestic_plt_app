@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../../../../services/commercialStructure'
-import { getOrComputeComparison } from '../../../../../services/marketOpportunities'
+import { fetchMarketOpportunityPriority, getOrComputeComparison } from '../../../../../services/marketOpportunities'
 import { fetchProductSam } from '../../../../../services/globalTradeData'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
-import { SHIPMENT_RATINGS, groupProductsByRating } from './shipmentBuilder'
+import { ALL_RATINGS, NO_SAM_CAP_KG, SAM_CAP_KG, allocateShipment, groupProductsByRating } from './shipmentBuilder'
 import './ShipmentBuilder.css'
 
 const STEP_LABELS = {
   resolving: 'Finding the route’s countries…',
+  priority: 'Looking for the route’s priority list…',
   checking: 'Looking for a saved Market Opportunities comparison…',
   computing: 'No saved comparison — running it now (this can take a few minutes)…',
   sam: 'Loading each product’s Country SAM…',
@@ -16,12 +18,16 @@ const STEP_LABELS = {
 const formatSam = (value) => (value == null ? '—' : formatCurrencyValue(value, 'USD', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))
 const formatDiff = (value) => (value == null ? '—' : `${value.toFixed(1)}%`)
 
-// Shipment builder for one route's outbound leg: finds (or runs) the Market
-// Opportunities comparison of the origin country against the destination
-// country, then lists its Very High / High / Challenging products, each
-// rating ordered by Country SAM then Diff % (see shipmentBuilder.js), for
-// selection.
-function ShipmentBuilderModal({ origin, destination, onClose }) {
+// Shipment builder for one route's outbound leg: the products on the
+// priority list of the origin country -> destination country comparison
+// (Market Analysis ▸ Market Opportunities), grouped by rating and ordered by
+// Country SAM then Diff % (see shipmentBuilder.js), for selection. With no
+// priority list yet, it points to Market Opportunities to build one.
+// `capacityKg` is the aircraft's max payload; `previous` the route's last
+// built shipment (its products start ticked instead of every product).
+// `onBuild(shipment)` saves the distribution.
+function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, previous, onBuild, onClose }) {
+  const navigate = useNavigate()
   const [step, setStep] = useState('resolving')
   const [error, setError] = useState('')
   const [countries, setCountries] = useState(null)
@@ -29,6 +35,10 @@ function ShipmentBuilderModal({ origin, destination, onClose }) {
   const [productSam, setProductSam] = useState(null)
   const [samError, setSamError] = useState('')
   const [selected, setSelected] = useState(() => new Set())
+  // Priority products no longer in the comparison (recomputed since they were added)
+  const [missingPriority, setMissingPriority] = useState([])
+  const [building, setBuilding] = useState(false)
+  const [buildError, setBuildError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -50,15 +60,32 @@ function ShipmentBuilderModal({ origin, destination, onClose }) {
       if (cancelled) return
       setCountries({ source, target })
 
+      setStep('priority')
+      const priority = await fetchMarketOpportunityPriority(source.name, [target.name])
+      if (cancelled) return
+      const priorityNames = new Set(priority.items.filter((item) => item.target_country === target.name).map((item) => item.product_name))
+      if (priorityNames.size === 0) {
+        setStep('no-priority')
+        return
+      }
+
       setStep('checking')
       const result = await getOrComputeComparison(source.name, [target.name], {
         onStatus: (status) => !cancelled && status === 'computing' && setStep('computing'),
       })
       if (cancelled) return
-      setComparison(result)
+      const rows = result.rows.filter((row) => priorityNames.has(row.product_name))
+      const found = new Set(rows.map((row) => row.product_name))
+      setMissingPriority([...priorityNames].filter((name) => !found.has(name)))
+      setComparison({ ...result, rows })
+      // Every product starts ticked — or, when updating, the ones in the last shipment.
+      const previousNames = new Set((previous?.items || []).map((item) => item.product_name))
+      setSelected(
+        new Set(rows.filter((row) => !previousNames.size || previousNames.has(row.product_name)).map((row) => `${row.product_name}|${row.hs_code ?? ''}`)),
+      )
 
       setStep('sam')
-      const codes = [...new Set(result.rows.map((row) => row.hs_code).filter((code) => /^\d{6}$/.test(code || '')))]
+      const codes = [...new Set(rows.map((row) => row.hs_code).filter((code) => /^\d{6}$/.test(code || '')))]
       if (codes.length) {
         try {
           const sam = await fetchProductSam(target.region, codes)
@@ -77,11 +104,11 @@ function ShipmentBuilderModal({ origin, destination, onClose }) {
     return () => {
       cancelled = true
     }
-  }, [origin, destination])
+  }, [origin, destination, previous])
 
   const groups = useMemo(() => {
     if (!comparison || !countries) return []
-    return groupProductsByRating(comparison.rows, (row) => productSam?.products?.[row.hs_code]?.countries?.[countries.target.name]?.value ?? null)
+    return groupProductsByRating(comparison.rows, (row) => productSam?.products?.[row.hs_code]?.countries?.[countries.target.name]?.value ?? null, ALL_RATINGS)
   }, [comparison, countries, productSam])
   const products = useMemo(() => groups.flatMap((group) => group.products), [groups])
 
@@ -103,6 +130,40 @@ function ShipmentBuilderModal({ origin, destination, onClose }) {
     })
 
   const title = countries ? `${countries.source.name} → ${countries.target.name}` : 'Shipment builder'
+  const chosen = products.filter((item) => selected.has(item.key))
+  const build = async () => {
+    const { items } = allocateShipment(chosen, capacityKg)
+    setBuilding(true)
+    setBuildError('')
+    try {
+      await onBuild({
+        capacity_kg: capacityKg,
+        aircraft_name: aircraftName || null,
+        items: items.map((item) => ({
+          product_name: item.productName,
+          hs_code: item.hsCode || null,
+          target_product_name: item.targetProductName || null,
+          kg: item.kg,
+          share_pct: Math.round(item.sharePct * 10) / 10,
+          country_sam: item.countrySam,
+          diff_pct: item.diffPct,
+          rating: item.opportunityRating,
+        })),
+      })
+    } catch (err) {
+      setBuildError(err.message)
+      setBuilding(false)
+    }
+  }
+  const openMarketOpportunities = () => {
+    const params = new URLSearchParams({ tab: 'market-opportunities' })
+    if (countries) {
+      params.set('source', countries.source.name)
+      params.set('target', countries.target.name)
+    }
+    onClose()
+    navigate(`/market-analysis?${params.toString()}`)
+  }
 
   return (
     <div className="shipment-builder__overlay" role="dialog" aria-modal="true" aria-label="Shipment builder">
@@ -118,19 +179,40 @@ function ShipmentBuilderModal({ origin, destination, onClose }) {
         </header>
 
         {step === 'error' && <p className="shipment-builder__error">{error}</p>}
+        {step === 'no-priority' && countries && (
+          <div className="shipment-builder__empty">
+            <p>
+              There's no priority list for <strong>{countries.source.name} → {countries.target.name}</strong> yet.
+            </p>
+            <p className="shipment-builder__status">
+              Build it in Market Analysis ▸ Market Opportunities: tick the products you want to ship and press Add to priority list.
+            </p>
+            <button type="button" className="shipment-builder__button shipment-builder__button--primary" onClick={openMarketOpportunities}>
+              Go to Market Opportunities
+            </button>
+          </div>
+        )}
         {STEP_LABELS[step] && <p className="shipment-builder__status">{STEP_LABELS[step]}</p>}
 
         {step === 'ready' && comparison && (
           <>
             <p className="shipment-builder__meta">
-              {comparison.origin === 'saved' ? 'Saved comparison' : 'Comparison just computed'}
-              {comparison.calculatedAt && `, ${new Date(comparison.calculatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`} ·{' '}
-              {products.length} product{products.length === 1 ? '' : 's'} rated {SHIPMENT_RATINGS.join(', ')}, each by Country SAM then Diff %
+              Priority list · {products.length} product{products.length === 1 ? '' : 's'} by rating, then Country SAM and Diff % · comparison
+              {comparison.calculatedAt && ` computed ${new Date(comparison.calculatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`}
               {selected.size > 0 && ` · ${selected.size} selected`}
+              {' · '}
+              <button type="button" className="shipment-builder__link" onClick={openMarketOpportunities}>
+                Edit the priority list
+              </button>
             </p>
+            {missingPriority.length > 0 && (
+              <p className="shipment-builder__status">
+                Not in the latest comparison any more: {missingPriority.join(', ')}.
+              </p>
+            )}
             {samError && <p className="shipment-builder__error">Country SAM didn’t load ({samError}).</p>}
             {products.length === 0 ? (
-              <p className="shipment-builder__status">No product between these two countries is rated {SHIPMENT_RATINGS.join(', ')}.</p>
+              <p className="shipment-builder__status">None of the priority list's products are in the latest comparison.</p>
             ) : (
               <div className="shipment-builder__table-wrap">
                 <table className="shipment-builder__table">
@@ -190,7 +272,25 @@ function ShipmentBuilderModal({ origin, destination, onClose }) {
           </>
         )}
 
+        {step === 'ready' && products.length > 0 && (
+          <p className="shipment-builder__status">
+            Build fills {capacityKg ? `${Math.round(capacityKg).toLocaleString('en-US')} kg` : 'the aircraft'} across the ticked products — more to a bigger Country SAM and
+            a lower Diff %, at most {SAM_CAP_KG.toLocaleString('en-US')} kg each ({NO_SAM_CAP_KG} kg without a Country SAM).
+          </p>
+        )}
+        {buildError && <p className="shipment-builder__error">{buildError}</p>}
         <footer className="shipment-builder__footer">
+          {step === 'ready' && products.length > 0 && (
+            <button
+              type="button"
+              className="shipment-builder__button shipment-builder__button--primary"
+              onClick={build}
+              disabled={!chosen.length || !capacityKg || building}
+              title={capacityKg ? undefined : "The route's aircraft has no max payload to fill"}
+            >
+              {building ? 'Building…' : `Build${chosen.length ? ` (${chosen.length})` : ''}`}
+            </button>
+          )}
           <button type="button" className="shipment-builder__button" onClick={onClose}>
             Close
           </button>

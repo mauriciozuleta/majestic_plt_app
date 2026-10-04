@@ -117,6 +117,9 @@
   padding: 0.4rem;
   overflow: auto;
   min-height: 6rem;
+  /* Bounded so the progress, live product list and buttons below stay in view. */
+  max-height: min(42vh, 24rem);
+  flex: 0 1 auto;
   border: 1px solid var(--border);
   border-radius: 10px;
   columns: 2 17rem;
@@ -157,7 +160,9 @@
   color: var(--text-primary);
 }
 
-.supermarket-catalog__list label {
+/* Scoped under .supermarket-catalog: the pop-up renders inside the Settings
+   card, whose own `.settings-view__card label` grid rule would otherwise win. */
+.supermarket-catalog .supermarket-catalog__list label {
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -211,4 +216,56 @@
   .supermarket-catalog__form {
     grid-template-columns: 1fr;
   }
+}
+
+.supermarket-catalog__collected {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-height: 0;
+}
+
+.supermarket-catalog__collected-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.supermarket-catalog__collected-label em {
+  font-style: normal;
+  color: var(--text-dim);
+}
+
+.supermarket-catalog__collected ol {
+  margin: 0;
+  padding: 0.4rem 0.6rem 0.4rem 2.2rem;
+  max-height: 12rem;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.supermarket-catalog__done .settings-view__btn {
+  margin-top: 0.4rem;
+}
+
+.supermarket-catalog .supermarket-catalog__list input[type='checkbox'] {
+  display: inline-block;
+  width: auto;
+  flex: none;
+  margin: 0;
+}
+
+.supermarket-catalog__downloading {
+  margin: 0;
+  max-height: 4.5rem;
+  overflow: auto;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.supermarket-catalog__collected ol {
+  min-height: 5rem;
 }

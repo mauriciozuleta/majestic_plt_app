@@ -894,6 +894,19 @@ class MarketOpportunityComparison(Base):
     calculated_at = Column(String, nullable=False)
 
 
+class MarketOpportunityPriority(Base):
+    """A source product the user put on the priority list of one
+    (source_country, target_country) comparison in Market Opportunities.
+    Keyed by names, not comparison row ids, so it survives recomputing the
+    comparison (which replaces its rows)."""
+    __tablename__ = 'market_opportunity_priorities'
+
+    source_country = Column(String, primary_key=True)
+    target_country = Column(String, primary_key=True)
+    product_name = Column(String, primary_key=True)
+    created_at = Column(String, nullable=False)
+
+
 class MarketOpportunityUnmatched(Base):
     """The source products with no match in the target market, from the
     last saved run of one (source_country, target_country) pair — saved
@@ -1067,6 +1080,9 @@ class RevenueStreamRoute(Base):
     # Share of the whole flight's cost each leg assumes, 0–100 %.
     outbound_leg_cost_pct = Column(Float, nullable=True)
     return_leg_cost_pct = Column(Float, nullable=True)
+    # The outbound shipment last built by the Shipment builder, as JSON:
+    # {capacity_kg, aircraft_name, built_at, items: [{product_name, hs_code, kg, ...}]}
+    outbound_shipment = Column(String, nullable=True)
     created_at = Column(String, nullable=False)
 
 
