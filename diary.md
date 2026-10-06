@@ -25,15 +25,10 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- Committed so far: up to `72ff4c4` (diary handout) / `f154581` (the 2026-10-05 work). **Uncommitted since then: the Tax Calculator** (see below:
-  `backend/tax_calc/`, `routers/tax_calculator.py`, `main.py` registration, `tests/test_tax_calc.py`, `src/components/taxCalculator/`,
-  `src/services/taxCalculator.js`, `App.jsx` route, `Sidebar.jsx` item, `.gitignore`) and this diary. Previous commit: `f154581` ("Add RAG Files, local Ollama models in the chat, tax-cost reports and Commercial Guide reader") on `main`,
-  on top of `f3953d6`. It holds everything from the long 2026-10-05 session: the Commercial Guide reader (`backend/trade_gov/`) and
-  profile changes; the RAG Files module (`backend/rag_files/`, `routers/rag_files.py`, `src/components/ragFiles/`,
-  `src/services/ragFiles.js`, `ragDataFiles.js`, `knowledge_base/embed.py` thread cap, one line in `knowledge_base/rag.py`);
-  local models (`backend/local_models/` — `ollama_client.py`, `reports.py`, `tax_report.py`, `import_tax.py`, `agent.py`;
-  `routers/local_models.py`; `src/components/chatbox/`, `src/services/localModels.js`; bench scripts `backend/scripts/agent_*.py`);
-  the sidebar; `CLAUDE.md`; this diary; the rebuilt Jamaica profile and `majestic_plt.db`. The graph was refreshed after the commit.
+- Last commit: `1d49350` ("Add Tax Calculator (Jamaica, United States) and import-tax multipliers for portfolio products") on `main`; before it
+  `72ff4c4` (handout) and `f154581` (RAG Files, local models, tax PDF, Commercial Guide reader). **Everything is committed** except the
+  `__pycache__` files; the graph was refreshed after the commit. Tax data (`backend/documents/tax_data/`) and RAG files are gitignored — on a
+  fresh clone use the calculator's "Update tariff data" button (US downloads from USITC; Jamaica copies the tariff CSV uploaded in RAG Files).
 - Deliberately NOT committed: the ~50 modified/new `__pycache__/*.pyc` files (tracked by an old commit but never part of this work —
   consider `git rm --cached` + a `.gitignore` entry for `__pycache__/` if the user wants them out of status).
 - `backend/documents/rag_files/` is gitignored on purpose (user documents, JSON conversions, baked RAG files, saved reports).
