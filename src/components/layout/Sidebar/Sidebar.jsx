@@ -1,5 +1,6 @@
 import './Sidebar.css'
 import {
+  IconCalculator,
   IconChartDots,
   IconDatabase,
   IconFiles,
@@ -84,6 +85,7 @@ function Sidebar() {
         <div className="sidebar-shell__bottom">
           <div className="sidebar-shell__divider" />
 
+          <SidebarNavItem icon={IconCalculator} label="Tax Calculator" to="/tax-calculator" />
           <SidebarNavItem icon={IconDatabase} label="RAG Files" to="/rag-files" />
           <SidebarNavItem icon={IconSettings} label="Settings" to="/settings" />
           <UserRow />

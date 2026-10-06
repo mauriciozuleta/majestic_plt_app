@@ -22,6 +22,7 @@ import DocumentationTab from './components/company/tabs/DocumentationTab/Documen
 import DocumentationView, { DocumentationIndexRedirect } from './components/documentation/DocumentationView'
 import SettingsView from './components/company/tabs/ManagementTab/SettingsView/SettingsView'
 import RagFilesView from './components/ragFiles/RagFilesView'
+import TaxCalculatorView from './components/taxCalculator/TaxCalculatorView'
 import AccountingAuditView from './components/accountingAudit/AccountingAuditView'
 import CorporateStructureView from './components/corporateStructure/CorporateStructureView'
 import { addCompany as createCompany, fetchCompanies } from './services/companies'
@@ -63,6 +64,7 @@ function Layout() {
                 <Route path=":companyId" element={<DocumentationTab />} />
               </Route>
               <Route path="/rag-files" element={<RagFilesView />} />
+              <Route path="/tax-calculator" element={<TaxCalculatorView />} />
               <Route path="/settings" element={<SettingsView />} />
               <Route path="/accounting-audit" element={<AccountingAuditView />} />
 

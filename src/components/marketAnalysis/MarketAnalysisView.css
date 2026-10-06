@@ -1514,3 +1514,20 @@
   background: #2dd4bf;
   border-color: #2dd4bf;
 }
+
+/* Import-tax multiplier (Tax Calculator) in Market Opportunities */
+.market-opportunities__tax-cell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #f59e0b;
+}
+
+.market-opportunities__tax-chip {
+  margin-left: 0.5rem;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 999px;
+  padding: 0 0.45rem;
+  font-size: 0.68rem;
+  color: #f59e0b;
+  white-space: nowrap;
+}

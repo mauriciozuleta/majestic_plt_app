@@ -66,3 +66,6 @@ backend/supermarket_catalogs/
 # RAG Files: per-country documents, their JSON conversions and baked RAG files
 # (backend/rag_files, routers/rag_files.py) — user documents, kept on disk
 backend/documents/rag_files/
+
+# Tax calculator tariff data (USITC HTS download, Jamaica tariff copy) — re-created from the app's "Update tariff data"
+backend/documents/tax_data/

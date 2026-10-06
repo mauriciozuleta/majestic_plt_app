@@ -16,7 +16,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 
 
 
-## Handout — start here (written 2026-10-05, end of day; next session starts 2026-10-06)
+## Handout — start here (written 2026-10-06, after the calculator rework and the tax multipliers)
 
 > **How this works.** This block exists so a new or changed session can pick up in one read. When you start a session:
 > read it, do the work, add your entries under "Entries", then **delete this block**. As the very last step of the session
@@ -25,7 +25,9 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- Last commit: `f154581` ("Add RAG Files, local Ollama models in the chat, tax-cost reports and Commercial Guide reader") on `main`,
+- Committed so far: up to `72ff4c4` (diary handout) / `f154581` (the 2026-10-05 work). **Uncommitted since then: the Tax Calculator** (see below:
+  `backend/tax_calc/`, `routers/tax_calculator.py`, `main.py` registration, `tests/test_tax_calc.py`, `src/components/taxCalculator/`,
+  `src/services/taxCalculator.js`, `App.jsx` route, `Sidebar.jsx` item, `.gitignore`) and this diary. Previous commit: `f154581` ("Add RAG Files, local Ollama models in the chat, tax-cost reports and Commercial Guide reader") on `main`,
   on top of `f3953d6`. It holds everything from the long 2026-10-05 session: the Commercial Guide reader (`backend/trade_gov/`) and
   profile changes; the RAG Files module (`backend/rag_files/`, `routers/rag_files.py`, `src/components/ragFiles/`,
   `src/services/ragFiles.js`, `ragDataFiles.js`, `knowledge_base/embed.py` thread cap, one line in `knowledge_base/rag.py`);
@@ -38,6 +40,48 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 - Services running now (may be gone tomorrow): `npm run dev` (backend 8012, frontend `http://127.0.0.1:5173/`) and `ollama serve`.
   If the backend doesn't serve a NEW route after an edit, restart fully (stop python `uvicorn|multiprocessing` + node `vite|concurrently|npm-cli`
   + the `cmd.exe /c npm run dev`, then start `npm run dev` again) — `--reload` missed new routes several times today.
+
+**Tax Calculator (new, 2026-10-06; the user decided NOT to test a 14B model — "if it fails at reading rag, no point" — and asked for
+a deterministic calculator per country instead).** Sidebar ▸ **Tax Calculator** (`/tax-calculator`). Backend `backend/tax_calc/`: one adapter
+per country (`base.py` interface + helpers, `jamaica.py`, `usa.py`, registry in `__init__.py`); API `routers/tax_calculator.py`:
+`GET /tax-calc/countries`, `GET /tax-calc/{country}/search?q=` (words or code prefix), `POST /tax-calc/{country}/calculate`,
+`POST /tax-calc/{country}/refresh`. No AI anywhere: every result lists each tax with its rate, base and formula, plus assumptions
+(`notes`), things not computed (`warnings`) and `complete` (false when a charge couldn't be computed). Data lives in
+`backend/documents/tax_data/<Country>/` (gitignored; recreate with the page's "Update tariff data"):
+- **Jamaica**: `tariff.csv` = copy of the printable tariff uploaded in RAG Files. Charges on the CIF value (goods + freight +
+  insurance): import duty (ID), additional stamp duty (ASD), excise, special consumption taxes, SCF levy, environmental levy, cess, CAF;
+  GCT on CIF + duties (cumulative). CARICOM-origin goods: import duty waived (ASD kept, flagged to verify). Optional advance GCT 5% for
+  registered commercial importers (shown, not counted). Text charges ("J$ 1,400 per LPA", "US$1 per litre") are reported, not guessed.
+- **United States**: `hts_full.json` = USITC export (13,802 rate lines), downloaded from hts.usitc.gov — the `2026_hts.md` in RAG Files is a
+  PDF dump with scrambled columns and can't be parsed. Duty from the General (MFN) rate, a Special program the origin qualifies for
+  (curated `PROGRAMS` map: CO, E=CBERA, S=USMCA, P=CAFTA-DR, …), or Column 2 (Cuba, North Korea, Russia, Belarus); ad valorem, specific
+  (¢/kg, $/unit) and compound rates; customs value excludes freight; MPF 0.3464% (min 33.58, max 651.50 — FY2026 figures, verify each Oct 1),
+  HMF 0.125% for sea. NOT computed: Section 232/301/IEEPA ("reciprocal") duties and AD/CVD — warned on every result; informal entries
+  (<= USD 2,500) get no MPF. GSP/ATPA programs are deliberately not mapped (expired).
+- Verified by hand + `backend/tests/test_tax_calc.py` (8 tests, `.venv/Scripts/python.exe -m unittest backend.tests.test_tax_calc`): Jamaica
+  fresh tomatoes, 1,000 kg at USD 1.51 → USD 3,369.57 total = USD 3.37/kg (223.15%); US tomatoes 0702.00.20 from China 2,000 kg → 78.00 duty + 33.58 MPF.
+- **Calculator page (reworked 2026-10-06 per the user):** state persists (zustand `useTaxCalcStore`, localStorage `majestic-tax-calculator`: countries, product,
+  line, form, last result, and a history of the last 30 calculations that can be reopened/removed). Step 1 = **Buying from (origin)** select + **Importing
+  into (destination)** tabs; step 2 = the origin's **product portfolio** (`fetchCountryProductPrices` in `services/marketOpportunities.js`: every product
+  with USD/kg, HS code and its tax multiplier) plus the tariff search (any product, not limited to the portfolio); choosing a portfolio product fills the
+  price per kg and auto-selects the tariff line (`GET /tax-calc/{country}/suggest`, same rule as the multipliers); choosing a searched line fills the price
+  from the portfolio product with the same HS6 (or offers a picker when several). Step 3 = price per kg, quantity, registered commercial importer —
+  **freight, insurance and transport were removed** (the logistics module does them). The result headline shows the cost with import taxes paid and the
+  tax multiplier.
+- **Tax multiplier (new):** `tax_multiplier = import taxes / goods value` (Colombia → Jamaica tomatoes = x2.23, i.e. taxes of 223%; `landed_multiplier = 1 +` that,
+  x3.23), computed for 1 kg at the product's price by the destination's calculator (fixed fees excluded). Table `product_tax_multipliers`
+  (destination, origin, product_key) filled by `POST /tax-calc/multipliers/compute` for EVERY product of the origin's portfolio — matched in the
+  target market or not — and read with `GET /tax-calc/multipliers?destination=&origin=`. Product → tariff line (`backend/tax_calc/mapping.py`): the
+  lines under the product's HS code; one line / identical rates → ok; a unique word of the name → ok; else the single catch-all "Other" line or the
+  highest-tax line → status `review` (marked * in the UI); no HS code or no line → `no_line`; fixed per-kg charges without a price → `needs_price`; text
+  charges the calculator can't compute → `incomplete`. Market Opportunities (`MarketOpportunitiesPanel.jsx`) has a **Tax ×** column (tooltip = tariff
+  line, taxes, how it was chosen) and a "taxes x0.62" chip on every product of the "No match found in target market" list; it (re)computes on every
+  run for each target that has a calculator (Jamaica, United States). Colombia → Jamaica: 241 portfolio products — 169 ok, 59 review, 9 incomplete
+  (cheeses/milk: a Cess charge written as text "$16.541 per kg"), 4 no_line (HS codes in the cache that don't exist in the tariff, e.g. 020710 whole chicken,
+  110421, 030419).
+- **Next ideas:** compute the Cess/specific text charges (needs JMD→USD at the day's rate); fix the outdated HS codes in the cache (020710→020711 …); wire the chat's import-tax answers to the calculator (replace `import_tax.py`/`rates_from_rows` row-reading); add countries —
+  Trinidad and Tobago and Saint Lucia (CARICOM CET + 12.5% VAT; needs their tariff/VAT data), Colombia (DIAN tariff), Bahamas, Barbados;
+  prefill price/quantity from the Product Portfolio / saved opportunities; show Jamaican-dollar rate date.
 
 **RAG Files (what exists)**
 - Per-country folder `backend/documents/rag_files/<Country>/{source,json,reports,<Country>.rag.json,bake.json,state.json}`. Status chain
@@ -69,18 +113,17 @@ codellama 7b/13b. Three request kinds in local mode:
    writes the summary, reportlab lays out the PDF (saved in `<Country>/reports/`, "Open PDF" link in the chat, `GET /local-models/reports/file`).
    Only Jamaica's tariff-table format is converted to named percentages (`TARIFF_COLUMNS`); other countries get semantic passages only.
 
-**The open question (where we stopped):** the user does NOT want hardcoded solutions — they want to establish whether a local model can
+**(Resolved by the user, kept for context) The agent experiment:** the user does NOT want hardcoded solutions — they want to establish whether a local model can
 navigate the RAG files and answer by itself. `backend/local_models/agent.py` (generic tools search/grep/read/calc, JSON actions, optional
 self-review and think mode; NOT wired into the chat) was benchmarked on the tomato question in 4 wordings: gemma3:12b 0/4, qwen3:8b 0/4,
 qwen3:8b with thinking 0–1/4. They find the tariff row but misread it (drop the `ID 01` import-duty column, treat fractions as money or
-as %, add wrongly); the column codes are never explained in the documents. Offered, not yet decided: run the same harness with a bigger
-model (`qwen3:14b`, fits 12 GB, ~9 GB download — ask before downloading); or accept the hybrid (code reads rows, model explains). The chat
-currently uses the hybrid. Bench scripts: `backend/scripts/agent_trial.py <model> "<question>" "Jamaica,United States"` (prints the tool trace)
+as %, add wrongly); the column codes are never explained in the documents. The user declined to try a bigger model and chose to build the deterministic Tax Calculator (above). The chat
+still uses the hybrid (`import_tax.py`) until it is pointed at the calculator. Bench scripts: `backend/scripts/agent_trial.py <model> "<question>" "Jamaica,United States"` (prints the tool trace)
 and `backend/scripts/agent_bench.py "<model>|<on|off>|<review|noreview>" …` (4 wordings of the tomato question; needs Jamaica baked —
 snapshot/restore it). Run with `.venv/Scripts/python.exe`.
 
 **Open questions / loose ends**
-- Decide the agent question above; if a bigger model works, consider replacing `import_tax.py`/row-reading with the agent.
+- Point the chat's import-tax answers at the Tax Calculator (and drop the row-reading code in `tax_report.py`/`import_tax.py`), then add more countries.
 - Chicken backs: Jamaica's profile says backs/necks enter duty-free, the tariff only has an "Other poultry cuts" line (40%) — conflict between documents.
 - Local reports are plain text (no Markdown rendering).
 - Shipment builder fills the aircraft's max payload (27,000 kg); should it fill the outbound leg's Available cargo (Target Cargo % × payload)? Should
@@ -159,6 +202,20 @@ Load/Bake jobs before editing backend `.py` files; tell the user plainly when a 
 
 
 ## Entries
+
+### 2026-10-06 (later) — Calculator persistence + country-first flow + tax multipliers for all portfolio products
+
+**Prompt:** "add persistency to the calculations performed , the calculator resets the values if i change tabs, 2) in the calculator, move the country selection to be the first step, then list the products from the selected country but keep the search tool, so the calculation is not restricted to that specific product list, once product is selected and if it exists in the product portfolio then fetch also the cost x kg and place it in the calculator 3) the the freight, insurance and type are calculated in another module so here is not neccesary 4) now that we have the calculator and the tax table, i need to add a multiplier column for each category of the products available in the market opportunities, for example in the colombia jamaica tomatoes, should have a x2.23 multiplier, and i need agent to do it to all the products in the portfolio, even those with no match in the target market"
+
+**Done:** (1) zustand-persisted calculator + history of calculations; (2) origin/destination first, origin's portfolio list with price and multiplier, tariff search kept, price auto-fill both ways; (3) freight/insurance/transport removed; (4) multiplier engine (`tax_calc/mapping.py`, table `product_tax_multipliers`, endpoints `compute`/`list`/`suggest`), a **Tax ×** column in Market Opportunities and a multiplier chip on the unmatched products. Interpretation notes for the user: "x2.23" is the taxes as a multiple of the goods value (landed x3.23 also stored); "agent" was built as an automatic batch step (deterministic mapping + calculator, no AI) that runs for the whole portfolio each time a comparison loads; "category" was read as per product row inside the opportunity groups (no category-level aggregate). 14 unit tests (`backend/tests/test_tax_calc.py`). Browser-tested: list/auto-fill/persistence across navigation and reload; the Colombia → Jamaica column and unmatched chips.
+
+### 2026-10-06 — Tax Calculator for every country (Jamaica + United States so far)
+
+**Prompt:** "no, i dont see the point on trying a 14b model, if it fails at a simple task as reading rag, so i want yo build a tax calculator for every country, s far usa have the 2026 hts and jamaica also have the tax file"
+
+**Built** a deterministic, per-country import-tax calculator — see the handout for the design, rules and data. Backend `backend/tax_calc/` (+ `routers/tax_calculator.py`, 8 unit tests), frontend page `src/components/taxCalculator/TaxCalculatorView.jsx` (destination tabs, product search by name or code, shipment form, result with total in local + USD per the currency convention, formula per tax, notes and warnings), sidebar item, route. The US `2026_hts.md` could not be parsed (PDF dump with scrambled columns), so the US adapter uses the official USITC JSON export of the same schedule (downloaded to `backend/documents/tax_data/`). Browser-tested on both countries; `.gitignore` excludes the data folder.
+
+**Follow-up (same day):** the user, testing Jamaica, couldn't see the final cost of the goods (landed cost was only a small grey line). The result now opens with two headline figures — **Final cost of the goods (landed, taxes paid)** with its per-kg value, and Import taxes — and ends with a "Final cost" table: goods + freight + insurance + import taxes = landed cost, plus landed cost per kg and the recoverable advance payments shown separately. Excludes broker/handling/inland costs (stated on screen). Assumptions that need the user's confirmation are listed in the handout (CARICOM origin keeps ASD; GCT base = CIF + duties; MPF figures are FY2026; US additional/reciprocal duties not computed).
 
 ### 2026-10-05 (late night) — Can a local model navigate the RAG files by itself? (agent experiment)
 

@@ -786,3 +786,30 @@ export async function computeMarketOpportunity(sourceCountry, targetCountries) {
 
   return { rows, unmatchedByTarget, sourceProductCount: sourceProducts.length, aiMatchErrors }
 }
+
+/** Every product of a country's portfolio with its price per kg in USD (null where the unit or currency couldn't be converted)
+ * and its cached HS code: [{ name, category, hsCode, priceUsdPerKg, source }]. Matched in another market or not — the same
+ * collectors the comparison uses, so a price here is the price the comparison would use. */
+export async function fetchCountryProductPrices(countryName) {
+  const [products, hsCache] = await Promise.all([collectCountryComparisonProducts(countryName), fetchProductHsCodes().catch(() => ({ results: {} }))])
+  const currencies = new Set(products.map((p) => p.priceCurrency).filter(Boolean))
+  const rates = new Map()
+  await Promise.all(
+    [...currencies].map(async (code) => {
+      try {
+        rates.set(code, await fetchMarketOpportunityExchangeRate(code))
+      } catch {
+        rates.set(code, { available: false })
+      }
+    }),
+  )
+  const byName = new Map()
+  products.forEach((p) => {
+    const key = p.displayName.trim().toLowerCase()
+    const rate = p.priceCurrency ? rates.get(p.priceCurrency) : null
+    const usd = p.perKgLocal != null && rate?.available ? p.perKgLocal / rate.rate : null
+    const entry = { name: p.displayName.trim(), category: p.category || null, hsCode: hsCache.results?.[key]?.hs_code || null, priceUsdPerKg: usd, source: p.sourceLabel }
+    if (!byName.has(key) || (byName.get(key).priceUsdPerKg == null && usd != null)) byName.set(key, entry)
+  })
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
+}

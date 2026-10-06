@@ -1154,3 +1154,29 @@ class ExpenseProvider(Base):
     category_name = Column(String, nullable=False)
     name = Column(String, nullable=False)
     created_at = Column(String, nullable=False)
+
+
+class ProductTaxMultiplier(Base):
+    """The import-tax multiplier of one portfolio product for one origin -> destination pair, computed by the destination's
+    tax calculator (backend/tax_calc/): tax_multiplier = import taxes / goods value (Colombia -> Jamaica tomatoes: 2.23, i.e.
+    taxes of 223% of the goods value), landed_multiplier = 1 + that. Covers every product of the origin's portfolio, matched in
+    the destination market or not. `status`: 'ok' | 'review' (the tariff line was a judgement call, see `note`) | 'needs_price'
+    (a specific per-kg duty needs the product's price) | 'incomplete' | 'no_line' (no tariff line found)."""
+    __tablename__ = 'product_tax_multipliers'
+
+    destination = Column(String, primary_key=True)
+    origin = Column(String, primary_key=True)
+    product_key = Column(String, primary_key=True)  # the product's display name, trimmed and lowercased
+    product_name = Column(String, nullable=False)
+    category = Column(String, nullable=True)
+    hs_code = Column(String, nullable=True)
+    price_usd_kg = Column(Float, nullable=True)
+    tariff_code = Column(String, nullable=True)
+    tariff_path = Column(String, nullable=True)
+    tax_multiplier = Column(Float, nullable=True)
+    landed_multiplier = Column(Float, nullable=True)
+    status = Column(String, nullable=False)
+    method = Column(String, nullable=True)
+    note = Column(String, nullable=True)
+    detail_json = Column(String, nullable=True)  # [{name, rate, amount_per_usd}] of the taxes behind the multiplier
+    computed_at = Column(String, nullable=False)

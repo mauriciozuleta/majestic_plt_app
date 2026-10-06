@@ -4,12 +4,14 @@ import { fetchMarketAnalysisRegions } from '../../services/commercialStructure'
 import { fetchProductSources } from '../../services/productSources'
 import {
   addToMarketOpportunityPriority,
+  fetchCountryProductPrices,
   fetchMarketOpportunityPairs,
   fetchMarketOpportunityPriority,
   getOrComputeComparison,
   removeFromMarketOpportunityPriority,
 } from '../../services/marketOpportunities'
 import { fetchProductSam } from '../../services/globalTradeData'
+import { computeTaxMultipliers, fetchTaxMultipliers, formatMultiplier, productKey } from '../../services/taxMultipliers'
 import { formatCurrencyValue } from '../../utils/currencyFormat'
 
 const TARGET_OPTIONS = [
@@ -247,6 +249,55 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- targetKey is targetCountries' own stable identity
   }, [sourceCountry, targetKey, recomputeRequest])
+
+  // Import-tax multiplier of EVERY product of the source portfolio for each target country that has a tax calculator — matched in the
+  // target market or not (the unmatched list needs them too). Computed by the destination's calculator from its tariff
+  // (backend/tax_calc), stored server side, read back by `target|product name`.
+  const [taxMultipliers, setTaxMultipliers] = useState(() => new Map())
+  useEffect(() => {
+    setTaxMultipliers(new Map())
+    if (runStatus !== 'ready' || !sourceCountry) return undefined
+    let cancelled = false
+    const targets = [...new Set([...targetCountries, ...rows.map((row) => row.target_country)])]
+    ;(async () => {
+      let products
+      try {
+        products = await fetchCountryProductPrices(sourceCountry)
+      } catch {
+        return
+      }
+      const next = new Map()
+      for (const target of targets) {
+        try {
+          await computeTaxMultipliers(target, sourceCountry, products)
+          const byProduct = await fetchTaxMultipliers(target, sourceCountry)
+          byProduct.forEach((value, key) => next.set(`${target}|${key}`, value))
+        } catch {
+          // this target has no tax calculator yet
+        }
+      }
+      if (!cancelled) setTaxMultipliers(next)
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rows/targets are summarised by runStatus + the keys below
+  }, [runStatus, sourceCountry, targetKey, rows.length])
+
+  // "x2.23" with the tariff line and how it was chosen as its tooltip
+  const taxMultiplierFor = (target, productName) => taxMultipliers.get(`${target}|${productKey(productName)}`) ?? null
+  const taxMultiplierTitle = (entry) =>
+    !entry
+      ? 'No tax calculator for this target country yet, or not computed yet.'
+      : [
+          entry.tariff_code ? `Tariff line ${entry.tariff_code}${entry.tariff_path ? ` — ${entry.tariff_path}` : ''}` : null,
+          entry.detail?.length ? entry.detail.map((tax) => `${tax.name} ${tax.rate}`).join('; ') : null,
+          entry.tax_multiplier != null ? `Import taxes = ${formatMultiplier(entry.tax_multiplier)} the goods value; goods plus taxes = ${formatMultiplier(entry.landed_multiplier)}` : null,
+          entry.note || null,
+          entry.status === 'review' ? 'Review: the tariff line was a judgement call.' : null,
+        ]
+          .filter(Boolean)
+          .join('\n')
 
   // SAM for this row's own 6-digit HS code, two ways: the REGION total (all
   // countries of the run's region that reported it) and the row's own TARGET
@@ -496,6 +547,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                   <th title={SAM_SCOPE_NOTE}>Region SAM</th>
                   <th title={SAM_SCOPE_NOTE}>Country SAM</th>
                   <th>Diff %</th>
+                  <th title="Import taxes of the target country as a multiple of the goods value (x2.23 = taxes of 223% of the value), from its tariff — see Tax Calculator">Tax ×</th>
                   <th>Opportunity</th>
                   <th>Confidence</th>
                 </tr>
@@ -512,7 +564,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                   return (
                     <Fragment key={rating}>
                       <tr className="market-opportunities__rating-row" onClick={() => toggleRating(rating)}>
-                        <td colSpan={isRegion ? 12 : 11}>
+                        <td colSpan={isRegion ? 13 : 12}>
                           <div className="market-opportunities__rating-row-inner">
                             <button
                               type="button"
@@ -563,6 +615,12 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                             <td title={samTitle(row, 'region')}>{formatSamCell(getRegionSam(row))}</td>
                             <td title={samTitle(row, 'country')}>{formatSamCell(getSamValue(row))}</td>
                             <td>{formatDiffPct(row.diff_pct)}</td>
+                            <td className="market-opportunities__tax-cell" title={taxMultiplierTitle(taxMultiplierFor(row.target_country, row.product_name))}>
+                              {(() => {
+                                const entry = taxMultiplierFor(row.target_country, row.product_name)
+                                return entry?.tax_multiplier != null ? `${formatMultiplier(entry.tax_multiplier)}${entry.status === 'review' ? ' *' : ''}` : '—'
+                              })()}
+                            </td>
                             <td>{row.opportunity_rating || '—'}</td>
                             <td>
                               {reviewBadges(row).length === 0
@@ -584,7 +642,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                 })}
                 {filteredSortedRows.length === 0 && (
                   <tr>
-                    <td colSpan={isRegion ? 12 : 11} className="market-analysis__empty-row">
+                    <td colSpan={isRegion ? 13 : 12} className="market-analysis__empty-row">
                       {sortKey === 'priority' && !search
                         ? 'No products on the priority list yet — tick products, then Add to priority list.'
                         : `No product matches "${search}".`}
@@ -624,6 +682,15 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                 {list.map((product, index) => (
                   <li key={`${targetCountry}-${product.matchName}-${index}`}>
                     {product.displayName} <span className="market-analysis__company">({product.category || 'Uncategorized'})</span>
+                    {(() => {
+                      const entry = taxMultiplierFor(targetCountry, product.displayName)
+                      return entry?.tax_multiplier != null ? (
+                        <span className="market-opportunities__tax-chip" title={taxMultiplierTitle(entry)}>
+                          taxes {formatMultiplier(entry.tax_multiplier)}
+                          {entry.status === 'review' ? ' *' : ''}
+                        </span>
+                      ) : null
+                    })()}
                   </li>
                 ))}
               </ul>
