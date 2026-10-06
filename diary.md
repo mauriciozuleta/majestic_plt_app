@@ -25,7 +25,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- **Everything is committed (2026-10-06): `555e885`** on `main` (before it `8e04242`, `65113a1`, `94abacd`), except the `__pycache__` files and `majestic_plt.db`
+- **Everything is committed (2026-10-06): `ce43db1`** on `main` (before it `646ccba`, `555e885`, `8e04242`, `65113a1`, `94abacd`), except the `__pycache__` files and `majestic_plt.db`
   (runtime data the backend rewrites — deliberately left out). Latest work: Financial ▸ Revenue route legs — Air Logistics Builder, Shipment builder
   (`ShipmentBuilder/`: `ShipmentBuilderModal`, `shipmentBuilder.js` allocation = wholesalers at cap → premium at cap → niche split the rest, nobody dropped;
   `ShipmentPanel` cards with Details/Edit/manual pill; `shipmentFinance.js` + `useLegFinance.js` + `LegFinanceCards`/`RouteFinanceCells` = per-leg and route
@@ -35,7 +35,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
   use `http://localhost:5173/`; the backend takes ~40 s to answer after a start). If a backend edit doesn't show, restart it (the reloader misses things).
 - **Never PUT to `/market-opportunity-settings` to test** (it overwrites the user's saved ranges); headless checks: `msedge --headless=new --dump-dom` or puppeteer-core in
   `%TEMP%/pp` (`check*.mjs`), read-only.
-- Open points: Market Level / sell price stay "—" until the Destination Market ranges are filled (the user has Premium 100–2000, Niche 70–100, Wholesalers 0–70);
+- Latest in `ce43db1`: the suggested sell price never goes below cost (DDP); wholesalers have Min profit margin (profit ÷ cost) and Cap reduction (kg) in Settings ▸ Destination Market, applied in the builder. Open points: Market Level / sell price stay "—" until the Destination Market ranges are filled (the user has Premium 100–2000, Niche 70–100, Wholesalers 0–70);
   `legPricePerKg` (routeMetrics.js) duplicates `priceFor` in RevenueStreamsView.jsx; the return shipment's products no longer feed the money figures;
   22 no-match products have no USD/kg (non-weight units).
 - Deliberately NOT committed: the ~50 modified/new `__pycache__/*.pyc` files (tracked by an old commit but never part of this work —
