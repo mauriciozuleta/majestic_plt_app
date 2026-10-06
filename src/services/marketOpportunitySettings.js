@@ -40,15 +40,24 @@ export const UNMATCHED_MARKET_KEY = 'niche'
 // Suggested sell price per kg of a product, by its market level (Settings ▸ Destination Market, `sell_pct`):
 //   wholesalers -> sell_pct % of the target price (60 = 60 % of what the target market pays);
 //   niche / premium -> the DDP price plus sell_pct % profit (20 = DDP x 1.20).
+// Whatever the rule gives, the price is never below the DDP price (the product's cost): a wholesale product whose DDP is already
+// above sell_pct % of the target price (the range goes up to 70 %, the rule says 60 %) sells at cost, not at a loss.
 // -> { value, note } — value is null when what the rule needs is missing.
 export function suggestedSellPrice(marketKey, ddpPerKg, targetPricePerKg, markets) {
   const market = (markets || []).find((item) => item.key === marketKey)
   if (!market) return { value: null, note: '' }
   if (market.sell_pct == null) return { value: null, note: `Set the sell price % of ${market.label} in Settings ▸ Market Opportunity settings ▸ Destination Market.` }
+  let value
+  let note
   if (marketKey === 'wholesalers') {
-    return targetPricePerKg
-      ? { value: (targetPricePerKg * market.sell_pct) / 100, note: `${market.sell_pct}% of the target price` }
-      : { value: null, note: 'Needs the target price' }
+    if (!targetPricePerKg) return { value: null, note: 'Needs the target price' }
+    value = (targetPricePerKg * market.sell_pct) / 100
+    note = `${market.sell_pct}% of the target price`
+  } else {
+    if (ddpPerKg == null) return { value: null, note: 'Needs the DDP price' }
+    value = ddpPerKg * (1 + market.sell_pct / 100)
+    note = `DDP price + ${market.sell_pct}% profit`
   }
-  return ddpPerKg != null ? { value: ddpPerKg * (1 + market.sell_pct / 100), note: `DDP price + ${market.sell_pct}% profit` } : { value: null, note: 'Needs the DDP price' }
+  if (ddpPerKg != null && value < ddpPerKg) return { value: ddpPerKg, note: `${note} is below the cost (DDP price), so it sells at cost` }
+  return { value, note }
 }

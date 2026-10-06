@@ -11,7 +11,11 @@ const TABS = [
 const toDraft = (value) => (value == null ? '' : String(value))
 const toNumber = (text) => (text === '' || text == null ? null : Number(text))
 const draftTiers = (tiers) => tiers.map((tier) => ({ ...tier, min: toDraft(tier.min), max: toDraft(tier.max) }))
-const draftMarkets = (markets) => markets.map((market) => ({ ...market, min: toDraft(market.min), max: toDraft(market.max), cargo_cap_kg: toDraft(market.cargo_cap_kg), sell_pct: toDraft(market.sell_pct) }))
+const draftMarkets = (markets) => markets.map((market) => ({ ...market, min: toDraft(market.min), max: toDraft(market.max), cargo_cap_kg: toDraft(market.cargo_cap_kg),
+    sell_pct: toDraft(market.sell_pct),
+    min_margin_pct: toDraft(market.min_margin_pct),
+    cap_reduction_kg: toDraft(market.cap_reduction_kg),
+  }))
 
 function RangeCells({ minValue, maxValue, onMin, onMax, minDisabled, maxDisabled, maxPlaceholder = '' }) {
   return (
@@ -88,6 +92,8 @@ function MarketOpportunitySettingsCard() {
           max: toNumber(market.max),
           cargo_cap_kg: toNumber(market.cargo_cap_kg),
           sell_pct: toNumber(market.sell_pct),
+          min_margin_pct: toNumber(market.min_margin_pct),
+          cap_reduction_kg: toNumber(market.cap_reduction_kg),
         })),
       })
       setTiers(draftTiers(saved.margin_tiers))
@@ -187,6 +193,37 @@ function MarketOpportunitySettingsCard() {
                     />
                     <span>%</span>
                   </label>
+                  {market.key === 'wholesalers' && (
+                    <>
+                      <label
+                        className="mo-settings__cap"
+                        title="A wholesale product whose profit margin ((sale price − cost) / cost) is below this loses the cap reduction from its cargo cap"
+                      >
+                        Min profit margin
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={market.min_margin_pct}
+                          onChange={(event) => setMarket(index, 'min_margin_pct', event.target.value)}
+                          aria-label="Wholesalers minimum profit margin %"
+                        />
+                        <span>%</span>
+                      </label>
+                      <label className="mo-settings__cap" title="Kg taken off the cargo cap of a wholesale product whose margin is under the minimum">
+                        Cap reduction
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={market.cap_reduction_kg}
+                          onChange={(event) => setMarket(index, 'cap_reduction_kg', event.target.value)}
+                          aria-label="Wholesalers cap reduction in kg"
+                        />
+                        <span>kg</span>
+                      </label>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

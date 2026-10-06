@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../../../../services/commercialStructure'
 import { fetchCountryProductPrices, fetchMarketOpportunityPriority, getOrComputeComparison } from '../../../../../services/marketOpportunities'
-import { fetchMarketOpportunitySettings, marketLevelFor, UNMATCHED_MARKET_KEY } from '../../../../../services/marketOpportunitySettings'
+import { fetchMarketOpportunitySettings, marketLevelFor, suggestedSellPrice, UNMATCHED_MARKET_KEY } from '../../../../../services/marketOpportunitySettings'
 import { fetchTaxMultipliers, productKey } from '../../../../../services/taxMultipliers'
 import { fetchProductSam } from '../../../../../services/globalTradeData'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
@@ -144,7 +144,22 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, a
       const multiplier = multipliers.get(productKey(row.product_name))?.tax_multiplier ?? null
       const ddp = airfarePerKg != null && multiplier != null && row.source_price_normalized != null ? (row.source_price_normalized + airfarePerKg) * (1 + multiplier) : null
       const { key, level, cargoCapKg } = marketLevelFor(ddp, row.target_price_normalized, destinationMarkets)
-      return { marketKey: key, marketLevel: level, capKg: cargoCapKg }
+      // A wholesale product with a thin profit margin ((sale price - cost) / cost, the sale price being the suggested one) is shipped
+      // less: its cap loses the wholesalers' cap reduction (Settings ▸ Destination Market ▸ Min profit margin / Cap reduction).
+      const market = destinationMarkets.find((item) => item.key === key)
+      let capKg = cargoCapKg
+      let marginPct = null
+      let capReduced = false
+      if (key === 'wholesalers' && ddp != null) {
+        const sale = suggestedSellPrice(key, ddp, row.target_price_normalized, destinationMarkets).value
+        marginPct = sale != null && ddp > 0 ? ((sale - ddp) / ddp) * 100 : null
+        if (marginPct != null && market?.min_margin_pct != null && market?.cap_reduction_kg && marginPct < market.min_margin_pct) {
+          const sam = samFor(row.hs_code)
+          capKg = Math.max(0, (cargoCapKg ?? (sam > 0 ? SAM_CAP_KG : NO_SAM_CAP_KG)) - market.cap_reduction_kg)
+          capReduced = true
+        }
+      }
+      return { marketKey: key, marketLevel: level, capKg, marginPct, capReduced }
     }
     const list = groupProductsByRating(comparison.rows, (row) => samFor(row.hs_code), ALL_RATINGS, levelFor)
     if (unmatchedProducts.length) {
@@ -324,7 +339,20 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, a
                         <td className="is-num" title={item.opportunityRating || undefined}>
                           {formatDiff(item.diffPct)}
                         </td>
-                        <td title={item.noMatch ? 'No match in the target market — a niche market product' : undefined}>{item.marketLevel || '—'}</td>
+                        <td
+                          title={
+                            item.noMatch
+                              ? 'No match in the target market — a niche market product'
+                              : item.capReduced
+                                ? `Profit margin ${item.marginPct.toFixed(2)}% is under the minimum: the cap is reduced to ${Math.round(item.capKg).toLocaleString('en-US')} kg`
+                                : item.marginPct != null
+                                  ? `Profit margin ${item.marginPct.toFixed(2)}%`
+                                  : undefined
+                          }
+                        >
+                          {item.marketLevel || '—'}
+                          {item.capReduced ? ' ↓' : ''}
+                        </td>
                       </tr>
                     ))}
                     </tbody>

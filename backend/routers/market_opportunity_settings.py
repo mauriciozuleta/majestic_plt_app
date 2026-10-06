@@ -62,7 +62,7 @@ def _settings_out(db: Session) -> dict:
     destination = json.loads(row.destination_markets_json) if row.destination_markets_json else DEFAULT_DESTINATION_MARKETS
     # rows saved before Cargo Caps / the sell price rule existed get their defaults
     defaults = {market['key']: market for market in DEFAULT_DESTINATION_MARKETS}
-    destination = [{'cargo_cap_kg': None, **market} for market in destination]
+    destination = [{'cargo_cap_kg': None, 'min_margin_pct': None, 'cap_reduction_kg': None, **market} for market in destination]
     for market in destination:
         if market.get('sell_pct') is None:  # never set: the default rule (an empty cell in Settings also falls back to it)
             market['sell_pct'] = defaults.get(market['key'], {}).get('sell_pct')
@@ -83,6 +83,9 @@ class DestinationMarketIn(BaseModel):
     cargo_cap_kg: float | None = None  # most kg of one product of this market in a shipment
     # suggested sell price rule: wholesalers = % of the target price; niche / premium = profit % over the DDP price
     sell_pct: float | None = None
+    # wholesalers: a product whose profit margin ((sale - cost) / cost) is under min_margin_pct loses cap_reduction_kg of its cargo cap
+    min_margin_pct: float | None = None
+    cap_reduction_kg: float | None = None
 
 
 class MarketOpportunitySettingsIn(BaseModel):
@@ -116,6 +119,8 @@ def save_settings(payload: MarketOpportunitySettingsIn, db: Session = Depends(ge
             raise HTTPException(status_code=400, detail=f'{market.label}: the upper value cannot be below the lower one.')
         if market.sell_pct is not None and market.sell_pct < 0:
             raise HTTPException(status_code=400, detail=f'{market.label}: the sell price % cannot be negative.')
+        if (market.min_margin_pct is not None and market.min_margin_pct < 0) or (market.cap_reduction_kg is not None and market.cap_reduction_kg < 0):
+            raise HTTPException(status_code=400, detail=f'{market.label}: the minimum margin and the cap reduction cannot be negative.')
         if market.cargo_cap_kg is not None and market.cargo_cap_kg < 0:
             raise HTTPException(status_code=400, detail=f'{market.label}: the cargo cap cannot be negative.')
 
