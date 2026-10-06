@@ -25,15 +25,15 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- **Uncommitted work (2026-10-06): Financial ▸ Revenue ▸ route legs (`RevenueStreamsView.jsx/.css`).** Each leg row = leg card, Air Logistics Builder (View/Hide
-  route → panel with Type, Distance, Flight time, Block hours/cost, Leg cost %, Leg cost, Target Cargo %, Available cargo, Price x Kg), Shipment builder
-  (outbound: build/update/view; return: none → "—", full → Add GSA terms ($/kg card), compensated → same as outbound with `return_shipment`).
-  Shipment cards (`ShipmentBuilder/ShipmentPanel.jsx`): `kg / DDP total` + Details popup (FCA price from the saved comparison's `source_price_normalized`, name links to Market Opportunities). Backend adds `return_shipment` column + `PUT …/return-shipment`. Frontend build OK; backend imports; NOT verified in the browser. Open the app at
-  `http://localhost:5173/` (127.0.0.1 timed out). Last commit is still `94abacd`.
-- Last commit: `1d49350` ("Add Tax Calculator (Jamaica, United States) and import-tax multipliers for portfolio products") on `main`; before it
-  `72ff4c4` (handout) and `f154581` (RAG Files, local models, tax PDF, Commercial Guide reader). **Everything is committed** except the
-  `__pycache__` files; the graph was refreshed after the commit. Tax data (`backend/documents/tax_data/`) and RAG files are gitignored — on a
-  fresh clone use the calculator's "Update tariff data" button (US downloads from USITC; Jamaica copies the tariff CSV uploaded in RAG Files).
+- **Everything is committed (2026-10-06): `65113a1`** on `main` (before it `94abacd`), except the `__pycache__` files and `majestic_plt.db` (runtime
+  data, modified by the running backend — deliberately left out). The work in that commit: Financial ▸ Revenue ▸ route legs (Air Logistics Builder,
+  Shipment builder with return shipments / GSA terms, shipment-cost Details popup `ShipmentBuilder/ShipmentPanel.jsx`), the Tools tab, Settings ▸ Market
+  Opportunity settings (rating scale now read from the DB) and the DDP price / Market Level columns in Market Opportunities. Nothing from it was
+  verified in the browser. Open the app at `http://localhost:5173/` (127.0.0.1 timed out). The backend was restarted this session (new route
+  `/market-opportunity-settings`); if a NEW route 404s after an edit, restart it fully.
+- Open points: Destination Market ranges are stored but unused until the user says what they drive (Market Level stays "—" until they are filled);
+  `outboundPricePerKg` (routeMetrics.js) duplicates `priceFor` in RevenueStreamsView.jsx; ?product= in Market Opportunities scrolls to the row but nothing
+  else uses it.
 - Deliberately NOT committed: the ~50 modified/new `__pycache__/*.pyc` files (tracked by an old commit but never part of this work —
   consider `git rm --cached` + a `.gitignore` entry for `__pycache__/` if the user wants them out of status).
 - `backend/documents/rag_files/` is gitignored on purpose (user documents, JSON conversions, baked RAG files, saved reports).
