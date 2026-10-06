@@ -459,7 +459,7 @@
 
 .revenue-streams-view__shipment-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
   gap: 0.35rem;
 }
 
@@ -518,4 +518,36 @@
 
 .revenue-streams-view__item.is-static:hover {
   background: none;
+}
+
+.revenue-streams-view__pl-pill {
+  border: none;
+  cursor: pointer;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  line-height: 1.5;
+}
+
+.revenue-streams-view__money {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.revenue-streams-view__money.is-revenue {
+  color: #4ade80;
+}
+
+.revenue-streams-view__money.is-cos {
+  color: #f87171;
+}
+
+.revenue-streams-view__pl-pill:hover {
+  background: #15803d;
 }

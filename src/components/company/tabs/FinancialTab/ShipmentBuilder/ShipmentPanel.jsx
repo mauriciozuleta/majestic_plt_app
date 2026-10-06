@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { fetchMarketAnalysisRegions } from '../../../../../services/commercialStructure'
-import { fetchMarketOpportunityComparisons } from '../../../../../services/marketOpportunities'
-import { fetchTaxMultipliers, formatMultiplier, productKey } from '../../../../../services/taxMultipliers'
+import { fetchMarketOpportunitySettings } from '../../../../../services/marketOpportunitySettings'
+import { formatMultiplier } from '../../../../../services/taxMultipliers'
+import { financeForShipment, loadShipmentContext } from './shipmentFinance'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 import './ShipmentPanel.css'
 
@@ -22,69 +22,43 @@ const marketOpportunitiesUrl = (countries, productName) => {
   return `/market-analysis?${params.toString()}`
 }
 
-// The cost chain of one product of a built shipment:
-//   FCA = kg x the origin country's price per kg (the one the saved Market Opportunities comparison used)
-//   DAP = kg x the leg's price per kg (air fare); DAP subtotal = FCA + DAP
-//   DDP at Terminal = DAP subtotal x the product's tax multiplier (Market Opportunities
-//   origin -> destination comparison); DDP total = DAP subtotal + those taxes.
-// Any figure that can't be worked out is null.
-function costsFor(item, { prices, multipliers, airfarePerKg }) {
-  const price = prices?.get(productKey(item.product_name))?.priceUsdPerKg ?? null
-  const fcaPerKg = price
-  const fca = fcaPerKg != null ? item.kg * fcaPerKg : null
-  const dap = airfarePerKg != null ? item.kg * airfarePerKg : null
-  const subtotal = fca != null && dap != null ? fca + dap : null
-  const multiplier = multipliers?.get(productKey(item.product_name))?.tax_multiplier ?? null
-  const taxes = subtotal != null && multiplier != null ? subtotal * multiplier : null
-  const ddp = subtotal != null && taxes != null ? subtotal + taxes : null
-  return { fcaPerKg, fca, dap, subtotal, multiplier, taxes, ddp }
-}
-
 // The built shipment of one leg as small cards, across the whole card row. `origin` and `destination` are
 // the leg's branches (their countries drive the price list and the tax multipliers); `airfarePerKg` is the
 // leg's Price x Kg.
-function ShipmentPanel({ shipment, legTitle, origin, destination, airfarePerKg, airfareNote }) {
+// `onSave(shipment)` stores an edited shipment (a weight typed in by hand) and rejects with the reason when it can't.
+function ShipmentPanel({ shipment, legTitle, origin, destination, airfarePerKg, airfareNote, onSave }) {
   const navigate = useNavigate()
   const [context, setContext] = useState({ loading: true, error: '', countries: null, prices: null, multipliers: null })
-  const [detailItem, setDetailItem] = useState(null)
+  const [detailKey, setDetailKey] = useState(null)
+  const detailItem = detailKey ? shipment.items.find((item) => `${item.product_name}|${item.hs_code ?? ''}` === detailKey) ?? null : null
+  const [destinationMarkets, setDestinationMarkets] = useState([])
+  useEffect(() => {
+    let cancelled = false
+    fetchMarketOpportunitySettings()
+      .then((data) => !cancelled && setDestinationMarkets(data.destination_markets || []))
+      .catch(() => !cancelled && setDestinationMarkets([]))
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
-    const run = async () => {
-      const regions = await fetchMarketAnalysisRegions()
-      const locate = (branch) => {
-        for (const row of regions) {
-          const country = row.countries.find((entry) => entry.id === branch?.country_id)
-          if (country) return country.name
-        }
-        return null
-      }
-      const source = locate(origin)
-      const target = locate(destination)
-      if (!source || !target) throw new Error('The leg’s airports aren’t in an active Market Analysis country.')
-      const [prices, multipliers] = await Promise.all([
-        fetchMarketOpportunityComparisons(source, [target]).then(
-          (saved) => new Map((saved.rows || []).map((row) => [productKey(row.product_name), { priceUsdPerKg: row.source_price_normalized }])),
-        ),
-        fetchTaxMultipliers(target, source).catch(() => new Map()),
-      ])
-      if (!cancelled) setContext({ loading: false, error: '', countries: { source, target }, prices, multipliers })
-    }
-    run().catch((err) => !cancelled && setContext({ loading: false, error: err?.message || 'Could not load the costs.', countries: null, prices: null, multipliers: null }))
+    loadShipmentContext(shipment, origin, destination)
+      .then((loaded) => !cancelled && setContext({ loading: false, error: '', ...loaded }))
+      .catch((err) => !cancelled && setContext({ loading: false, error: err?.message || 'Could not load the costs.', countries: null, prices: null, multipliers: null }))
     return () => {
       cancelled = true
     }
   }, [origin, destination])
 
   const allocated = shipment.items.reduce((sum, item) => sum + item.kg, 0)
-  const costs = useMemo(
-    () => new Map(shipment.items.map((item) => [item, costsFor(item, { prices: context.prices, multipliers: context.multipliers, airfarePerKg })])),
-    [shipment, context, airfarePerKg],
-  )
-  const ddpTotal = useMemo(() => {
-    const all = [...costs.values()]
-    return all.length && all.every((cost) => cost.ddp != null) ? all.reduce((sum, cost) => sum + cost.ddp, 0) : null
-  }, [costs])
+  // each product's cost, market level and suggested sale price (shared with the route table: shipmentFinance.js)
+  const finance = useMemo(() => financeForShipment(shipment, context, airfarePerKg, destinationMarkets), [shipment, context, airfarePerKg, destinationMarkets])
+  const { ddpTotal, saleTotal } = finance
+  const costs = useMemo(() => new Map([...finance.items].map(([item, entry]) => [item, entry.cost])), [finance])
+  const levels = useMemo(() => new Map([...finance.items].map(([item, entry]) => [item, entry.level])), [finance])
+  const sales = useMemo(() => new Map([...finance.items].map(([item, entry]) => [item, entry.sale])), [finance])
 
   const openMarketOpportunities = (productName) => navigate(marketOpportunitiesUrl(context.countries, productName))
 
@@ -97,11 +71,14 @@ function ShipmentPanel({ shipment, legTitle, origin, destination, airfarePerKg, 
         {shipment.built_at && ` · built ${new Date(shipment.built_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`}
         {shipment.capacity_kg - allocated >= 1 && ` · ${kgText(shipment.capacity_kg - allocated)} unallocated (product limits reached)`}
         {ddpTotal != null && ` · DDP total ${usd0(ddpTotal)}`}
+        {saleTotal != null && ` · sale total ${usd0(saleTotal)}`}
       </div>
       {context.error && <div className="shipment-panel__error">{context.error}</div>}
       <div className="revenue-streams-view__shipment-cards">
         {shipment.items.map((item) => {
           const cost = costs.get(item)
+          const level = levels.get(item)
+          const sale = sales.get(item)
           return (
             <div
               key={`${item.product_name}|${item.hs_code ?? ''}`}
@@ -124,10 +101,31 @@ function ShipmentPanel({ shipment, legTitle, origin, destination, airfarePerKg, 
               >
                 {item.product_name}
               </Link>
-              <span className="revenue-streams-view__shipment-kg">
-                {kgText(item.kg)} / {context.loading ? '…' : usd0(cost.ddp)}
+              {item.manual && <span className="shipment-panel__manual-pill">manual</span>}
+              <span className="revenue-streams-view__shipment-kg">{kgText(item.kg)}</span>
+              <span className="shipment-panel__money">
+                <span className="shipment-panel__cost" title="Product cost (DDP total)">
+                  {context.loading ? '…' : usd0(cost.ddp)}
+                </span>
+                <span className="shipment-panel__sale" title={sale?.note ? `Suggested sale price — ${sale.note}` : 'Suggested sale price: sell price per kg x weight'}>
+                  {context.loading ? '…' : usd0(sale?.total)}
+                </span>
               </span>
-              <button type="button" className="shipment-panel__details-btn" onClick={() => setDetailItem(item)}>
+              <span
+                className="revenue-streams-view__shipment-meta"
+                title={
+                  level?.noMatch
+                    ? 'No match in the target market: a niche market product'
+                    : level?.share == null
+                    ? 'Needs the DDP price and the target price'
+                    : !level.configured
+                      ? `DDP is ${level.share.toFixed(1)}% of the target price. Set the ranges in Settings ▸ Market Opportunity settings ▸ Destination Market.`
+                      : `DDP is ${level.share.toFixed(1)}% of the target price${level.level ? '' : ' — outside every Destination Market range'}`
+                }
+              >
+                Market level: {context.loading ? '…' : (level?.level ?? '—')}
+              </span>
+              <button type="button" className="shipment-panel__details-btn" onClick={() => setDetailKey(`${item.product_name}|${item.hs_code ?? ''}`)}>
                 Details
               </button>
             </div>
@@ -136,30 +134,96 @@ function ShipmentPanel({ shipment, legTitle, origin, destination, airfarePerKg, 
       </div>
       {detailItem && (
         <ProductDetails
+          key={detailKey}
           item={detailItem}
           cost={costs.get(detailItem)}
+          sale={sales.get(detailItem)}
           countries={context.countries}
           airfarePerKg={airfarePerKg}
           airfareNote={airfareNote}
           legTitle={legTitle}
+          capacityKg={shipment.capacity_kg}
+          allocatedKg={allocated}
+          onSaveWeight={async (kg) => {
+            const items = shipment.items.map((item) => (item === detailItem ? { ...item, kg, manual: true } : item))
+            const total = items.reduce((sum, item) => sum + item.kg, 0)
+            await onSave({ ...shipment, items: items.map((item) => ({ ...item, share_pct: total ? Math.round((item.kg / total) * 1000) / 10 : 0 })) })
+          }}
           onOpenMarketOpportunities={() => openMarketOpportunities(detailItem.product_name)}
-          onClose={() => setDetailItem(null)}
+          onClose={() => setDetailKey(null)}
         />
       )}
     </div>
   )
 }
 
-function ProductDetails({ item, cost, countries, airfarePerKg, airfareNote, legTitle, onOpenMarketOpportunities, onClose }) {
+function ProductDetails({ item, cost, sale, countries, airfarePerKg, airfareNote, legTitle, capacityKg, allocatedKg, onSaveWeight, onOpenMarketOpportunities, onClose }) {
   const noMultiplier = cost.multiplier == null
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  // the most this product can be raised to: what is free on the aircraft plus its own weight
+  const maxKg = capacityKg != null ? Math.floor(capacityKg - allocatedKg + item.kg) : null
+  const startEdit = () => {
+    setDraft(String(Math.round(item.kg)))
+    setSaveError('')
+    setEditing(true)
+  }
+  const save = async () => {
+    const kg = Number(draft)
+    if (!Number.isFinite(kg) || kg <= 0) return setSaveError('Enter a weight above 0 kg.')
+    if (maxKg != null && kg > maxKg) return setSaveError(`The aircraft only has room for ${maxKg.toLocaleString('en-US')} kg of this product.`)
+    setSaving(true)
+    setSaveError('')
+    try {
+      await onSaveWeight(Math.round(kg))
+      setEditing(false)
+    } catch (err) {
+      setSaveError(err?.message || 'Could not save the weight.')
+    } finally {
+      setSaving(false)
+    }
+  }
   return (
     <div className="shipment-panel__overlay" role="dialog" aria-modal="true" aria-label={`${item.product_name} details`} onClick={onClose}>
       <div className="shipment-panel__modal" onClick={(event) => event.stopPropagation()}>
         <header className="shipment-panel__modal-head">
           <div>
             <span className="shipment-panel__eyebrow">{legTitle} shipment{countries ? ` · ${countries.source} → ${countries.target}` : ''}</span>
-            <h3>{item.product_name}</h3>
-            <span className="shipment-panel__sub">{kgText(item.kg)}{item.hs_code ? ` · HS ${item.hs_code}` : ''}</span>
+            <h3>
+              {item.product_name}
+              {item.manual && <span className="shipment-panel__manual-pill">manual</span>}
+            </h3>
+            {editing ? (
+              <div className="shipment-panel__edit">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Enter' && save()}
+                  aria-label="Assigned weight in kg"
+                  autoFocus
+                />
+                <span>kg</span>
+                <button type="button" className="shipment-panel__edit-btn is-primary" onClick={save} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button type="button" className="shipment-panel__edit-btn" onClick={() => setEditing(false)} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <span className="shipment-panel__sub">
+                {kgText(item.kg)}{item.hs_code ? ` · HS ${item.hs_code}` : ''}
+                <button type="button" className="shipment-panel__edit-btn" onClick={startEdit}>
+                  Edit
+                </button>
+              </span>
+            )}
+            {saveError && <span className="shipment-panel__warn">{saveError}</span>}
           </div>
           <button type="button" className="shipment-panel__close" onClick={onClose} aria-label="Close">
             ×
@@ -208,6 +272,16 @@ function ProductDetails({ item, cost, countries, airfarePerKg, airfareNote, legT
           <p className="shipment-panel__subtotal">
             DDP total (DAP + taxes) = <strong>{usd(cost.ddp)}</strong>
           </p>
+        </section>
+
+        <section className="shipment-panel__section">
+          <h4>Suggested sale price</h4>
+          <p>Price x kg = {usd(sale?.perKg)}</p>
+          <p>
+            Total sale price = <strong>{usd(sale?.total)}</strong>
+          </p>
+          {sale?.perKg == null && sale?.note && <p className="shipment-panel__warn">{sale.note}</p>}
+          {sale?.perKg != null && <p className="shipment-panel__sub">{sale.note}</p>}
         </section>
       </div>
     </div>

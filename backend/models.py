@@ -1087,6 +1087,7 @@ class RevenueStreamRoute(Base):
     return_target_cargo_pct = Column(Float, nullable=True)
     # Entered by hand; the outbound price per kg is calculated.
     return_price_per_kg = Column(Float, nullable=True)
+    return_cos_per_kg = Column(Float, nullable=True)
     # Share of the whole flight's cost each leg assumes, 0–100 %.
     outbound_leg_cost_pct = Column(Float, nullable=True)
     return_leg_cost_pct = Column(Float, nullable=True)

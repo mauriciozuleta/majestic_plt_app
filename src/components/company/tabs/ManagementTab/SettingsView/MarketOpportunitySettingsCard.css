@@ -33,7 +33,8 @@
 
 .mo-settings__row {
   display: grid;
-  grid-template-columns: 10rem 1fr;
+  grid-template-columns: 10rem auto auto auto;
+  justify-content: start;
   align-items: center;
   gap: 0.75rem;
 }
@@ -71,4 +72,23 @@
 
 .mo-settings__message.is-error {
   color: #f87171;
+}
+
+.mo-settings__cap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 1rem;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+.mo-settings__cap input {
+  width: 6rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.15));
+  border-radius: 8px;
+  background: var(--bg-panel, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  font-variant-numeric: tabular-nums;
 }

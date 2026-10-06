@@ -808,7 +808,8 @@ export async function fetchCountryProductPrices(countryName) {
     const key = p.displayName.trim().toLowerCase()
     const rate = p.priceCurrency ? rates.get(p.priceCurrency) : null
     const usd = p.perKgLocal != null && rate?.available ? p.perKgLocal / rate.rate : null
-    const entry = { name: p.displayName.trim(), category: p.category || null, hsCode: hsCache.results?.[key]?.hs_code || null, priceUsdPerKg: usd, source: p.sourceLabel }
+    const original = p.priceValue != null ? { value: p.priceValue, unit: p.priceUnit, currency: p.priceCurrency } : null
+    const entry = { name: p.displayName.trim(), category: p.category || null, hsCode: hsCache.results?.[key]?.hs_code || null, priceUsdPerKg: usd, original, source: p.sourceLabel }
     if (!byName.has(key) || (byName.get(key).priceUsdPerKg == null && usd != null)) byName.set(key, entry)
   })
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))

@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useSearchParams } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../services/commercialStructure'
 import { fetchBuiltShipmentAirfares } from '../../services/shipmentPricing'
-import { fetchMarketOpportunitySettings } from '../../services/marketOpportunitySettings'
+import { fetchMarketOpportunitySettings, marketLevelFor as destinationLevelFor, suggestedSellPrice, UNMATCHED_MARKET_KEY } from '../../services/marketOpportunitySettings'
 import { useAppStore } from '../../store/useAppStore'
 import { fetchProductSources } from '../../services/productSources'
 import {
@@ -171,10 +171,15 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   // draw from one region). Fetched once the rows are in; costs at most one
   // Comtrade call per country the first time (cached after).
   const [productSam, setProductSam] = useState({ status: 'idle', data: null, error: null })
-  const hsKey = useMemo(
-    () => [...new Set(rows.map((row) => row.hs_code).filter((code) => /^\d{6}$/.test(code || '')))].sort().join(','),
-    [rows],
-  )
+  // the source portfolio by product key -> { hsCode, priceUsdPerKg, ... } (what the unmatched products show)
+  const [sourcePrices, setSourcePrices] = useState(() => new Map())
+  // The HS codes of the matched rows AND of the products with no match (their SAM is shown too).
+  const hsKey = useMemo(() => {
+    const unmatchedCodes = Object.values(unmatchedByTarget)
+      .flat()
+      .map((product) => sourcePrices.get(productKey(product.displayName))?.hsCode)
+    return [...new Set([...rows.map((row) => row.hs_code), ...unmatchedCodes].filter((code) => /^\d{6}$/.test(code || '')))].sort().join(',')
+  }, [rows, unmatchedByTarget, sourcePrices])
 
   useEffect(() => {
     if (!region || !hsKey) return undefined
@@ -259,6 +264,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   const [taxMultipliers, setTaxMultipliers] = useState(() => new Map())
   useEffect(() => {
     setTaxMultipliers(new Map())
+    setSourcePrices(new Map())
     if (runStatus !== 'ready' || !sourceCountry) return undefined
     let cancelled = false
     const targets = [...new Set([...targetCountries, ...rows.map((row) => row.target_country)])]
@@ -269,6 +275,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
       } catch {
         return
       }
+      if (!cancelled) setSourcePrices(new Map(products.map((product) => [productKey(product.name), product])))
       const next = new Map()
       for (const target of targets) {
         try {
@@ -309,7 +316,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rows/targets are summarised by runStatus + the keys below
   }, [runStatus, sourceCountry, targetKey, rows.length, companies])
   const showDdp = rows.some((row) => airfares.has(row.target_country))
-  const extraColumns = showDdp ? 2 : 0
+  const extraColumns = showDdp ? 3 : 0
   const ddpFor = (row) => {
     const shipment = airfares.get(row.target_country)
     const multiplier = taxMultipliers.get(`${row.target_country}|${productKey(row.product_name)}`)?.tax_multiplier ?? null
@@ -326,13 +333,15 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
           : `FCA ${formatUsdPerKg(row.source_price_normalized)} + air fare ${formatUsdPerKg(ddp.shipment.airfarePerKg)} = ${formatUsdPerKg(row.source_price_normalized + ddp.shipment.airfarePerKg)}, plus taxes x${ddp.multiplier.toFixed(2)} — route ${ddp.shipment.routeName}`
   // Destination Market level: DDP as a % of the target price, against each category's range (empty end = open)
   const marketLevelFor = (row, ddp) => {
-    if (ddp.value == null || !row.target_price_normalized) return { level: null, note: '' }
-    const share = (ddp.value / row.target_price_normalized) * 100
-    const configured = destinationMarkets.filter((market) => market.min != null || market.max != null)
-    if (!configured.length) return { level: null, note: `DDP is ${share.toFixed(1)}% of the target price. Set the ranges in Settings ▸ Market Opportunity settings ▸ Destination Market.` }
-    const match = configured.find((market) => share >= (market.min ?? -Infinity) && share <= (market.max ?? Infinity))
-    return { level: match?.label ?? null, note: `DDP is ${share.toFixed(1)}% of the target price${match ? '' : ' — outside every Destination Market range'}` }
+    const { level, key, share, configured } = destinationLevelFor(ddp.value, row.target_price_normalized, destinationMarkets)
+    if (share == null) return { level: null, key: null, note: '' }
+    if (!configured) return { level: null, key: null, note: `DDP is ${share.toFixed(1)}% of the target price. Set the ranges in Settings ▸ Market Opportunity settings ▸ Destination Market.` }
+    return { level, key, note: `DDP is ${share.toFixed(1)}% of the target price${level ? '' : ' — outside every Destination Market range'}` }
   }
+
+  // Suggested sell price: by the product's market level — wholesalers a % of the target price, niche / premium the DDP price + a
+  // profit % (Settings ▸ Destination Market)
+  const sellPriceFor = (row, ddp, level) => suggestedSellPrice(level.key, ddp.value, row.target_price_normalized, destinationMarkets)
 
   // "x2.23" with the tariff line and how it was chosen as its tooltip
   const taxMultiplierFor = (target, productName) => taxMultipliers.get(`${target}|${productKey(productName)}`) ?? null
@@ -461,6 +470,29 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
     })
   }
 
+  const tableHead = (
+      <thead>
+        <tr>
+          <th className="market-opportunities__check-col" aria-label="Priority list" title="Tick products, then Add to priority list" />
+          <th>Product</th>
+          <th>Target Product</th>
+          <th>HS Code</th>
+          {isRegion && <th>Target Country</th>}
+          <th>Source Price</th>
+          <th>Target Price</th>
+          <th title={SAM_SCOPE_NOTE}>Region SAM</th>
+          <th title={SAM_SCOPE_NOTE}>Country SAM</th>
+          <th>Diff %</th>
+          <th title="Import taxes of the target country as a multiple of the goods value (x2.23 = taxes of 223% of the value), from its tariff — see Tax Calculator">Tax ×</th>
+          <th>Opportunity</th>
+          {showDdp && <th title="(FCA price + air fare) x (1 + tax multiplier), per kg — from the built shipment">DDP price</th>}
+          {showDdp && <th title="Destination Market category the DDP price (as a % of the target price) falls in — Settings ▸ Market Opportunity settings">Market Level</th>}
+                  {showDdp && <th title="By market level: wholesalers a % of the target price, niche and premium the DDP price plus a profit % — Settings ▸ Market Opportunity settings ▸ Destination Market">Suggested sell price</th>}
+          <th>Confidence</th>
+        </tr>
+      </thead>
+  )
+
   const unmatchedEntries = useMemo(
     () => Object.entries(unmatchedByTarget).filter(([, list]) => list.length > 0),
     [unmatchedByTarget],
@@ -488,7 +520,8 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
 
   // A row is ticked when it's on the priority list (unless being removed) or
   // ticked to be added. Only products in this comparison count toward the buttons.
-  const rowKeys = new Set(rows.map(priorityKey))
+  // (the products with no match count too: they can be ticked and ship as niche market products)
+  const rowKeys = new Set([...rows.map(priorityKey), ...unmatchedEntries.flatMap(([targetCountry, list]) => list.map((product) => `${targetCountry}|${product.displayName}`))])
   const toAdd = [...pending.add].filter((key) => rowKeys.has(key) && !priority.has(key))
   const toRemove = [...pending.remove].filter((key) => priority.has(key))
   const isTicked = (key) => (priority.has(key) && !pending.remove.has(key)) || pending.add.has(key)
@@ -611,25 +644,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
           {priorityError && <p className="market-analysis__hint">Priority list: {priorityError}</p>}
           <div className="market-opportunities__table-wrap">
             <table className="market-opportunities__table">
-              <thead>
-                <tr>
-                  <th className="market-opportunities__check-col" aria-label="Priority list" title="Tick products, then Add to priority list" />
-                  <th>Product</th>
-                  <th>Target Product</th>
-                  <th>HS Code</th>
-                  {isRegion && <th>Target Country</th>}
-                  <th>Source Price</th>
-                  <th>Target Price</th>
-                  <th title={SAM_SCOPE_NOTE}>Region SAM</th>
-                  <th title={SAM_SCOPE_NOTE}>Country SAM</th>
-                  <th>Diff %</th>
-                  <th title="Import taxes of the target country as a multiple of the goods value (x2.23 = taxes of 223% of the value), from its tariff — see Tax Calculator">Tax ×</th>
-                  <th>Opportunity</th>
-                  {showDdp && <th title="(FCA price + air fare) x (1 + tax multiplier), per kg — from the built shipment">DDP price</th>}
-                  {showDdp && <th title="Destination Market category the DDP price (as a % of the target price) falls in — Settings ▸ Market Opportunity settings">Market Level</th>}
-                  <th>Confidence</th>
-                </tr>
-              </thead>
+              {tableHead}
               <tbody>
                 {groupedRows.map(({ rating, rows: groupRows }) => {
                   // Showing just the priority list opens every group it has.
@@ -707,10 +722,12 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                             {showDdp && (() => {
                               const ddp = ddpFor(row)
                               const level = marketLevelFor(row, ddp)
+                              const sell = sellPriceFor(row, ddp, level)
                               return (
                                 <>
                                   <td title={ddpTitle(row, ddp)}>{ddp.shipment ? (ddp.value != null ? formatUsdPerKg(ddp.value) : '—') : ''}</td>
                                   <td title={level.note}>{ddp.shipment ? (level.level ?? '—') : ''}</td>
+                                  <td title={sell.note}>{ddp.shipment ? (sell.value != null ? formatUsdPerKg(sell.value) : '—') : ''}</td>
                                 </>
                               )
                             })()}
@@ -770,22 +787,65 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                 </span>
               </button>
               {isOpen && (
-              <ul>
-                {list.map((product, index) => (
-                  <li key={`${targetCountry}-${product.matchName}-${index}`}>
-                    {product.displayName} <span className="market-analysis__company">({product.category || 'Uncategorized'})</span>
-                    {(() => {
-                      const entry = taxMultiplierFor(targetCountry, product.displayName)
-                      return entry?.tax_multiplier != null ? (
-                        <span className="market-opportunities__tax-chip" title={taxMultiplierTitle(entry)}>
-                          taxes {formatMultiplier(entry.tax_multiplier)}
-                          {entry.status === 'review' ? ' *' : ''}
-                        </span>
-                      ) : null
-                    })()}
-                  </li>
-                ))}
-              </ul>
+                <div className="market-opportunities__table-wrap">
+                  <table className="market-opportunities__table">
+                    {tableHead}
+                    <tbody>
+                      {list.map((product, index) => {
+                        const portfolio = sourcePrices.get(productKey(product.displayName))
+                        const entry = taxMultiplierFor(targetCountry, product.displayName)
+                        // The same SAM lookups as the matched rows, by the product's own HS code.
+                        const samRow = { hs_code: portfolio?.hsCode, target_country: targetCountry }
+                        const ddp = ddpFor({ target_country: targetCountry, product_name: product.displayName, source_price_normalized: portfolio?.priceUsdPerKg ?? null })
+                        // Only what is known for a product with no match: its source price, HS code and import taxes.
+                        return (
+                          <tr key={`${targetCountry}-${product.matchName}-${index}`}>
+                            <td className="market-opportunities__check-col">
+                              <input
+                                type="checkbox"
+                                checked={isTicked(priorityKey({ target_country: targetCountry, product_name: product.displayName }))}
+                                onChange={() => togglePriority({ target_country: targetCountry, product_name: product.displayName })}
+                                disabled={priorityBusy}
+                                aria-label={`Priority: ${product.displayName}`}
+                                title="Tick, then Add to priority list — it ships as a niche market product"
+                              />
+                            </td>
+                            <td>
+                              {product.displayName} <span className="market-analysis__company">({product.category || 'Uncategorized'})</span>
+                            </td>
+                            <td />
+                            <td className="market-opportunities__hs-code">{portfolio?.hsCode || ''}</td>
+                            {isRegion && <td>{targetCountry}</td>}
+                            <td className="market-opportunities__price-cell">
+                              <span
+                                className="market-opportunities__price-usd"
+                                title={portfolio?.priceUsdPerKg == null && portfolio?.original ? 'Not a per-kg price (a bottle, a litre, a unit…): it can only be converted to USD/kg once the product is matched.' : undefined}
+                              >
+                                {portfolio?.priceUsdPerKg != null ? formatUsdPerKg(portfolio.priceUsdPerKg) : portfolio?.original ? '—' : ''}
+                              </span>
+                              {portfolio?.original && <span className="market-opportunities__price-local">{formatOriginal(portfolio.original)}</span>}
+                            </td>
+                            <td />
+                            <td title={samTitle(samRow, 'region')}>{portfolio?.hsCode ? formatSamCell(getRegionSam(samRow)) : ''}</td>
+                            <td title={samTitle(samRow, 'country')}>{portfolio?.hsCode ? formatSamCell(getSamValue(samRow)) : ''}</td>
+                            <td />
+                            <td className="market-opportunities__tax-cell" title={taxMultiplierTitle(entry)}>
+                              {entry?.tax_multiplier != null ? `${formatMultiplier(entry.tax_multiplier)}${entry.status === 'review' ? ' *' : ''}` : ''}
+                            </td>
+                            <td />
+                            {showDdp && <td title={ddpTitle({ source_price_normalized: portfolio?.priceUsdPerKg ?? 0 }, ddp)}>{ddp.value != null ? formatUsdPerKg(ddp.value) : ''}</td>}
+                            {showDdp && <td title="No match in the target market: a niche market product">{destinationMarkets.find((market) => market.key === UNMATCHED_MARKET_KEY)?.label ?? 'Niche Markets'}</td>}
+                            {showDdp && (() => {
+                              const sell = suggestedSellPrice(UNMATCHED_MARKET_KEY, ddp.value, null, destinationMarkets)
+                              return <td title={sell.note}>{sell.value != null ? formatUsdPerKg(sell.value) : ''}</td>
+                            })()}
+                            <td />
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
             )

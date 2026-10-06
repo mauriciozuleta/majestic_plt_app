@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   createRevenueStream,
   createRevenueStreamRoute,
@@ -11,13 +11,15 @@ import {
   updateRevenueStreamRoute,
   updateRevenueStreamRouteSettings,
 } from '../../../../services/revenueStreams'
-import { fetchCommercialBranches } from '../../../../services/commercialStructure'
+import { fetchCommercialBranches, fetchMarketAnalysisRegions } from '../../../../services/commercialStructure'
 import { fetchAircraftCatalogue, fetchCharterProviders } from '../../../../services/airLogistics'
 import { useAppStore } from '../../../../store/useAppStore'
 import AddRevenueStreamModal from './AddRevenueStreamModal'
 import AddRouteModal from './AddRouteModal'
 import ShipmentBuilderModal from './ShipmentBuilder/ShipmentBuilderModal'
 import ShipmentPanel from './ShipmentBuilder/ShipmentPanel'
+import RouteFinanceCells from './ShipmentBuilder/RouteFinanceCells'
+import LegFinanceCards from './ShipmentBuilder/LegFinanceCards'
 import { revenueProductFormFor } from './companyRevenueForms'
 import { RETURN_TYPES, aircraftLabel, branchCode, branchLabel } from './branchLabel'
 import { computeRouteMetrics } from './routeMetrics'
@@ -125,6 +127,18 @@ async function fetchAllBranches(companies) {
 
 function RevenueStreamsView() {
   const { companyId } = useParams()
+  const navigate = useNavigate()
+  // Market Analysis countries by id, to open a leg's comparison in Market Opportunities
+  const [countryNameById, setCountryNameById] = useState(() => new Map())
+  useEffect(() => {
+    let cancelled = false
+    fetchMarketAnalysisRegions()
+      .then((regions) => !cancelled && setCountryNameById(new Map(regions.flatMap((row) => row.countries.map((country) => [country.id, country.name])))))
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const companies = useAppStore((state) => state.companies)
   const [streams, setStreams] = useState([])
   const [routes, setRoutes] = useState([])
@@ -167,6 +181,17 @@ function RevenueStreamsView() {
       else next.add(routeId)
       return next
     })
+  // Saves an edited shipment of one leg (a weight changed in Details ▸ Edit); throws the server's reason when it is refused.
+  const handleSaveShipment = async (route, leg, shipment) => {
+    const save = leg === 'return' ? saveRouteReturnShipment : saveRouteOutboundShipment
+    const field = leg === 'return' ? 'return_shipment' : 'outbound_shipment'
+    const updated = await save(companyId, route.stream_id, route.id, {
+      capacity_kg: shipment.capacity_kg,
+      aircraft_name: shipment.aircraft_name,
+      items: shipment.items,
+    })
+    setRoutes((prev) => prev.map((item) => (item.id === updated.id ? { ...item, [field]: updated[field] } : item)))
+  }
   const handleBuildShipment = async (shipment) => {
     const { route, leg } = shipmentBuilder
     const save = leg === 'return' ? saveRouteReturnShipment : saveRouteOutboundShipment
@@ -384,11 +409,36 @@ ${label}`)) return
                   }
                   return (
                     <div className={`revenue-streams-view__metric is-${leg.key} revenue-streams-view__metric--filled`}>
-                      <span className="revenue-streams-view__metric-label">Shipment builder</span>
+                      <span className="revenue-streams-view__metric-label">
+                        Shipment builder
+                        {(() => {
+                          // payload still free: the aircraft's max payload minus what the built shipment carries
+                          const free = shipment && capacityKg ? capacityKg - shipment.items.reduce((sum, item) => sum + item.kg, 0) : 0
+                          return free >= 1 ? (
+                            <button
+                              type="button"
+                              className="revenue-streams-view__pl-pill"
+                              title={`${formatNumber(free, 0)} kg of the aircraft's ${formatNumber(capacityKg, 0)} kg max payload are still free — open this route's Market Opportunities`}
+                              onClick={() => {
+                                const params = new URLSearchParams({ tab: 'market-opportunities' })
+                                const source = countryNameById.get(leg.from?.country_id)
+                                const target = countryNameById.get(leg.to?.country_id)
+                                if (source && target) {
+                                  params.set('source', source)
+                                  params.set('target', target)
+                                }
+                                navigate(`/market-analysis?${params.toString()}`)
+                              }}
+                            >
+                              Available P/L
+                            </button>
+                          ) : null
+                        })()}
+                      </span>
                       <div className="revenue-streams-view__builder-actions">
                         {full ? (
                           <button type="button" className="revenue-streams-view__builder-btn" onClick={() => toggleGsa(route.id)} aria-expanded={shownGsa.has(route.id)}>
-                            {shownGsa.has(route.id) ? 'Hide GSA terms' : route.return_price_per_kg != null ? 'Update GSA terms' : 'Add GSA terms'}
+                            {shownGsa.has(route.id) ? 'Hide GSA terms' : route.return_price_per_kg != null || route.return_cos_per_kg != null ? 'Update GSA terms' : 'Add GSA terms'}
                           </button>
                         ) : (
                           <>
@@ -402,6 +452,7 @@ ${label}`)) return
                                   origin: leg.from,
                                   destination: leg.to,
                                   capacityKg,
+                                  airfarePerKg: priceFor(leg).value,
                                   aircraftName: aircraft ? aircraftLabel(aircraft) : route.aircraft_name,
                                 })
                               }
@@ -409,6 +460,11 @@ ${label}`)) return
                             >
                               {shipment ? 'Update shipment' : 'Build shipment'}
                             </button>
+                            {leg.key === 'return' && (
+                              <button type="button" className="revenue-streams-view__builder-btn" onClick={() => toggleGsa(route.id)} aria-expanded={shownGsa.has(route.id)}>
+                                {shownGsa.has(route.id) ? 'Hide COS' : route.return_cos_per_kg != null ? 'Update COS' : 'Add COS'}
+                              </button>
+                            )}
                             {shipment && (
                               <button
                                 type="button"
@@ -425,21 +481,44 @@ ${label}`)) return
                     </div>
                   )
                 })()}
-                {leg.key === 'return' && route.return_type === 'full' && shownGsa.has(route.id) && (
+                <LegFinanceCards
+                  route={route}
+                  legKey={leg.key}
+                  branches={{ origin, destination, returnBranch, aircraft, provider }}
+                />
+                {leg.key === 'return' && route.return_type && shownGsa.has(route.id) && (
                   <div className="revenue-streams-view__shipment is-return">
                     <div className="revenue-streams-view__shipment-head">
-                      <strong>GSA terms</strong> · what the GSA pays per kg of the return cargo
+                      <strong>{route.return_type === 'full' ? 'GSA terms' : 'Return terms'}</strong> ·{' '}
+                      {route.return_type === 'full'
+                        ? 'what the GSA pays per kg of the return cargo, and what it costs per kg'
+                        : 'the return route’s price per kg, and what the cargo costs per kg'}
                     </div>
                     <div className="revenue-streams-view__shipment-cards">
+                      {route.return_type === 'full' ? (
+                        <div className="revenue-streams-view__shipment-card">
+                          <span className="revenue-streams-view__shipment-name">GSA price x Kg</span>
+                          <CardNumberInput
+                            key={`${route.id}:return-price:${route.return_price_per_kg ?? ''}`}
+                            value={route.return_price_per_kg}
+                            label="GSA price per kg"
+                            placeholder="0.00"
+                            prefix="USD $"
+                            onSave={(value) => handleRouteSettings(route, { return_price_per_kg: value })}
+                          />
+                        </div>
+                      ) : (
+                        detail('Return route price x Kg', priceFor(leg).value != null ? formatCurrencyValue(priceFor(leg).value, 'USD') : '—', priceFor(leg).note || undefined)
+                      )}
                       <div className="revenue-streams-view__shipment-card">
-                        <span className="revenue-streams-view__shipment-name">GSA price x Kg</span>
+                        <span className="revenue-streams-view__shipment-name">COS x Kg</span>
                         <CardNumberInput
-                          key={`${route.id}:return-price:${route.return_price_per_kg ?? ''}`}
-                          value={route.return_price_per_kg}
-                          label="GSA price per kg"
+                          key={`${route.id}:return-cos:${route.return_cos_per_kg ?? ''}`}
+                          value={route.return_cos_per_kg}
+                          label="COS per kg"
                           placeholder="0.00"
                           prefix="USD $"
-                          onSave={(value) => handleRouteSettings(route, { return_price_per_kg: value })}
+                          onSave={(value) => handleRouteSettings(route, { return_cos_per_kg: value })}
                         />
                       </div>
                     </div>
@@ -539,6 +618,7 @@ ${label}`)) return
                       destination={leg.to}
                       airfarePerKg={priceFor(leg).value}
                       airfareNote={priceFor(leg).note}
+                      onSave={(next) => handleSaveShipment(route, leg.key, next)}
                     />
                   )}
               </Fragment>
@@ -634,6 +714,9 @@ ${label}`)) return
                         <th>Return</th>
                         <th>Provider</th>
                         <th>Aircraft</th>
+                        <th title="The suggested sale prices of every product of the route's built shipments">Shipment Revenue</th>
+                        <th className="revenue-streams-view__money is-cos" title="What those products cost (DDP)">COS</th>
+                        <th title="Revenue − COS, less the cost of the payload that flies empty">Profit</th>
                         <th className="revenue-streams-view__actions-col" aria-label="Actions" />
                       </tr>
                     </thead>
@@ -660,6 +743,14 @@ ${label}`)) return
                               <td>{route.return_branch_id ? branchCell(route.return_branch_id) : '—'}</td>
                               <td>{describeProvider(route)}</td>
                               <td>{describeAircraft(route)}</td>
+                              <RouteFinanceCells
+                                route={route}
+                                origin={branchById.get(route.origin_branch_id)}
+                                destination={branchById.get(route.destination_branch_id)}
+                                returnBranch={route.return_branch_id ? branchById.get(route.return_branch_id) : null}
+                                aircraft={aircraftById.get(route.aircraft_id)}
+                                provider={providerById.get(route.charter_provider_id)}
+                              />
                               <td className="revenue-streams-view__actions-col">
                                 <button type="button" className="revenue-streams-view__row-btn" onClick={() => setRouteModal({ stream, route })}>
                                   Edit
@@ -675,7 +766,7 @@ ${label}`)) return
                             </tr>
                             {expanded && (
                               <tr className="revenue-streams-view__details-row">
-                                <td colSpan={8}>{renderRouteDetails(route)}</td>
+                                <td colSpan={11}>{renderRouteDetails(route)}</td>
                               </tr>
                             )}
                           </Fragment>
@@ -697,6 +788,7 @@ ${label}`)) return
           destination={shipmentBuilder.destination}
           capacityKg={shipmentBuilder.capacityKg}
           aircraftName={shipmentBuilder.aircraftName}
+          airfarePerKg={shipmentBuilder.airfarePerKg}
           previous={shipmentBuilder.leg === 'return' ? shipmentBuilder.route.return_shipment : shipmentBuilder.route.outbound_shipment}
           onBuild={handleBuildShipment}
           onClose={() => setShipmentBuilder(null)}

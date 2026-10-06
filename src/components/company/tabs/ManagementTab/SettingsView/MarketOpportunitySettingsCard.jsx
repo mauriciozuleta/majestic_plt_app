@@ -11,7 +11,7 @@ const TABS = [
 const toDraft = (value) => (value == null ? '' : String(value))
 const toNumber = (text) => (text === '' || text == null ? null : Number(text))
 const draftTiers = (tiers) => tiers.map((tier) => ({ ...tier, min: toDraft(tier.min), max: toDraft(tier.max) }))
-const draftMarkets = (markets) => markets.map((market) => ({ ...market, min: toDraft(market.min), max: toDraft(market.max) }))
+const draftMarkets = (markets) => markets.map((market) => ({ ...market, min: toDraft(market.min), max: toDraft(market.max), cargo_cap_kg: toDraft(market.cargo_cap_kg), sell_pct: toDraft(market.sell_pct) }))
 
 function RangeCells({ minValue, maxValue, onMin, onMax, minDisabled, maxDisabled, maxPlaceholder = '' }) {
   return (
@@ -81,7 +81,14 @@ function MarketOpportunitySettingsCard() {
     try {
       const saved = await saveMarketOpportunitySettings({
         margin_tiers: tiers.map((tier) => ({ rating: tier.rating, min: toNumber(tier.min), max: toNumber(tier.max) })),
-        destination_markets: markets.map((market) => ({ key: market.key, label: market.label, min: toNumber(market.min), max: toNumber(market.max) })),
+        destination_markets: markets.map((market) => ({
+          key: market.key,
+          label: market.label,
+          min: toNumber(market.min),
+          max: toNumber(market.max),
+          cargo_cap_kg: toNumber(market.cargo_cap_kg),
+          sell_pct: toNumber(market.sell_pct),
+        })),
       })
       setTiers(draftTiers(saved.margin_tiers))
       setMarkets(draftMarkets(saved.destination_markets))
@@ -146,7 +153,7 @@ function MarketOpportunitySettingsCard() {
           )}
           {status === 'ready' && tab === 'destination' && (
             <div className="mo-settings__list">
-              <p className="mo-settings__hint">The range each destination market category covers. Saved here; no calculation uses these yet.</p>
+              <p className="mo-settings__hint">The range each destination market category covers (the product&apos;s DDP price as a % of its target price) and its Cargo Cap — the most kg of one product of that category the Shipment builder loads — and its suggested sell price rule (wholesalers: a % of the target price; niche and premium: the profit % over the DDP price). The builder fills wholesalers first, then niche markets, then premium.</p>
               {markets.map((market, index) => (
                 <div key={market.key} className="mo-settings__row">
                   <strong>{market.label}</strong>
@@ -156,6 +163,30 @@ function MarketOpportunitySettingsCard() {
                     onMin={(value) => setMarket(index, 'min', value)}
                     onMax={(value) => setMarket(index, 'max', value)}
                   />
+                  <label className="mo-settings__cap">
+                    Cargo Caps
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={market.cargo_cap_kg}
+                      onChange={(event) => setMarket(index, 'cargo_cap_kg', event.target.value)}
+                      aria-label={`${market.label} cargo cap in kg`}
+                    />
+                    <span>kg</span>
+                  </label>
+                  <label className="mo-settings__cap" title={market.key === 'wholesalers' ? 'Suggested sell price = this % of the target price' : 'Suggested sell price = the DDP price plus this % of profit'}>
+                    {market.key === 'wholesalers' ? 'Sell at (% of target price)' : 'Profit over DDP'}
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={market.sell_pct}
+                      onChange={(event) => setMarket(index, 'sell_pct', event.target.value)}
+                      aria-label={`${market.label} sell price %`}
+                    />
+                    <span>%</span>
+                  </label>
                 </div>
               ))}
             </div>

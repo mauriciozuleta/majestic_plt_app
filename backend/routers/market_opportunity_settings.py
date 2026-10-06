@@ -24,9 +24,9 @@ DEFAULT_MARGIN_TIERS = [
     {'rating': 'Not Viable', 'min': 100, 'max': None},
 ]
 DEFAULT_DESTINATION_MARKETS = [
-    {'key': 'premium', 'label': 'Premium Market', 'min': None, 'max': None},
-    {'key': 'niche', 'label': 'Niche Markets', 'min': None, 'max': None},
-    {'key': 'wholesalers', 'label': 'Wholesalers', 'min': None, 'max': None},
+    {'key': 'premium', 'label': 'Premium Market', 'min': None, 'max': None, 'cargo_cap_kg': None, 'sell_pct': 20},
+    {'key': 'niche', 'label': 'Niche Markets', 'min': None, 'max': None, 'cargo_cap_kg': None, 'sell_pct': 20},
+    {'key': 'wholesalers', 'label': 'Wholesalers', 'min': None, 'max': None, 'cargo_cap_kg': None, 'sell_pct': 60},
 ]
 
 
@@ -60,6 +60,12 @@ def rating_for(diff_pct: float, tiers: list[dict]) -> str:
 def _settings_out(db: Session) -> dict:
     row = _row(db)
     destination = json.loads(row.destination_markets_json) if row.destination_markets_json else DEFAULT_DESTINATION_MARKETS
+    # rows saved before Cargo Caps / the sell price rule existed get their defaults
+    defaults = {market['key']: market for market in DEFAULT_DESTINATION_MARKETS}
+    destination = [{'cargo_cap_kg': None, **market} for market in destination]
+    for market in destination:
+        if market.get('sell_pct') is None:  # never set: the default rule (an empty cell in Settings also falls back to it)
+            market['sell_pct'] = defaults.get(market['key'], {}).get('sell_pct')
     return {'margin_tiers': get_margin_tiers(db), 'destination_markets': destination}
 
 
@@ -74,6 +80,9 @@ class DestinationMarketIn(BaseModel):
     label: str
     min: float | None = None
     max: float | None = None
+    cargo_cap_kg: float | None = None  # most kg of one product of this market in a shipment
+    # suggested sell price rule: wholesalers = % of the target price; niche / premium = profit % over the DDP price
+    sell_pct: float | None = None
 
 
 class MarketOpportunitySettingsIn(BaseModel):
@@ -105,6 +114,10 @@ def save_settings(payload: MarketOpportunitySettingsIn, db: Session = Depends(ge
     for market in payload.destination_markets:
         if market.min is not None and market.max is not None and market.max < market.min:
             raise HTTPException(status_code=400, detail=f'{market.label}: the upper value cannot be below the lower one.')
+        if market.sell_pct is not None and market.sell_pct < 0:
+            raise HTTPException(status_code=400, detail=f'{market.label}: the sell price % cannot be negative.')
+        if market.cargo_cap_kg is not None and market.cargo_cap_kg < 0:
+            raise HTTPException(status_code=400, detail=f'{market.label}: the cargo cap cannot be negative.')
 
     row = _row(db)
     tier_dicts = [tier.model_dump() for tier in tiers]

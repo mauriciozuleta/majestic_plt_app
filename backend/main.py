@@ -528,7 +528,7 @@ def _ensure_schema_migrations():
             for column in ('outbound_shipment', 'return_shipment'):
                 if column not in route_columns:
                     connection.execute(text(f'ALTER TABLE revenue_stream_routes ADD COLUMN {column} VARCHAR'))
-            for column in ('outbound_target_cargo_pct', 'return_target_cargo_pct', 'return_price_per_kg', 'outbound_leg_cost_pct', 'return_leg_cost_pct'):
+            for column in ('outbound_target_cargo_pct', 'return_target_cargo_pct', 'return_price_per_kg', 'return_cos_per_kg', 'outbound_leg_cost_pct', 'return_leg_cost_pct'):
                 if column not in route_columns:
                     connection.execute(text(f'ALTER TABLE revenue_stream_routes ADD COLUMN {column} FLOAT'))
 

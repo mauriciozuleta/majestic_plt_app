@@ -1,3 +1,5 @@
+import { MARKET_PRIORITY } from '../../../../../services/marketOpportunitySettings'
+
 // Shipment builder: the product candidates for one route, from the Market
 // Opportunities comparison of the route's origin country (source) against
 // its destination country (target).
@@ -27,7 +29,8 @@ function bestRowPerProduct(rows) {
 // Within a rating: a. Country SAM descending (the bigger the target market
 // for the product), then b. Diff % ascending (the lower, the larger the
 // margin). A missing value always sorts last.
-export function groupProductsByRating(rows, countrySamFor, ratings = SHIPMENT_RATINGS) {
+// `extraFor(row)` adds fields to each product (its market level and cargo cap).
+export function groupProductsByRating(rows, countrySamFor, ratings = SHIPMENT_RATINGS, extraFor = null) {
   const products = bestRowPerProduct(rows)
     .filter((row) => ratings.includes(row.opportunity_rating || 'Unrated'))
     .map((row) => ({
@@ -38,6 +41,7 @@ export function groupProductsByRating(rows, countrySamFor, ratings = SHIPMENT_RA
       diffPct: row.diff_pct,
       opportunityRating: row.opportunity_rating || 'Unrated',
       countrySam: countrySamFor(row),
+      ...(extraFor ? extraFor(row) : {}),
     }))
     .sort(
       (a, b) =>
@@ -53,68 +57,84 @@ export function groupProductsByRating(rows, countrySamFor, ratings = SHIPMENT_RA
 export const SAM_CAP_KG = 1500
 export const NO_SAM_CAP_KG = 200
 
-// How strongly a product draws on the cargo: market size (Country SAM, on a
-// log scale across the selection, 0.2–1) times margin ((100 − Diff %) / 100,
-// 0.05–1; 0.5 when unknown). A product with no SAM draws only 0.1 × margin.
-function allocationWeights(products) {
-  const logs = products.filter((item) => item.countrySam > 0).map((item) => Math.log10(item.countrySam))
-  const minLog = Math.min(...logs)
-  const maxLog = Math.max(...logs)
-  const margin = (item) => (item.diffPct == null ? 0.5 : Math.min(1, Math.max(0.05, (100 - item.diffPct) / 100)))
-  return products.map((item) => {
-    if (!(item.countrySam > 0)) return 0.1 * margin(item)
-    const size = maxLog > minLog ? 0.2 + (0.8 * (Math.log10(item.countrySam) - minLog)) / (maxLog - minLog) : 1
-    return size * margin(item)
+// Spreads `budget` kg over `items` (each with a `cap`) as evenly as the caps allow: one common cap `level`, so a product below it
+// keeps its own cap and the kilos it doesn't use go to the others. -> Map(item -> exact kg)
+function waterFill(items, budget) {
+  const result = new Map()
+  let left = Math.max(0, budget)
+  const byCap = [...items].sort((a, b) => a.cap - b.cap)
+  byCap.forEach((item, index) => {
+    const level = left / (byCap.length - index)
+    const kg = Math.min(item.cap, level)
+    result.set(item, kg)
+    left -= kg
   })
+  return result
 }
 
-// Distributes `capacityKg` across the selected products by weight, never past
-// a product's cap: whatever a capped product can't take goes back to the
-// rest, until the cargo or every cap runs out. Whole kg, never above
-// capacity. -> { items: [{ ...product, kg, sharePct }], allocatedKg, unallocatedKg }
-export function allocateShipment(products, capacityKg) {
-  const weights = allocationWeights(products)
-  const items = products.map((item, index) => ({ ...item, cap: item.countrySam > 0 ? SAM_CAP_KG : NO_SAM_CAP_KG, weight: weights[index], exact: 0 }))
-  let remaining = capacityKg
-  let open = items.filter((item) => item.weight > 0)
-  while (open.length && remaining > 0.5) {
-    const total = open.reduce((sum, item) => sum + item.weight, 0)
-    const capped = open.filter((item) => (remaining * item.weight) / total >= item.cap - item.exact)
-    if (!capped.length) {
-      open.forEach((item) => {
-        item.exact += (remaining * item.weight) / total
-      })
-      remaining = 0
-      break
+// Distributes `capacityKg` over ALL the products (every product in the selection ships), in this order:
+//   1. the wholesalers: every one gets its full cap;
+//   2. the premium products: every one gets its full cap;
+//   3. the niche products (and any product with no market level): they split what is left evenly, none above its own cap.
+// A product's cap is its market's Cargo Cap (Settings ▸ Market Opportunity settings ▸ Destination Market, `capKg`), or
+// SAM_CAP_KG / NO_SAM_CAP_KG when that isn't set. When the aircraft can't take the full caps, the last group to be served gives
+// way: the premium and niche products share what the wholesalers leave evenly (so nobody is dropped), and only if the wholesalers
+// alone are too much do all of them come down to one common cap. Cargo left after every cap is the Available P/L.
+// `fixedKg` (product key -> kg) holds weights the user typed in by hand (Details ▸ Edit): they are kept as they are, flagged
+// `manual`, and come off the capacity first. Whole kg, never above capacity; the kilos lost to rounding go to the first products
+// in that order (then Country SAM, then Diff %) that are still under their cap.
+// -> { items: [{ ...product, kg, sharePct, manual }], allocatedKg, unallocatedKg }
+export function allocateShipment(products, capacityKg, fixedKg = new Map()) {
+  const rank = (item) => {
+    const index = MARKET_PRIORITY.indexOf(item.marketKey)
+    return index === -1 ? MARKET_PRIORITY.length : index
+  }
+  const capOf = (item) => item.capKg ?? (item.countrySam > 0 ? SAM_CAP_KG : NO_SAM_CAP_KG)
+  const manualItems = products.filter((item) => fixedKg.has(item.key)).map((item) => ({ ...item, kg: Math.floor(fixedKg.get(item.key)), manual: true }))
+  const budget = Math.max(0, capacityKg - manualItems.reduce((sum, item) => sum + item.kg, 0))
+  const ordered = products
+    .filter((item) => !fixedKg.has(item.key))
+    .map((item) => ({ ...item, cap: capOf(item), manual: false }))
+    .sort(
+      (a, b) =>
+        rank(a) - rank(b) || (b.countrySam ?? -Infinity) - (a.countrySam ?? -Infinity) || (a.diffPct ?? Infinity) - (b.diffPct ?? Infinity),
+    )
+  const sumCaps = (list) => list.reduce((sum, item) => sum + item.cap, 0)
+  const [WHOLESALERS, PREMIUM] = MARKET_PRIORITY
+  const wholesalers = ordered.filter((item) => item.marketKey === WHOLESALERS)
+  const premium = ordered.filter((item) => item.marketKey === PREMIUM)
+  const niche = ordered.filter((item) => item.marketKey !== WHOLESALERS && item.marketKey !== PREMIUM)
+  const exact = new Map()
+  const give = (list, kgFor) => list.forEach((item) => exact.set(item, kgFor(item)))
+  const afterWholesalers = budget - sumCaps(wholesalers)
+  if (afterWholesalers <= 0) {
+    // the wholesalers alone fill the aircraft: everyone comes down to one common cap
+    waterFill(ordered, budget).forEach((kg, item) => exact.set(item, kg))
+  } else {
+    give(wholesalers, (item) => item.cap)
+    const afterPremium = afterWholesalers - sumCaps(premium)
+    if (afterPremium >= 0) {
+      give(premium, (item) => item.cap)
+      waterFill(niche, afterPremium).forEach((kg, item) => exact.set(item, kg))
+    } else {
+      // the premium caps don't fit after the wholesalers: premium and niche share what is left evenly
+      waterFill([...premium, ...niche], afterWholesalers).forEach((kg, item) => exact.set(item, kg))
     }
-    capped.forEach((item) => {
-      remaining -= item.cap - item.exact
-      item.exact = item.cap
-    })
-    open = open.filter((item) => !capped.includes(item))
   }
-  // Whole kg: round everything down, then hand the kilos lost to rounding back
-  // one at a time to the products that lost the most — so only the product
-  // limits, never rounding, can leave cargo unallocated.
-  items.forEach((item) => {
-    item.kg = Math.floor(item.exact)
-  })
-  let leftover = Math.round(items.reduce((sum, item) => sum + item.exact, 0)) - items.reduce((sum, item) => sum + item.kg, 0)
-  const byFraction = [...items].filter((item) => item.kg < item.cap).sort((a, b) => b.exact - b.kg - (a.exact - a.kg))
-  for (const item of byFraction) {
+  // whole kg: round down, then hand the kilos lost to rounding back, in order, to products under their cap
+  const sized = ordered.map((item) => ({ ...item, kg: Math.floor(exact.get(item) ?? 0) }))
+  let leftover = Math.min(budget, Math.round(ordered.reduce((sum, item) => sum + (exact.get(item) ?? 0), 0))) - sized.reduce((sum, item) => sum + item.kg, 0)
+  for (const item of sized) {
     if (leftover <= 0) break
-    item.kg += 1
-    leftover -= 1
+    if (item.kg < item.cap) {
+      item.kg += 1
+      leftover -= 1
+    }
   }
+  const items = [...manualItems, ...sized.filter((item) => item.kg > 0).map(({ cap: _cap, ...product }) => product)]
   const allocatedKg = items.reduce((sum, item) => sum + item.kg, 0)
   return {
-    items: items
-      .map((item) => {
-        const { cap: _cap, weight: _weight, exact: _exact, ...product } = item
-        return product
-      })
-      .map((item) => ({ ...item, sharePct: allocatedKg ? (item.kg / allocatedKg) * 100 : 0 }))
-      .sort((a, b) => b.kg - a.kg),
+    items: items.map((item) => ({ ...item, sharePct: allocatedKg ? (item.kg / allocatedKg) * 100 : 0 })).sort((a, b) => b.kg - a.kg),
     allocatedKg,
     unallocatedKg: Math.max(0, Math.round(capacityKg - allocatedKg)),
   }

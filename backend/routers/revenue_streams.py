@@ -66,6 +66,7 @@ class RevenueStreamRouteSettings(BaseModel):
     outbound_target_cargo_pct: float | None = None
     return_target_cargo_pct: float | None = None
     return_price_per_kg: float | None = None
+    return_cos_per_kg: float | None = None
     outbound_leg_cost_pct: float | None = None
     return_leg_cost_pct: float | None = None
 
@@ -87,6 +88,7 @@ class RevenueStreamRouteOut(BaseModel):
     outbound_target_cargo_pct: float | None = None
     return_target_cargo_pct: float | None = None
     return_price_per_kg: float | None = None
+    return_cos_per_kg: float | None = None
     outbound_leg_cost_pct: float | None = None
     return_leg_cost_pct: float | None = None
     outbound_shipment: dict | None = None
@@ -116,6 +118,7 @@ class ShipmentItemIn(BaseModel):
     country_sam: float | None = None
     diff_pct: float | None = None
     rating: str | None = None
+    manual: bool = False  # the weight was typed in by the user (Details ▸ Edit)
 
 
 class ShipmentIn(BaseModel):
@@ -217,6 +220,8 @@ def update_revenue_stream_route_settings(
             raise HTTPException(status_code=400, detail='Percentages must be between 0 and 100.')
     if changes.get('return_price_per_kg') is not None and changes['return_price_per_kg'] < 0:
         raise HTTPException(status_code=400, detail='Price per kg cannot be negative.')
+    if changes.get('return_cos_per_kg') is not None and changes['return_cos_per_kg'] < 0:
+        raise HTTPException(status_code=400, detail='COS per kg cannot be negative.')
     route = _get_route(db, company_id, stream_id, route_id)
     for field, value in changes.items():
         setattr(route, field, value)

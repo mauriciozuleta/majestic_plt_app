@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../../../../services/commercialStructure'
-import { fetchMarketOpportunityPriority, getOrComputeComparison } from '../../../../../services/marketOpportunities'
+import { fetchCountryProductPrices, fetchMarketOpportunityPriority, getOrComputeComparison } from '../../../../../services/marketOpportunities'
+import { fetchMarketOpportunitySettings, marketLevelFor, UNMATCHED_MARKET_KEY } from '../../../../../services/marketOpportunitySettings'
+import { fetchTaxMultipliers, productKey } from '../../../../../services/taxMultipliers'
 import { fetchProductSam } from '../../../../../services/globalTradeData'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 import { ALL_RATINGS, NO_SAM_CAP_KG, SAM_CAP_KG, allocateShipment, groupProductsByRating } from './shipmentBuilder'
@@ -26,7 +28,8 @@ const formatDiff = (value) => (value == null ? '—' : `${value.toFixed(1)}%`)
 // `capacityKg` is the aircraft's max payload; `previous` the route's last
 // built shipment (its products start ticked instead of every product).
 // `onBuild(shipment)` saves the distribution.
-function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, previous, onBuild, onClose }) {
+// `airfarePerKg` is the leg's Price x Kg: with it, each product's DDP price (and so its market level) can be worked out.
+function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, airfarePerKg, previous, onBuild, onClose }) {
   const navigate = useNavigate()
   const [step, setStep] = useState('resolving')
   const [error, setError] = useState('')
@@ -37,6 +40,11 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
   const [selected, setSelected] = useState(() => new Set())
   // Priority products no longer in the comparison (recomputed since they were added)
   const [missingPriority, setMissingPriority] = useState([])
+  // Settings ▸ Destination Market (ranges + cargo caps), the tax multipliers of the pair, and the priority-list products that have no
+  // match in the target market (they ship as niche market products)
+  const [destinationMarkets, setDestinationMarkets] = useState([])
+  const [multipliers, setMultipliers] = useState(() => new Map())
+  const [unmatchedProducts, setUnmatchedProducts] = useState([])
   const [building, setBuilding] = useState(false)
   const [buildError, setBuildError] = useState('')
 
@@ -76,16 +84,36 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
       if (cancelled) return
       const rows = result.rows.filter((row) => priorityNames.has(row.product_name))
       const found = new Set(rows.map((row) => row.product_name))
-      setMissingPriority([...priorityNames].filter((name) => !found.has(name)))
+      const notInComparison = [...priorityNames].filter((name) => !found.has(name))
+      // Priority-list products with no match in the target market: from the source portfolio (price, HS code)
+      let noMatch = []
+      if (notInComparison.length) {
+        const portfolio = await fetchCountryProductPrices(source.name).catch(() => [])
+        const byKey = new Map(portfolio.map((product) => [productKey(product.name), product]))
+        noMatch = notInComparison.map((name) => byKey.get(productKey(name))).filter(Boolean)
+      }
+      const [settings, taxMap] = await Promise.all([
+        fetchMarketOpportunitySettings().catch(() => ({ destination_markets: [] })),
+        fetchTaxMultipliers(target.name, source.name).catch(() => new Map()),
+      ])
+      if (cancelled) return
+      setDestinationMarkets(settings.destination_markets || [])
+      setMultipliers(taxMap)
+      setUnmatchedProducts(noMatch)
+      const noMatchNames = new Set(noMatch.map((product) => product.name.toLowerCase()))
+      setMissingPriority(notInComparison.filter((name) => !noMatchNames.has(name.toLowerCase())))
       setComparison({ ...result, rows })
       // Every product starts ticked — or, when updating, the ones in the last shipment.
       const previousNames = new Set((previous?.items || []).map((item) => item.product_name))
       setSelected(
-        new Set(rows.filter((row) => !previousNames.size || previousNames.has(row.product_name)).map((row) => `${row.product_name}|${row.hs_code ?? ''}`)),
+        new Set([
+          ...rows.filter((row) => !previousNames.size || previousNames.has(row.product_name)).map((row) => `${row.product_name}|${row.hs_code ?? ''}`),
+          ...noMatch.filter((product) => !previousNames.size || previousNames.has(product.name)).map((product) => `${product.name}|${product.hsCode ?? ''}`),
+        ]),
       )
 
       setStep('sam')
-      const codes = [...new Set(rows.map((row) => row.hs_code).filter((code) => /^\d{6}$/.test(code || '')))]
+      const codes = [...new Set([...rows.map((row) => row.hs_code), ...noMatch.map((product) => product.hsCode)].filter((code) => /^\d{6}$/.test(code || '')))]
       if (codes.length) {
         try {
           const sam = await fetchProductSam(target.region, codes)
@@ -106,10 +134,40 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
     }
   }, [origin, destination, previous])
 
+  const cargoCapOf = (key) => destinationMarkets.find((market) => market.key === key)?.cargo_cap_kg ?? null
+  const marketLabelOf = (key) => destinationMarkets.find((market) => market.key === key)?.label ?? null
   const groups = useMemo(() => {
     if (!comparison || !countries) return []
-    return groupProductsByRating(comparison.rows, (row) => productSam?.products?.[row.hs_code]?.countries?.[countries.target.name]?.value ?? null, ALL_RATINGS)
-  }, [comparison, countries, productSam])
+    const samFor = (hsCode) => productSam?.products?.[hsCode]?.countries?.[countries.target.name]?.value ?? null
+    // market level of a matched product: its DDP price per kg as a % of the target price, against the Destination Market ranges
+    const levelFor = (row) => {
+      const multiplier = multipliers.get(productKey(row.product_name))?.tax_multiplier ?? null
+      const ddp = airfarePerKg != null && multiplier != null && row.source_price_normalized != null ? (row.source_price_normalized + airfarePerKg) * (1 + multiplier) : null
+      const { key, level, cargoCapKg } = marketLevelFor(ddp, row.target_price_normalized, destinationMarkets)
+      return { marketKey: key, marketLevel: level, capKg: cargoCapKg }
+    }
+    const list = groupProductsByRating(comparison.rows, (row) => samFor(row.hs_code), ALL_RATINGS, levelFor)
+    if (unmatchedProducts.length) {
+      const extra = unmatchedProducts.map((product) => ({
+        key: `${product.name}|${product.hsCode ?? ''}`,
+        hsCode: product.hsCode,
+        productName: product.name,
+        targetProductName: null,
+        diffPct: null,
+        opportunityRating: 'Unrated',
+        countrySam: samFor(product.hsCode),
+        marketKey: UNMATCHED_MARKET_KEY,
+        marketLevel: marketLabelOf(UNMATCHED_MARKET_KEY) ?? 'Niche Markets',
+        capKg: cargoCapOf(UNMATCHED_MARKET_KEY),
+        noMatch: true,
+      }))
+      const unrated = list.find((group) => group.rating === 'Unrated')
+      if (unrated) unrated.products.push(...extra)
+      else list.push({ rating: 'Unrated', products: extra })
+    }
+    return list
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers read destinationMarkets, listed here
+  }, [comparison, countries, productSam, multipliers, destinationMarkets, unmatchedProducts, airfarePerKg])
   const products = useMemo(() => groups.flatMap((group) => group.products), [groups])
 
   const toggle = (key) =>
@@ -132,7 +190,9 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
   const title = countries ? `${countries.source.name} → ${countries.target.name}` : 'Shipment builder'
   const chosen = products.filter((item) => selected.has(item.key))
   const build = async () => {
-    const { items } = allocateShipment(chosen, capacityKg)
+    // weights typed in by hand (Details ▸ Edit) in the shipment being updated stay as they are
+    const fixed = new Map((previous?.items || []).filter((item) => item.manual).map((item) => [`${item.product_name}|${item.hs_code ?? ''}`, item.kg]))
+    const { items } = allocateShipment(chosen, capacityKg, fixed)
     setBuilding(true)
     setBuildError('')
     try {
@@ -148,6 +208,7 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
           country_sam: item.countrySam,
           diff_pct: item.diffPct,
           rating: item.opportunityRating,
+          manual: item.manual || false,
         })),
       })
     } catch (err) {
@@ -225,6 +286,7 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
                       <th>Product</th>
                       <th className="is-num">Country SAM</th>
                       <th className="is-num">Diff %</th>
+                      <th>Market level</th>
                     </tr>
                   </thead>
                   {groups.map((group) => (
@@ -238,7 +300,7 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
                             aria-label={`Select all ${group.rating} products`}
                           />
                         </td>
-                        <td colSpan={4}>
+                        <td colSpan={5}>
                           <span className="shipment-builder__group-label">{group.rating}</span>
                           <span className="shipment-builder__group-count">
                             {group.products.length} product{group.products.length === 1 ? '' : 's'}
@@ -257,11 +319,12 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
                           />
                         </td>
                         <td className="shipment-builder__code">{item.hsCode || '—'}</td>
-                        <td title={item.targetProductName ? `Matched in ${countries.target.name}: ${item.targetProductName}` : undefined}>{item.productName}</td>
+                        <td title={item.targetProductName ? `Matched in ${countries.target.name}: ${item.targetProductName}` : item.noMatch ? `No match in ${countries.target.name}` : undefined}>{item.productName}</td>
                         <td className="is-num">{formatSam(item.countrySam)}</td>
                         <td className="is-num" title={item.opportunityRating || undefined}>
                           {formatDiff(item.diffPct)}
                         </td>
+                        <td title={item.noMatch ? 'No match in the target market — a niche market product' : undefined}>{item.marketLevel || '—'}</td>
                       </tr>
                     ))}
                     </tbody>
@@ -274,8 +337,11 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, p
 
         {step === 'ready' && products.length > 0 && (
           <p className="shipment-builder__status">
-            Build fills {capacityKg ? `${Math.round(capacityKg).toLocaleString('en-US')} kg` : 'the aircraft'} across the ticked products — more to a bigger Country SAM and
-            a lower Diff %, at most {SAM_CAP_KG.toLocaleString('en-US')} kg each ({NO_SAM_CAP_KG} kg without a Country SAM).
+            Build ships every ticked product, filling {capacityKg ? `${Math.round(capacityKg).toLocaleString('en-US')} kg` : 'the aircraft'}: first every wholesaler gets its full cap,
+            then every premium product its cap, and the niche products split what is left (a market&apos;s cap is its Cargo Cap in Settings, otherwise{' '}
+            {SAM_CAP_KG.toLocaleString('en-US')} kg, or {NO_SAM_CAP_KG} kg without a Country SAM). If the caps add up to more than the aircraft carries, the last group
+            shares what is left evenly — nobody is dropped.
+            {airfarePerKg == null && ' The route has no air fare (Price x Kg) yet, so market levels can’t be worked out and every product is treated alike.'}
           </p>
         )}
         {buildError && <p className="shipment-builder__error">{buildError}</p>}
