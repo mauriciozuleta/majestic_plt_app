@@ -817,6 +817,16 @@ class UsdExchangeRateCache(Base):
     fetched_at = Column(String, nullable=False)
 
 
+class MarketOpportunitySettings(Base):
+    """One row (Settings ▸ Market Opportunity settings): the opportunity-rating margin scale and the Destination
+    Market categories, as JSON. No row / empty JSON = the built-in defaults (routers/market_opportunity_settings.py)."""
+    __tablename__ = 'market_opportunity_settings'
+
+    id = Column(String, primary_key=True, default='singleton')
+    margin_tiers_json = Column(String, nullable=True)
+    destination_markets_json = Column(String, nullable=True)
+
+
 class MarketOpportunityComparison(Base):
     """One product's SOURCE-country-vs-TARGET-country wholesale price
     comparison row — Market Opportunities' real engine (see
@@ -1083,6 +1093,7 @@ class RevenueStreamRoute(Base):
     # The outbound shipment last built by the Shipment builder, as JSON:
     # {capacity_kg, aircraft_name, built_at, items: [{product_name, hs_code, kg, ...}]}
     outbound_shipment = Column(String, nullable=True)
+    return_shipment = Column(String, nullable=True)
     created_at = Column(String, nullable=False)
 
 

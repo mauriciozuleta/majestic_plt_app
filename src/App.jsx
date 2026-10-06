@@ -23,6 +23,8 @@ import DocumentationView, { DocumentationIndexRedirect } from './components/docu
 import SettingsView from './components/company/tabs/ManagementTab/SettingsView/SettingsView'
 import RagFilesView from './components/ragFiles/RagFilesView'
 import TaxCalculatorView from './components/taxCalculator/TaxCalculatorView'
+import ToolsView from './components/tools/ToolsView'
+import AccountingHealthCheckCard from './components/company/tabs/ManagementTab/SettingsView/AccountingHealthCheckCard'
 import AccountingAuditView from './components/accountingAudit/AccountingAuditView'
 import CorporateStructureView from './components/corporateStructure/CorporateStructureView'
 import { addCompany as createCompany, fetchCompanies } from './services/companies'
@@ -63,8 +65,14 @@ function Layout() {
                 <Route index element={<DocumentationIndexRedirect />} />
                 <Route path=":companyId" element={<DocumentationTab />} />
               </Route>
-              <Route path="/rag-files" element={<RagFilesView />} />
-              <Route path="/tax-calculator" element={<TaxCalculatorView />} />
+              <Route path="/tools" element={<ToolsView />}>
+                <Route index element={<Navigate to="tax-calculator" replace />} />
+                <Route path="tax-calculator" element={<TaxCalculatorView />} />
+                <Route path="rag-files" element={<RagFilesView />} />
+                <Route path="accounting-health-check" element={<AccountingHealthCheckCard />} />
+              </Route>
+              <Route path="/rag-files" element={<Navigate to="/tools/rag-files" replace />} />
+              <Route path="/tax-calculator" element={<Navigate to="/tools/tax-calculator" replace />} />
               <Route path="/settings" element={<SettingsView />} />
               <Route path="/accounting-audit" element={<AccountingAuditView />} />
 

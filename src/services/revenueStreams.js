@@ -69,8 +69,8 @@ export async function updateRevenueStreamRouteSettings(companyId, streamId, rout
 }
 
 // { capacity_kg, aircraft_name, items: [{ product_name, hs_code, kg, ... }] } -> the updated route
-export async function saveRouteOutboundShipment(companyId, streamId, routeId, shipment) {
-  const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}/outbound-shipment`, {
+async function saveRouteShipment(companyId, streamId, routeId, leg, shipment) {
+  const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}/${leg}-shipment`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(shipment),
@@ -81,6 +81,12 @@ export async function saveRouteOutboundShipment(companyId, streamId, routeId, sh
   }
   return response.json()
 }
+
+export const saveRouteOutboundShipment = (companyId, streamId, routeId, shipment) =>
+  saveRouteShipment(companyId, streamId, routeId, 'outbound', shipment)
+
+export const saveRouteReturnShipment = (companyId, streamId, routeId, shipment) =>
+  saveRouteShipment(companyId, streamId, routeId, 'return', shipment)
 
 export async function deleteRevenueStreamRoute(companyId, streamId, routeId) {
   const response = await fetch(`${API_BASE}/companies/${companyId}/revenue-streams/${streamId}/routes/${routeId}`, { method: 'DELETE' })

@@ -304,6 +304,27 @@
   border-color: color-mix(in srgb, var(--leg-color) 50%, transparent);
 }
 
+/* Filled builder cards: 50 % transparent, two shades per leg (blues outbound, ambers return). */
+.revenue-streams-view__metric.is-outbound.revenue-streams-view__metric--air {
+  background: color-mix(in srgb, #1d4ed8 50%, transparent);
+  border-color: color-mix(in srgb, #1d4ed8 50%, transparent);
+}
+
+.revenue-streams-view__metric.is-outbound.revenue-streams-view__metric--filled:not(.revenue-streams-view__metric--air) {
+  background: color-mix(in srgb, #38bdf8 50%, transparent);
+  border-color: color-mix(in srgb, #38bdf8 50%, transparent);
+}
+
+.revenue-streams-view__metric.is-return.revenue-streams-view__metric--air {
+  background: color-mix(in srgb, #b45309 50%, transparent);
+  border-color: color-mix(in srgb, #b45309 50%, transparent);
+}
+
+.revenue-streams-view__metric.is-return.revenue-streams-view__metric--filled:not(.revenue-streams-view__metric--air) {
+  background: color-mix(in srgb, #fbbf24 50%, transparent);
+  border-color: color-mix(in srgb, #fbbf24 50%, transparent);
+}
+
 .revenue-streams-view__metric.revenue-streams-view__metric--filled .revenue-streams-view__metric-label,
 .revenue-streams-view__metric.revenue-streams-view__metric--filled .revenue-streams-view__metric-value {
   color: var(--text-primary);
@@ -416,6 +437,7 @@
 
 /* The built shipment: a full-width row of small cards under the outbound leg. */
 .revenue-streams-view__shipment {
+  --leg-color: #38bdf8;
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
@@ -450,6 +472,21 @@
   border-radius: 6px;
   background: var(--bg-card);
   padding: 0.3rem 0.45rem;
+}
+
+.revenue-streams-view__shipment.is-return {
+  --leg-color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.revenue-streams-view__shipment.is-return .revenue-streams-view__shipment-head strong,
+.revenue-streams-view__shipment.is-return .revenue-streams-view__shipment-kg {
+  color: #fbbf24;
+}
+
+.revenue-streams-view__shipment-card .revenue-streams-view__pct {
+  color: var(--leg-color);
 }
 
 .revenue-streams-view__shipment-name {

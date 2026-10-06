@@ -421,3 +421,29 @@
   padding: 0 0.6rem;
   cursor: pointer;
 }
+
+.tax-calc__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tax-calc__toggle h3 {
+  margin: 0;
+}
+
+.tax-calc__chevron {
+  display: inline-block;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.tax-calc__chevron.is-open {
+  transform: rotate(90deg);
+}

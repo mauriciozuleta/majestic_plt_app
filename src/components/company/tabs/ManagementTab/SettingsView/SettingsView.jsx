@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { IconX } from '@tabler/icons-react'
 import RoadmapDateInput from '../RoadmapView/RoadmapDateInput'
 import PayrollLevelsModal from './PayrollLevelsModal'
-import AccountingHealthCheckCard from './AccountingHealthCheckCard'
+import MarketOpportunitySettingsCard from './MarketOpportunitySettingsCard'
 import ProductSourcesCard from './ProductSourcesCard'
 import DevelopmentPhasesPanel from './DevelopmentPhasesPanel'
 import USPayrollTaxPanel from './USPayrollTaxPanel'
@@ -609,9 +609,9 @@ function SettingsView() {
         </button>
       </div>
 
-      <AccountingHealthCheckCard />
-
       <ProductSourcesCard />
+
+      <MarketOpportunitySettingsCard />
 
       <div className="settings-view__card">
         <button

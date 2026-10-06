@@ -4,6 +4,7 @@ import { fetchRagCountries } from '../../services/ragFiles'
 import { calculateTax, fetchTaxCountries, refreshTariffData, searchTariffLines } from '../../services/taxCalculator'
 import { computeTaxMultipliers, fetchTaxMultipliers, formatMultiplier, productKey, suggestTariffLine } from '../../services/taxMultipliers'
 import { EMPTY_FORM, useTaxCalcStore } from '../../store/useTaxCalcStore'
+import { usePersistentSet } from '../../utils/usePersistentSet'
 import { formatCurrencyValue, formatDualCurrency } from '../../utils/currencyFormat'
 import './TaxCalculatorView.css'
 
@@ -13,6 +14,16 @@ const digitsOf = (text) => (text || '').replace(/\D/g, '')
 function TaxCalculatorView() {
   const { destination, origin, query, product, line, lineNote, form, result, history, update, setForm, addHistory, removeHistory, clearHistory } = useTaxCalcStore()
 
+  // The whole panel can be folded away to its header (remembered between visits).
+  const [collapsedPanels, setCollapsedPanels] = usePersistentSet('tax-calculator:collapsed')
+  const collapsed = collapsedPanels.has('panel')
+  const togglePanel = () =>
+    setCollapsedPanels((prev) => {
+      const next = new Set(prev)
+      if (next.has('panel')) next.delete('panel')
+      else next.add('panel')
+      return next
+    })
   const [countries, setCountries] = useState([])
   const [originNames, setOriginNames] = useState([])
   const [originProducts, setOriginProducts] = useState(null) // null while loading
@@ -196,13 +207,18 @@ function TaxCalculatorView() {
   return (
     <div className="panel-surface tax-calc">
       <header className="tax-calc__header">
-        <h3>Tax Calculator</h3>
+        <button type="button" className="tax-calc__toggle" onClick={togglePanel} aria-expanded={!collapsed}>
+          <span className={`tax-calc__chevron ${collapsed ? '' : 'is-open'}`}>▸</span>
+          <h3>Tax Calculator</h3>
+        </button>
         <p>
           The import taxes of a shipment, calculated from each country’s published tariff. Choose the countries, pick the product, and enter the quantity. No AI is involved: every
           figure comes with its formula. Freight and insurance are handled in the logistics module, so they are not part of this calculation.
         </p>
       </header>
 
+      {!collapsed && (
+        <>
       {error && <p className="tax-calc__error">{error}</p>}
 
       <section className="tax-calc__section">
@@ -486,6 +502,8 @@ function TaxCalculatorView() {
             ))}
           </ul>
         </section>
+      )}
+        </>
       )}
     </div>
   )

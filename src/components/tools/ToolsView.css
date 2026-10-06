@@ -1,0 +1,22 @@
+.tools-view__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.8rem;
+}
+
+.tools-view__item {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.74rem;
+  text-decoration: none;
+}
+
+.tools-view__item.is-active {
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-amber-text);
+  border-color: rgba(251, 146, 60, 0.65);
+}

@@ -90,12 +90,13 @@ class RevenueStreamRouteOut(BaseModel):
     outbound_leg_cost_pct: float | None = None
     return_leg_cost_pct: float | None = None
     outbound_shipment: dict | None = None
+    return_shipment: dict | None = None
     created_at: str
 
     class Config:
         from_attributes = True
 
-    @field_validator('outbound_shipment', mode='before')
+    @field_validator('outbound_shipment', 'return_shipment', mode='before')
     @classmethod
     def _parse_shipment(cls, value):
         if isinstance(value, str):
@@ -224,10 +225,7 @@ def update_revenue_stream_route_settings(
     return route
 
 
-@router.put('/companies/{company_id}/revenue-streams/{stream_id}/routes/{route_id}/outbound-shipment', response_model=RevenueStreamRouteOut)
-def save_outbound_shipment(company_id: str, stream_id: str, route_id: str, payload: ShipmentIn, db: Session = Depends(get_db)):
-    """Saves the outbound shipment the Shipment builder distributed across
-    the route's priority products (replacing any earlier one)."""
+def _save_shipment(db: Session, route: models.RevenueStreamRoute, column: str, payload: ShipmentIn) -> models.RevenueStreamRoute:
     if payload.capacity_kg <= 0:
         raise HTTPException(status_code=400, detail='The aircraft has no cargo capacity to fill.')
     if not payload.items:
@@ -236,11 +234,23 @@ def save_outbound_shipment(company_id: str, stream_id: str, route_id: str, paylo
         raise HTTPException(status_code=400, detail='A product cannot have a negative weight.')
     if sum(item.kg for item in payload.items) > payload.capacity_kg + 0.5:
         raise HTTPException(status_code=400, detail='The shipment is heavier than the aircraft can carry.')
-    route = _get_route(db, company_id, stream_id, route_id)
-    route.outbound_shipment = json.dumps({**payload.model_dump(), 'built_at': datetime.now(timezone.utc).isoformat()})
+    setattr(route, column, json.dumps({**payload.model_dump(), 'built_at': datetime.now(timezone.utc).isoformat()}))
     db.commit()
     db.refresh(route)
     return route
+
+
+@router.put('/companies/{company_id}/revenue-streams/{stream_id}/routes/{route_id}/outbound-shipment', response_model=RevenueStreamRouteOut)
+def save_outbound_shipment(company_id: str, stream_id: str, route_id: str, payload: ShipmentIn, db: Session = Depends(get_db)):
+    """Saves the outbound shipment the Shipment builder distributed across
+    the route's priority products (replacing any earlier one)."""
+    return _save_shipment(db, _get_route(db, company_id, stream_id, route_id), 'outbound_shipment', payload)
+
+
+@router.put('/companies/{company_id}/revenue-streams/{stream_id}/routes/{route_id}/return-shipment', response_model=RevenueStreamRouteOut)
+def save_return_shipment(company_id: str, stream_id: str, route_id: str, payload: ShipmentIn, db: Session = Depends(get_db)):
+    """Same as the outbound shipment, for a compensated return leg."""
+    return _save_shipment(db, _get_route(db, company_id, stream_id, route_id), 'return_shipment', payload)
 
 
 @router.delete('/companies/{company_id}/revenue-streams/{stream_id}/routes/{route_id}', status_code=204)

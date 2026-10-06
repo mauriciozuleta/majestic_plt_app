@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..currency.usd_rates import get_usd_rate
 from ..database import get_db
+from .market_opportunity_settings import get_margin_tiers, rating_for
 
 router = APIRouter()
 
@@ -63,18 +64,8 @@ def exchange_rate(from_currency: str = Query(alias='from'), db: Session = Depend
 # thin-but-positive one, not just a more extreme version of "Difficult" — so
 # a distinct "Not Viable" tier with its own break exactly at 100 is the
 # mathematically correct place to draw it, not an arbitrary addition.
-def _rating(diff_pct: float) -> str:
-    if diff_pct < 20:
-        return 'Very High'
-    if diff_pct < 30:
-        return 'High'
-    if diff_pct < 50:
-        return 'Challenging'
-    if diff_pct < 65:
-        return 'Complex'
-    if diff_pct <= 100:
-        return 'Difficult'
-    return 'Not Viable'
+# The scale itself (the ranges below) is now set in Settings ▸ Market Opportunity settings — see
+# routers/market_opportunity_settings.py (`get_margin_tiers`, `rating_for`); these were its hardcoded defaults.
 
 
 class ComparisonIn(BaseModel):
@@ -158,12 +149,13 @@ def save_comparisons(payload: ComparisonsIn, db: Session = Depends(get_db)):
         ).delete()
 
     calculated_at = datetime.now(timezone.utc).isoformat()
+    tiers = get_margin_tiers(db)
     saved = []
     for row in payload.rows:
         source_norm = row.source_price_normalized
         target_norm = row.target_price_normalized
         diff_pct = (source_norm / target_norm) * 100 if source_norm is not None and target_norm not in (None, 0) else None
-        rating = _rating(diff_pct) if diff_pct is not None else None
+        rating = rating_for(diff_pct, tiers) if diff_pct is not None else None
 
         reasons = list(row.review_reasons)
         if diff_pct is None:

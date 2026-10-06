@@ -46,3 +46,22 @@ export function computeRouteMetrics({ origin, destination, aircraft, provider })
 
   return { distanceNm: distance, cruiseSpeedKt: cruise ?? null, flightTimeHours: flightTime, blockHours, blockHourCost: hourlyCost ?? null, blockHoursCost, missing }
 }
+
+// The outbound leg's Price x Kg (air fare per kg): the whole flight's block-hours cost (both legs) x the outbound leg cost %
+// (100 % when the return is "full") over the outbound's available cargo (target cargo % x the aircraft's max payload).
+// Mirrors `priceFor` in RevenueStreamsView.jsx, for pages that have no route card — returns { value, note }.
+export function outboundPricePerKg(route, { origin, destination, returnBranch, aircraft, provider }) {
+  if (!route.return_type) return { value: null, note: 'Select the type of return' }
+  const outbound = computeRouteMetrics({ origin, destination, aircraft, provider })
+  const back = computeRouteMetrics({ origin: destination, destination: returnBranch, aircraft, provider })
+  if (outbound.blockHoursCost == null || back.blockHoursCost == null) return { value: null, note: 'Needs both legs’ block hours cost' }
+  const flightCost = outbound.blockHoursCost + back.blockHoursCost
+  const pct = route.return_type === 'full' ? 100 : route.outbound_leg_cost_pct
+  if (pct == null) return { value: null, note: 'Enter the outbound leg cost %' }
+  if (route.outbound_target_cargo_pct == null) return { value: null, note: 'Enter the outbound target cargo %' }
+  const capacityKg = aircraft?.max_payload_kg ?? null
+  if (!capacityKg) return { value: null, note: "Missing the aircraft's max payload" }
+  const kg = (route.outbound_target_cargo_pct / 100) * capacityKg
+  if (!kg) return { value: null, note: 'No cargo on this leg' }
+  return { value: (flightCost * pct) / 100 / kg, note: '' }
+}

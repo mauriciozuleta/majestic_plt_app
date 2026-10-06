@@ -1,6 +1,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../services/commercialStructure'
+import { fetchBuiltShipmentAirfares } from '../../services/shipmentPricing'
+import { fetchMarketOpportunitySettings } from '../../services/marketOpportunitySettings'
+import { useAppStore } from '../../store/useAppStore'
 import { fetchProductSources } from '../../services/productSources'
 import {
   addToMarketOpportunityPriority,
@@ -146,7 +149,7 @@ function reviewBadges(row) {
 // unmatched list, and renders a sortable/filterable table plus the separate
 // "no match found in target market" list. A run is a full recompute of its
 // scope, same convention the backend's own overwrite-on-save already uses.
-function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, region, onSaved }) {
+function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, region, onSaved, focusProduct }) {
   const [runStatus, setRunStatus] = useState('idle')
   const [runError, setRunError] = useState(null)
   const [aiMatchErrors, setAiMatchErrors] = useState({})
@@ -284,6 +287,53 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rows/targets are summarised by runStatus + the keys below
   }, [runStatus, sourceCountry, targetKey, rows.length])
 
+  // DDP price + Market Level: for a target that has a built shipment (Financial ▸ Revenue ▸ route ▸ Shipment builder), every product's
+  // DDP per kg = (FCA price + air fare) x (1 + tax multiplier) — the Shipment builder's own formula — and the level is the
+  // Settings ▸ Market Opportunity settings ▸ Destination Market range that DDP, as a % of the target price, falls in.
+  const companies = useAppStore((state) => state.companies)
+  const [airfares, setAirfares] = useState(() => new Map())
+  const [destinationMarkets, setDestinationMarkets] = useState([])
+  useEffect(() => {
+    if (runStatus !== 'ready') return undefined
+    let cancelled = false
+    const targets = [...new Set([...targetCountries, ...rows.map((row) => row.target_country)])]
+    fetchBuiltShipmentAirfares(companies, sourceCountry, targets)
+      .then((map) => !cancelled && setAirfares(map))
+      .catch(() => !cancelled && setAirfares(new Map()))
+    fetchMarketOpportunitySettings()
+      .then((data) => !cancelled && setDestinationMarkets(data.destination_markets || []))
+      .catch(() => !cancelled && setDestinationMarkets([]))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rows/targets are summarised by runStatus + the keys below
+  }, [runStatus, sourceCountry, targetKey, rows.length, companies])
+  const showDdp = rows.some((row) => airfares.has(row.target_country))
+  const extraColumns = showDdp ? 2 : 0
+  const ddpFor = (row) => {
+    const shipment = airfares.get(row.target_country)
+    const multiplier = taxMultipliers.get(`${row.target_country}|${productKey(row.product_name)}`)?.tax_multiplier ?? null
+    if (!shipment || shipment.airfarePerKg == null || multiplier == null || row.source_price_normalized == null) return { value: null, shipment, multiplier }
+    return { value: (row.source_price_normalized + shipment.airfarePerKg) * (1 + multiplier), shipment, multiplier }
+  }
+  const ddpTitle = (row, ddp) =>
+    !ddp.shipment
+      ? ''
+      : ddp.shipment.airfarePerKg == null
+        ? `No air fare yet for the built shipment (${ddp.shipment.routeName}): ${ddp.shipment.note}`
+        : ddp.multiplier == null
+          ? 'No tax multiplier for this product (see Tax ×).'
+          : `FCA ${formatUsdPerKg(row.source_price_normalized)} + air fare ${formatUsdPerKg(ddp.shipment.airfarePerKg)} = ${formatUsdPerKg(row.source_price_normalized + ddp.shipment.airfarePerKg)}, plus taxes x${ddp.multiplier.toFixed(2)} — route ${ddp.shipment.routeName}`
+  // Destination Market level: DDP as a % of the target price, against each category's range (empty end = open)
+  const marketLevelFor = (row, ddp) => {
+    if (ddp.value == null || !row.target_price_normalized) return { level: null, note: '' }
+    const share = (ddp.value / row.target_price_normalized) * 100
+    const configured = destinationMarkets.filter((market) => market.min != null || market.max != null)
+    if (!configured.length) return { level: null, note: `DDP is ${share.toFixed(1)}% of the target price. Set the ranges in Settings ▸ Market Opportunity settings ▸ Destination Market.` }
+    const match = configured.find((market) => share >= (market.min ?? -Infinity) && share <= (market.max ?? Infinity))
+    return { level: match?.label ?? null, note: `DDP is ${share.toFixed(1)}% of the target price${match ? '' : ' — outside every Destination Market range'}` }
+  }
+
   // "x2.23" with the tariff line and how it was chosen as its tooltip
   const taxMultiplierFor = (target, productName) => taxMultipliers.get(`${target}|${productKey(productName)}`) ?? null
   const taxMultiplierTitle = (entry) =>
@@ -375,6 +425,32 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
     })
     return [...RATING_ORDER, 'Unrated'].filter((key) => byRating.has(key)).map((rating) => ({ rating, rows: byRating.get(rating) }))
   }, [filteredSortedRows])
+
+  // ?product=… (a Shipment builder card's link): open that product's rating group, clear the filters
+  // that could hide it, scroll to its row and highlight it for a few seconds.
+  const [focusRowId, setFocusRowId] = useState(null)
+  const handledFocusRef = useRef(null)
+  useEffect(() => {
+    if (!focusProduct || !rows.length || handledFocusRef.current === focusProduct) return
+    const wanted = focusProduct.trim().toLowerCase()
+    const row = rows.find((item) => item.product_name.trim().toLowerCase() === wanted)
+    if (!row) return
+    handledFocusRef.current = focusProduct
+    setSortKey((current) => (current === 'priority' ? 'rating' : current))
+    setSearch('')
+    setTargetFilter('')
+    setExpandedRatings((current) => new Set(current).add(row.opportunity_rating || 'Unrated'))
+    setFocusRowId(row.id)
+  }, [focusProduct, rows])
+  useEffect(() => {
+    if (!focusRowId) return undefined
+    const frame = requestAnimationFrame(() => document.getElementById(`mo-row-${focusRowId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
+    const timer = setTimeout(() => setFocusRowId(null), 6000)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(timer)
+    }
+  }, [focusRowId, expandedRatings])
 
   const toggleRating = (rating) => {
     setExpandedRatings((current) => {
@@ -549,6 +625,8 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                   <th>Diff %</th>
                   <th title="Import taxes of the target country as a multiple of the goods value (x2.23 = taxes of 223% of the value), from its tariff — see Tax Calculator">Tax ×</th>
                   <th>Opportunity</th>
+                  {showDdp && <th title="(FCA price + air fare) x (1 + tax multiplier), per kg — from the built shipment">DDP price</th>}
+                  {showDdp && <th title="Destination Market category the DDP price (as a % of the target price) falls in — Settings ▸ Market Opportunity settings">Market Level</th>}
                   <th>Confidence</th>
                 </tr>
               </thead>
@@ -564,7 +642,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                   return (
                     <Fragment key={rating}>
                       <tr className="market-opportunities__rating-row" onClick={() => toggleRating(rating)}>
-                        <td colSpan={isRegion ? 13 : 12}>
+                        <td colSpan={(isRegion ? 13 : 12) + extraColumns}>
                           <div className="market-opportunities__rating-row-inner">
                             <button
                               type="button"
@@ -585,7 +663,11 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                       </tr>
                       {isOpen &&
                         groupRows.map((row) => (
-                          <tr key={row.id} className={priority.has(priorityKey(row)) ? 'is-priority' : ''}>
+                          <tr
+                            key={row.id}
+                            id={`mo-row-${row.id}`}
+                            className={`${priority.has(priorityKey(row)) ? 'is-priority' : ''} ${row.id === focusRowId ? 'is-focused' : ''}`}
+                          >
                             <td className="market-opportunities__check-col">
                               <input
                                 type="checkbox"
@@ -622,6 +704,16 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                               })()}
                             </td>
                             <td>{row.opportunity_rating || '—'}</td>
+                            {showDdp && (() => {
+                              const ddp = ddpFor(row)
+                              const level = marketLevelFor(row, ddp)
+                              return (
+                                <>
+                                  <td title={ddpTitle(row, ddp)}>{ddp.shipment ? (ddp.value != null ? formatUsdPerKg(ddp.value) : '—') : ''}</td>
+                                  <td title={level.note}>{ddp.shipment ? (level.level ?? '—') : ''}</td>
+                                </>
+                              )
+                            })()}
                             <td>
                               {reviewBadges(row).length === 0
                                 ? '—'
@@ -642,7 +734,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                 })}
                 {filteredSortedRows.length === 0 && (
                   <tr>
-                    <td colSpan={isRegion ? 13 : 12} className="market-analysis__empty-row">
+                    <td colSpan={(isRegion ? 13 : 12) + extraColumns} className="market-analysis__empty-row">
                       {sortKey === 'priority' && !search
                         ? 'No products on the priority list yet — tick products, then Add to priority list.'
                         : `No product matches "${search}".`}
@@ -963,6 +1055,7 @@ function MarketOpportunitiesPanel() {
           isRegion={target === 'region'}
           region={region}
           onSaved={loadSavedPairs}
+          focusProduct={searchParams.get('product')}
         />
       )}
     </div>

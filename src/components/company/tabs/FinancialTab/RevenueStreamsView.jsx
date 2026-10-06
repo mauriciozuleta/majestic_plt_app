@@ -7,6 +7,7 @@ import {
   fetchRevenueStreamRoutes,
   fetchRevenueStreams,
   saveRouteOutboundShipment,
+  saveRouteReturnShipment,
   updateRevenueStreamRoute,
   updateRevenueStreamRouteSettings,
 } from '../../../../services/revenueStreams'
@@ -16,10 +17,12 @@ import { useAppStore } from '../../../../store/useAppStore'
 import AddRevenueStreamModal from './AddRevenueStreamModal'
 import AddRouteModal from './AddRouteModal'
 import ShipmentBuilderModal from './ShipmentBuilder/ShipmentBuilderModal'
+import ShipmentPanel from './ShipmentBuilder/ShipmentPanel'
 import { revenueProductFormFor } from './companyRevenueForms'
 import { RETURN_TYPES, aircraftLabel, branchCode, branchLabel } from './branchLabel'
 import { computeRouteMetrics } from './routeMetrics'
 import { formatCurrencyValue } from '../../../../utils/currencyFormat'
+import { usePersistentSet } from '../../../../utils/usePersistentSet'
 import './RevenueStreamsView.css'
 
 const REVENUE_TYPE_LABELS = { main: 'Main', secondary: 'Secondary' }
@@ -133,13 +136,11 @@ function RevenueStreamsView() {
   const [routeModal, setRouteModal] = useState(null)
   const [providers, setProviders] = useState([])
   const [aircraftCatalogue, setAircraftCatalogue] = useState([])
-  const [expandedRouteIds, setExpandedRouteIds] = useState(new Set())
-  // `${routeId}:outbound` / `${routeId}:return` — legs whose sub-cards are open
-  const [expandedLegKeys, setExpandedLegKeys] = useState(new Set())
+  const [expandedRouteIds, setExpandedRouteIds] = usePersistentSet('revenue-routes:expanded')
   // { origin, destination } branches of the route whose Shipment builder is open
   const [shipmentBuilder, setShipmentBuilder] = useState(null)
-  // ids of the routes whose built shipment is shown
-  const [shownShipments, setShownShipments] = useState(() => new Set())
+  // `${routeId}:outbound` / `${routeId}:return` — legs whose built shipment is shown
+  const [shownShipments, setShownShipments] = usePersistentSet('revenue-routes:shipments')
   const toggleShipment = (routeId) =>
     setShownShipments((prev) => {
       const next = new Set(prev)
@@ -147,12 +148,33 @@ function RevenueStreamsView() {
       else next.add(routeId)
       return next
     })
+  // `${routeId}:outbound` / `${routeId}:return` — legs whose Air Logistics Builder details (type of return,
+  // distance, flight time, block hours…) are shown
+  const [shownRoutes, setShownRoutes] = usePersistentSet('revenue-routes:route-details')
+  const toggleRouteCards = (legKey) =>
+    setShownRoutes((prev) => {
+      const next = new Set(prev)
+      if (next.has(legKey)) next.delete(legKey)
+      else next.add(legKey)
+      return next
+    })
+  // ids of the routes whose GSA terms card (the return leg's price) is open
+  const [shownGsa, setShownGsa] = usePersistentSet('revenue-routes:gsa')
+  const toggleGsa = (routeId) =>
+    setShownGsa((prev) => {
+      const next = new Set(prev)
+      if (next.has(routeId)) next.delete(routeId)
+      else next.add(routeId)
+      return next
+    })
   const handleBuildShipment = async (shipment) => {
-    const { route } = shipmentBuilder
-    const updated = await saveRouteOutboundShipment(companyId, route.stream_id, route.id, shipment)
-    setRoutes((prev) => prev.map((item) => (item.id === updated.id ? { ...item, outbound_shipment: updated.outbound_shipment } : item)))
+    const { route, leg } = shipmentBuilder
+    const save = leg === 'return' ? saveRouteReturnShipment : saveRouteOutboundShipment
+    const field = leg === 'return' ? 'return_shipment' : 'outbound_shipment'
+    const updated = await save(companyId, route.stream_id, route.id, shipment)
+    setRoutes((prev) => prev.map((item) => (item.id === updated.id ? { ...item, [field]: updated[field] } : item)))
     setShipmentBuilder(null)
-    setShownShipments((prev) => new Set(prev).add(route.id))
+    setShownShipments((prev) => new Set(prev).add(`${route.id}:${leg}`))
   }
 
   const reload = async () => {
@@ -315,214 +337,213 @@ ${label}`)) return
                   ? `Missing ${metrics.missing.join(', ')}`
                   : null
             const legKey = `${route.id}:${leg.key}`
-            const legOpen = expandedLegKeys.has(legKey)
+            const routeShown = shownRoutes.has(legKey)
             const card = (label, value, extraClass = '') => (
               <div className={`revenue-streams-view__metric is-${leg.key} ${extraClass}`}>
                 <span className="revenue-streams-view__metric-label">{label}</span>
                 <span className="revenue-streams-view__metric-value">{value}</span>
               </div>
             )
+            const detail = (label, value, title) => (
+              <div className="revenue-streams-view__shipment-card" title={title}>
+                <span className="revenue-streams-view__shipment-name">{label}</span>
+                <span className="revenue-streams-view__shipment-kg">{value}</span>
+              </div>
+            )
             return (
               <Fragment key={leg.key}>
-                <div className={`revenue-streams-view__metric is-${leg.key} ${missing ? 'is-warn' : ''}`} title={missing ?? undefined}>
+                <div
+                  className={`revenue-streams-view__metric is-${leg.key} ${missing ? 'is-warn' : ''}`}
+                  style={leg.key === 'return' ? { gridColumnStart: 1 } : undefined}
+                  title={missing ?? undefined}
+                >
                   <span className="revenue-streams-view__metric-label">
-                    <button
-                      type="button"
-                      className="revenue-streams-view__leg-toggle"
-                      onClick={() => toggleLeg(legKey)}
-                      aria-expanded={legOpen}
-                      aria-label={legOpen ? `Hide ${leg.title.toLowerCase()} details` : `Show ${leg.title.toLowerCase()} details`}
-                    >
-                      {legOpen ? '▾' : '▸'}
-                    </button>
                     {leg.title}
                   </span>
                   <span className="revenue-streams-view__metric-value">{`${code(leg.from)} → ${code(leg.to)}`}</span>
                 </div>
-                {leg.key === 'outbound' ? (
-                  <div className="revenue-streams-view__metric is-outbound">
-                    <span className="revenue-streams-view__metric-label">Type of return</span>
-                    <select
-                      className="revenue-streams-view__metric-select"
-                      value={route.return_type ?? ''}
-                      onChange={(event) => {
-                        const returnType = event.target.value || null
-                        // Switching to compensated links the two leg cost % (they add up to 100).
-                        handleRouteSettings(route, { return_type: returnType, ...(returnType === 'compensated' ? compensatedChanges(route) : {}) })
-                      }}
-                      aria-label="Type of return"
+                <div className={`revenue-streams-view__metric is-${leg.key} revenue-streams-view__metric--filled revenue-streams-view__metric--air`}>
+                  <span className="revenue-streams-view__metric-label">Air Logistics Builder</span>
+                  <div className="revenue-streams-view__builder-actions">
+                    <button
+                      type="button"
+                      className="revenue-streams-view__builder-btn"
+                      onClick={() => toggleRouteCards(legKey)}
+                      aria-expanded={routeShown}
                     >
-                      <option value="">Select…</option>
-                      {RETURN_TYPES.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                      {routeShown ? 'Hide route' : 'View route'}
+                    </button>
                   </div>
-                ) : (
-                  card('Type', RETURN_LEG_TYPE_LABELS[route.return_type] ?? '—')
-                )}
-                {card('Distance', metrics.distanceNm != null ? `${formatNumber(metrics.distanceNm)} nm` : '—')}
-                {card('Flight time', metrics.flightTimeHours != null ? `${formatNumber(metrics.flightTimeHours)} h` : '—')}
-                {card('Block hours', metrics.blockHours != null ? `${formatNumber(metrics.blockHours, 1)} h` : '—')}
-                {card('Block hours cost', metrics.blockHoursCost != null ? formatCurrencyValue(metrics.blockHoursCost, 'USD') : '—')}
-                {legOpen && (
-                  <>
-                    {leg.key === 'outbound' ? (
-                      <div className="revenue-streams-view__metric is-outbound revenue-streams-view__metric--filled">
-                        <span className="revenue-streams-view__metric-label">Shipment builder</span>
-                        <div className="revenue-streams-view__builder-actions">
-                          <button
-                            type="button"
-                            className="revenue-streams-view__builder-btn"
-                            onClick={() =>
-                              setShipmentBuilder({
-                                route,
-                                origin,
-                                destination,
-                                capacityKg,
-                                aircraftName: aircraft ? aircraftLabel(aircraft) : route.aircraft_name,
-                              })
-                            }
-                            disabled={!origin || !destination}
-                          >
-                            {route.outbound_shipment ? 'Update shipment' : 'Build shipment'}
+                </div>
+                {(() => {
+                  const shipment = leg.key === 'outbound' ? route.outbound_shipment : route.return_shipment
+                  const full = leg.key === 'return' && route.return_type === 'full'
+                  // The return leg's shipment depends on the type of return chosen on the outbound leg.
+                  if (leg.key === 'return' && !route.return_type) {
+                    return card('Shipment builder', '—', 'revenue-streams-view__metric--filled')
+                  }
+                  return (
+                    <div className={`revenue-streams-view__metric is-${leg.key} revenue-streams-view__metric--filled`}>
+                      <span className="revenue-streams-view__metric-label">Shipment builder</span>
+                      <div className="revenue-streams-view__builder-actions">
+                        {full ? (
+                          <button type="button" className="revenue-streams-view__builder-btn" onClick={() => toggleGsa(route.id)} aria-expanded={shownGsa.has(route.id)}>
+                            {shownGsa.has(route.id) ? 'Hide GSA terms' : route.return_price_per_kg != null ? 'Update GSA terms' : 'Add GSA terms'}
                           </button>
-                          {route.outbound_shipment && (
+                        ) : (
+                          <>
                             <button
                               type="button"
                               className="revenue-streams-view__builder-btn"
-                              onClick={() => toggleShipment(route.id)}
-                              aria-expanded={shownShipments.has(route.id)}
+                              onClick={() =>
+                                setShipmentBuilder({
+                                  route,
+                                  leg: leg.key,
+                                  origin: leg.from,
+                                  destination: leg.to,
+                                  capacityKg,
+                                  aircraftName: aircraft ? aircraftLabel(aircraft) : route.aircraft_name,
+                                })
+                              }
+                              disabled={!leg.from || !leg.to}
                             >
-                              {shownShipments.has(route.id) ? 'Hide shipment' : 'View shipment'}
+                              {shipment ? 'Update shipment' : 'Build shipment'}
                             </button>
-                          )}
-                        </div>
+                            {shipment && (
+                              <button
+                                type="button"
+                                className="revenue-streams-view__builder-btn"
+                                onClick={() => toggleShipment(`${route.id}:${leg.key}`)}
+                                aria-expanded={shownShipments.has(`${route.id}:${leg.key}`)}
+                              >
+                                {shownShipments.has(`${route.id}:${leg.key}`) ? 'Hide shipment' : 'View shipment'}
+                              </button>
+                            )}
+                          </>
+                        )}
                       </div>
-                    ) : (
-                      card('Shipment builder', '—', 'revenue-streams-view__metric--filled')
-                    )}
-                    {route.return_type === 'full' ? (
-                      <div className={`revenue-streams-view__metric is-${leg.key}`} title="Full: the outbound leg assumes the whole flight">
-                        <span className="revenue-streams-view__metric-label">Leg cost %</span>
-                        <span className="revenue-streams-view__metric-value">{`${legCostPct(leg)}%`}</span>
-                      </div>
-                    ) : (
-                      <div className={`revenue-streams-view__metric is-${leg.key}`}>
-                        <span className="revenue-streams-view__metric-label">Leg cost %</span>
-                        <CardNumberInput
-                          key={`${route.id}:${leg.key}:cost:${route[PCT_FIELDS.cost[leg.key]] ?? ''}`}
-                          value={route[PCT_FIELDS.cost[leg.key]]}
-                          label={`${leg.title} leg cost %`}
-                          max={100}
-                          placeholder="0–100"
-                          suffix="%"
-                          onSave={(value) => handleRouteSettings(route, pctChanges(route, 'cost', leg.key, value))}
-                        />
-                      </div>
-                    )}
-                    <div
-                      className={`revenue-streams-view__metric is-${leg.key}`}
-                      title={
-                        legCost(leg) != null
-                          ? `${formatCurrencyValue(flightCost, 'USD')} flight cost (both legs) × ${formatNumber(legCostPct(leg), 1)}%`
-                          : undefined
-                      }
-                    >
-                      <span className="revenue-streams-view__metric-label">Leg cost</span>
-                      <span className="revenue-streams-view__metric-value">{legCost(leg) != null ? formatCurrencyValue(legCost(leg), 'USD') : '—'}</span>
                     </div>
-                    <div className={`revenue-streams-view__metric is-${leg.key}`}>
-                      <span className="revenue-streams-view__metric-label">Target Cargo %</span>
-                      <CardNumberInput
-                        key={`${route.id}:${leg.key}:target:${route[leg.pctField] ?? ''}`}
-                        value={route[leg.pctField]}
-                        label={`${leg.title} target cargo %`}
-                        max={100}
-                        placeholder="0–100"
-                        suffix="%"
-                        onSave={(value) => handleRouteSettings(route, pctChanges(route, 'target', leg.key, value))}
-                      />
+                  )
+                })()}
+                {leg.key === 'return' && route.return_type === 'full' && shownGsa.has(route.id) && (
+                  <div className="revenue-streams-view__shipment is-return">
+                    <div className="revenue-streams-view__shipment-head">
+                      <strong>GSA terms</strong> · what the GSA pays per kg of the return cargo
                     </div>
-                    <div
-                      className={`revenue-streams-view__metric is-${leg.key}`}
-                      title={legKg != null ? `${formatNumber(route[leg.pctField], 1)}% × ${formatNumber(capacityKg, 0)} kg max payload` : undefined}
-                    >
-                      <span className="revenue-streams-view__metric-label">Available cargo</span>
-                      <span className="revenue-streams-view__metric-value">{legKg != null ? `${formatNumber(legKg, 0)} kg` : '—'}</span>
-                    </div>
-                    {leg.key === 'outbound' || route.return_type !== 'full' ? (
-                      (() => {
-                        const price = priceFor(leg)
-                        return (
-                          <div className={`revenue-streams-view__metric is-${leg.key}`} title={price.note}>
-                            <span className="revenue-streams-view__metric-label">Price x Kg</span>
-                            <span className="revenue-streams-view__metric-value">
-                              {price.value != null ? formatCurrencyValue(price.value, 'USD') : '—'}
-                            </span>
-                          </div>
-                        )
-                      })()
-                    ) : (
-                      <div className="revenue-streams-view__metric is-return">
-                        <span className="revenue-streams-view__metric-label">Price x Kg</span>
+                    <div className="revenue-streams-view__shipment-cards">
+                      <div className="revenue-streams-view__shipment-card">
+                        <span className="revenue-streams-view__shipment-name">GSA price x Kg</span>
                         <CardNumberInput
                           key={`${route.id}:return-price:${route.return_price_per_kg ?? ''}`}
                           value={route.return_price_per_kg}
-                          label="Return price per kg"
+                          label="GSA price per kg"
                           placeholder="0.00"
                           prefix="USD $"
                           onSave={(value) => handleRouteSettings(route, { return_price_per_kg: value })}
                         />
                       </div>
-                    )}
-                  </>
+                    </div>
+                  </div>
                 )}
-                {leg.key === 'outbound' && route.outbound_shipment && shownShipments.has(route.id) && renderShipment(route.outbound_shipment)}
+                {routeShown && (
+                  <div className={`revenue-streams-view__shipment is-${leg.key}`}>
+                    <div className="revenue-streams-view__shipment-head">
+                      <strong>{leg.title} route</strong> · {`${code(leg.from)} → ${code(leg.to)}`}
+                    </div>
+                    <div className="revenue-streams-view__shipment-cards">
+                      <div className="revenue-streams-view__shipment-card">
+                        <span className="revenue-streams-view__shipment-name">{leg.key === 'outbound' ? 'Type of return' : 'Type'}</span>
+                        {leg.key === 'outbound' ? (
+                          <select
+                            className="revenue-streams-view__metric-select"
+                            value={route.return_type ?? ''}
+                            onChange={(event) => {
+                              const returnType = event.target.value || null
+                              // Switching to compensated links the two leg cost % (they add up to 100).
+                              handleRouteSettings(route, { return_type: returnType, ...(returnType === 'compensated' ? compensatedChanges(route) : {}) })
+                            }}
+                            aria-label="Type of return"
+                          >
+                            <option value="">Select…</option>
+                            {RETURN_TYPES.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="revenue-streams-view__shipment-kg">{RETURN_LEG_TYPE_LABELS[route.return_type] ?? '—'}</span>
+                        )}
+                      </div>
+                      {detail('Distance', metrics.distanceNm != null ? `${formatNumber(metrics.distanceNm)} nm` : '—')}
+                      {detail('Flight time', metrics.flightTimeHours != null ? `${formatNumber(metrics.flightTimeHours)} h` : '—')}
+                      {detail('Block hours', metrics.blockHours != null ? `${formatNumber(metrics.blockHours, 1)} h` : '—')}
+                      {detail('Block hours cost', metrics.blockHoursCost != null ? formatCurrencyValue(metrics.blockHoursCost, 'USD') : '—')}
+                      {route.return_type === 'full' ? (
+                        detail('Leg cost %', `${legCostPct(leg)}%`, 'Full: the outbound leg assumes the whole flight')
+                      ) : (
+                        <div className="revenue-streams-view__shipment-card">
+                          <span className="revenue-streams-view__shipment-name">Leg cost %</span>
+                          <CardNumberInput
+                            key={`${route.id}:${leg.key}:cost:${route[PCT_FIELDS.cost[leg.key]] ?? ''}`}
+                            value={route[PCT_FIELDS.cost[leg.key]]}
+                            label={`${leg.title} leg cost %`}
+                            max={100}
+                            placeholder="0–100"
+                            suffix="%"
+                            onSave={(value) => handleRouteSettings(route, pctChanges(route, 'cost', leg.key, value))}
+                          />
+                        </div>
+                      )}
+                      {detail(
+                        'Leg cost',
+                        legCost(leg) != null ? formatCurrencyValue(legCost(leg), 'USD') : '—',
+                        legCost(leg) != null
+                          ? `${formatCurrencyValue(flightCost, 'USD')} flight cost (both legs) × ${formatNumber(legCostPct(leg), 1)}%`
+                          : undefined,
+                      )}
+                      <div className="revenue-streams-view__shipment-card">
+                        <span className="revenue-streams-view__shipment-name">Target Cargo %</span>
+                        <CardNumberInput
+                          key={`${route.id}:${leg.key}:target:${route[leg.pctField] ?? ''}`}
+                          value={route[leg.pctField]}
+                          label={`${leg.title} target cargo %`}
+                          max={100}
+                          placeholder="0–100"
+                          suffix="%"
+                          onSave={(value) => handleRouteSettings(route, pctChanges(route, 'target', leg.key, value))}
+                        />
+                      </div>
+                      {detail(
+                        'Available cargo',
+                        legKg != null ? `${formatNumber(legKg, 0)} kg` : '—',
+                        legKg != null ? `${formatNumber(route[leg.pctField], 1)}% × ${formatNumber(capacityKg, 0)} kg max payload` : undefined,
+                      )}
+                      {leg.key !== 'outbound' && route.return_type === 'full'
+                        ? detail(
+                            'Price x Kg',
+                            route.return_price_per_kg != null ? formatCurrencyValue(route.return_price_per_kg, 'USD') : '—',
+                            'Set with Add GSA terms in the Shipment builder',
+                          )
+                        : detail('Price x Kg', priceFor(leg).value != null ? formatCurrencyValue(priceFor(leg).value, 'USD') : '—', priceFor(leg).note)}
+                    </div>
+                  </div>
+                )}
+                {(leg.key === 'outbound' ? route.outbound_shipment : route.return_shipment) &&
+                  shownShipments.has(`${route.id}:${leg.key}`) &&
+                  (
+                    <ShipmentPanel
+                      shipment={leg.key === 'outbound' ? route.outbound_shipment : route.return_shipment}
+                      legTitle={leg.title}
+                      origin={leg.from}
+                      destination={leg.to}
+                      airfarePerKg={priceFor(leg).value}
+                      airfareNote={priceFor(leg).note}
+                    />
+                  )}
               </Fragment>
             )
           })}
-        </div>
-      </div>
-    )
-  }
-
-  // The built outbound shipment as small cards, across the whole card row.
-  const renderShipment = (shipment) => {
-    const allocated = shipment.items.reduce((sum, item) => sum + item.kg, 0)
-    const kg = (value) => `${Math.round(value).toLocaleString('en-US')} kg`
-    return (
-      <div className="revenue-streams-view__shipment">
-        <div className="revenue-streams-view__shipment-head">
-          <strong>Outbound shipment</strong> · {kg(allocated)} of {kg(shipment.capacity_kg)} ({formatNumber((allocated / shipment.capacity_kg) * 100, 1)}%) ·{' '}
-          {shipment.items.length} products
-          {shipment.aircraft_name && ` · ${shipment.aircraft_name}`}
-          {shipment.built_at && ` · built ${new Date(shipment.built_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`}
-          {shipment.capacity_kg - allocated >= 1 && ` · ${kg(shipment.capacity_kg - allocated)} unallocated (product limits reached)`}
-        </div>
-        <div className="revenue-streams-view__shipment-cards">
-          {shipment.items.map((item) => (
-            <div
-              key={`${item.product_name}|${item.hs_code ?? ''}`}
-              className="revenue-streams-view__shipment-card"
-              title={[
-                item.target_product_name && `Matched: ${item.target_product_name}`,
-                item.hs_code && `HS ${item.hs_code}`,
-                item.rating && `Rating: ${item.rating}`,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            >
-              <span className="revenue-streams-view__shipment-name">{item.product_name}</span>
-              <span className="revenue-streams-view__shipment-kg">{kg(item.kg)}</span>
-              <span className="revenue-streams-view__shipment-meta">
-                {formatNumber(item.share_pct ?? 0, 1)}% · SAM {item.country_sam != null ? formatCurrencyValue(item.country_sam, 'USD', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—'} · Diff{' '}
-                {item.diff_pct != null ? `${formatNumber(item.diff_pct, 1)}%` : '—'}
-              </span>
-            </div>
-          ))}
         </div>
       </div>
     )
@@ -532,14 +553,6 @@ ${label}`)) return
   // with the route otherwise.
   const describeProvider = (route) => providerById.get(route.charter_provider_id)?.name ?? route.provider_name ?? '—'
   const describeAircraft = (route) => aircraftLabel(aircraftById.get(route.aircraft_id)) ?? route.aircraft_name ?? '—'
-
-  const toggleLeg = (legKey) =>
-    setExpandedLegKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(legKey)) next.delete(legKey)
-      else next.add(legKey)
-      return next
-    })
 
   const toggleRoute = (routeId) =>
     setExpandedRouteIds((prev) => {
@@ -684,7 +697,7 @@ ${label}`)) return
           destination={shipmentBuilder.destination}
           capacityKg={shipmentBuilder.capacityKg}
           aircraftName={shipmentBuilder.aircraftName}
-          previous={shipmentBuilder.route.outbound_shipment}
+          previous={shipmentBuilder.leg === 'return' ? shipmentBuilder.route.return_shipment : shipmentBuilder.route.outbound_shipment}
           onBuild={handleBuildShipment}
           onClose={() => setShipmentBuilder(null)}
         />

@@ -1,8 +1,6 @@
 import './Sidebar.css'
 import {
-  IconCalculator,
   IconChartDots,
-  IconDatabase,
   IconFiles,
   IconHome,
   IconLayoutDashboard,
@@ -10,6 +8,7 @@ import {
   IconSettings,
   IconShip,
   IconSitemap,
+  IconTools,
   IconPlus,
   IconWorld,
 } from '@tabler/icons-react'
@@ -85,9 +84,8 @@ function Sidebar() {
         <div className="sidebar-shell__bottom">
           <div className="sidebar-shell__divider" />
 
-          <SidebarNavItem icon={IconCalculator} label="Tax Calculator" to="/tax-calculator" />
-          <SidebarNavItem icon={IconDatabase} label="RAG Files" to="/rag-files" />
           <SidebarNavItem icon={IconSettings} label="Settings" to="/settings" />
+          <SidebarNavItem icon={IconTools} label="Tools" to="/tools" />
           <UserRow />
           <Chatbox />
         </div>

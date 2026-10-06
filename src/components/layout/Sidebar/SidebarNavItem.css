@@ -18,8 +18,8 @@
 }
 
 .sidebar-nav-item.is-active {
-  background: rgba(255, 255, 255, 0.02);
-  border-color: var(--border);
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.32) 0%, rgba(56, 189, 248, 0.14) 55%, rgba(56, 189, 248, 0.03) 100%);
+  border-color: rgba(56, 189, 248, 0.35);
   color: var(--text-primary);
 }
 
