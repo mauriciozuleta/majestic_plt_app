@@ -7,6 +7,7 @@ plain dot product is cosine similarity. Runs offline; the model files live in
 """
 
 import base64
+import os
 import threading
 from pathlib import Path
 
@@ -40,6 +41,10 @@ def _load():
         tokenizer.enable_padding()
         options = ort.SessionOptions()
         options.log_severity_level = 3
+        # Half the cores by default (EMBED_THREADS overrides): a long embedding job
+        # (a big document) must not take the whole machine from the app and the chat.
+        options.intra_op_num_threads = int(os.environ.get('EMBED_THREADS') or max(2, (os.cpu_count() or 4) // 2))
+        options.inter_op_num_threads = 1
         _session = ort.InferenceSession(str(model_path), options, providers=['CPUExecutionProvider'])
         _tokenizer = tokenizer
         _input_names = {node.name for node in _session.get_inputs()}

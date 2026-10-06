@@ -84,3 +84,173 @@
   justify-content: center;
   cursor: pointer;
 }
+
+/* Model picker: Claude by default, or a local (Ollama) model that only builds
+   reports from a country's RAG files. */
+.chatbox__models {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.chatbox__models select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.68rem;
+  padding: 0.35rem 0.4rem;
+}
+
+.chatbox__hint {
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+/* A report is long: more room, full width. */
+.chatbox__messages--local {
+  max-height: 20rem;
+}
+
+.chatbox__message--report {
+  max-width: 100%;
+}
+
+.chatbox__open-report {
+  margin-top: 0.4rem;
+  border: 1px solid rgba(53, 211, 153, 0.5);
+  border-radius: 6px;
+  background: rgba(53, 211, 153, 0.14);
+  color: #35d399;
+  font-size: 0.66rem;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+}
+
+.chatbox__open-report:hover {
+  background: rgba(53, 211, 153, 0.26);
+}
+
+/* The report in a larger window. */
+.report-modal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 13, 18, 0.72);
+  padding: 1rem;
+}
+
+.report-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(52rem, 100%);
+  max-height: calc(100vh - 2rem);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 1.1rem;
+}
+
+.report-modal__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.report-modal__header h3 {
+  margin: 0.1rem 0 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.report-modal__eyebrow {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.report-modal__meta,
+.report-modal__sources {
+  margin: 0.2rem 0 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.report-modal__request {
+  margin: 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.report-modal__close {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.report-modal__text {
+  flex: 1;
+  min-height: 8rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  padding: 0.8rem 1rem;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.report-modal__ok {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #35d399;
+}
+
+.report-modal__error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #fca5a5;
+}
+
+.report-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.report-modal__footer button {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.report-modal__footer button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.report-modal__footer .report-modal__primary {
+  background: #14b8a6;
+  border-color: #14b8a6;
+  color: #042f2b;
+  font-weight: 600;
+}

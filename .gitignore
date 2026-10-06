@@ -62,3 +62,7 @@ backend/comtrade/reporters_cache.json
 # (see backend/routers/supermarket_catalog.py) — their products are stored in
 # the database; the files are kept locally as the download record
 backend/supermarket_catalogs/
+
+# RAG Files: per-country documents, their JSON conversions and baked RAG files
+# (backend/rag_files, routers/rag_files.py) — user documents, kept on disk
+backend/documents/rag_files/

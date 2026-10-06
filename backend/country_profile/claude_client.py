@@ -1,5 +1,7 @@
-"""Builds a country commercial (export/import) profile via the Claude API's
-server-side web search tool — a real, live-researched document (tariffs,
+"""Builds a country commercial (export/import) profile — from the country's
+official Country Commercial Guide when it has one (see
+trade_gov/commercial_guides.py), and/or the Claude API's server-side web
+search tool — a real, live-researched document (tariffs,
 taxes, seasonal bans, protected products, free trade agreements, sanitary/
 phytosanitary rules, frequently traded products), not a static/canned
 template. One API call handles the whole search-then-write loop
@@ -27,6 +29,11 @@ MODEL = 'claude-sonnet-5'
 # at all, since Sources is the last section requested and never got
 # reached once the budget ran out.
 MAX_TOKENS = 16000
+# A guide-based profile is longer (Opportunities for Our Products, a fuller
+# Import Rules section) — 16000 cut the first one off before its Sources.
+MAX_TOKENS_WITH_GUIDE = 32000
+# Seconds: a 32k-token document takes well over the old 300 to write.
+REQUEST_TIMEOUT = 600
 MAX_SEARCHES = 10
 
 
@@ -49,12 +56,58 @@ def _raise_if_truncated(data):
         )
 
 
-def _build_prompt(country_name):
+# With an official Country Commercial Guide the profile is grounded in it, so
+# far fewer searches are needed — only for gaps and figures that may have changed.
+MAX_SEARCHES_WITH_GUIDE = 5
+
+
+def _guide_section(country_name, guide):
+    if not guide:
+        return ''
+    chapters = '\n\n'.join(f"<<< {chapter['title']} — {chapter['url']} >>>\n{chapter['text']}" for chapter in guide['chapters'])
+    published = f" (last published {guide['published']})" if guide.get('published') else ''
+    return f"""
+OFFICIAL SOURCE — the U.S. Commercial Service's Country Commercial Guide for {country_name}{published}, written at \
+the U.S. Embassy. These are its chapters on the market, opportunities and import rules. Treat it as our primary \
+source: base every section on it first and cite it inline as "(source: Country Commercial Guide — <chapter \
+title>)". Use web search only for what the guide doesn't cover, or to check a figure that may have changed since it \
+was published — and say when a search result differs from the guide. The guide is written for U.S. exporters: \
+where a rule or opportunity is specific to U.S. goods (a U.S. trade agreement, U.S. certificates), say so plainly \
+and say what applies to goods from our other source countries when the guide or a search shows it.
+
+{chapters}
+"""
+
+
+def _products_section(country_name, our_products):
+    if not our_products:
+        return ''
+    lines = '\n'.join(f'- {line}' for line in our_products['lines'])
+    return f"""
+OUR PRODUCTS FOR {country_name} — {our_products['basis']}:
+{lines}
+"""
+
+
+def _build_prompt(country_name, guide=None, our_products=None):
+    opportunities = (
+        f"""For the products listed above under OUR PRODUCTS (group them by kind — vegetables, fruit, meat, ...): what \
+{country_name}'s demand for them looks like, whether the market relies on imports for them, which sectors or \
+buyers are the real opening (retail, tourism/hotels, food processing, ...), and anything that helps or blocks \
+each one in particular (a tariff, a permit, a ban, local-industry protection). Be concrete about which of our \
+products look strongest and which look weakest there, and why. Where neither the guide nor a search says \
+anything about a product, say so rather than guessing."""
+        if our_products
+        else f"""Which fresh food and agricultural products (produce, meat, poultry, eggs, grains, seafood) have the \
+clearest demand in {country_name}, whether the market relies on imports for them, and which sectors or buyers \
+are the real opening (retail, tourism/hotels, food processing, ...)."""
+    )
     return f"""We run a food/agricultural products import-export business (wholesale produce, meat, poultry, \
 eggs, grains, seafood). You are a member of our own team, writing our internal briefing on {country_name} as a \
-sourcing/selling market for us. Use web search to research current, real information — do not rely on \
-memory alone for anything tariff/tax/regulation-related, since this needs to be accurate as of today.
-
+sourcing/selling market for us. {"Work from the official guide below first; use" if guide else "Use"} web search \
+for current, real information — do not rely on memory alone for anything tariff/tax/regulation-related, since \
+this needs to be accurate as of today.
+{_guide_section(country_name, guide)}{_products_section(country_name, our_products)}
 Voice: write in the first person plural — "we", "our", "us" — as the company itself, never about "the client" \
 or "the company" in the third person (for example "what this means for us", "our other main market", "if we \
 want to export there"). Keep a friendly, conversational tone, clear and concrete rather than a dry legal or \
@@ -76,14 +129,26 @@ extra commentary on these lines:
 If you genuinely cannot find a figure for one of these, write "Not found" as its value rather than \
 guessing.
 
-## Import Tariffs & Duties
-Tariff/duty rates relevant to importing food/agricultural products (fresh produce, meat, poultry, \
-eggs, grains, seafood) into {country_name} — cite specific rates and the product categories they \
-apply to where you can find them.
+## Opportunities for Our Products
+{opportunities}
 
-## Taxes
-VAT/sales tax or other taxes applied to imported food products, and any exemptions relevant to \
-agricultural goods.
+## Import Rules for Food
+Everything that governs getting fresh food and agricultural products (produce, meat, poultry, eggs, grains, \
+seafood) into {country_name}, under these sub-headings:
+### Tariffs & Duties
+Rates and the product categories they apply to, including any regional common tariff (e.g. CARICOM's CET) and \
+how goods from inside vs. outside a trade bloc are treated.
+### Taxes
+VAT/GCT/sales tax or other taxes on imported food, and exemptions for agricultural goods.
+### Import Permits, Licences & Documents
+Which of our product categories need an import permit or licence, from which agency, and the documents a \
+shipment needs.
+### Labeling & Standards
+Labeling/marking rules and standards (and the body that enforces them) that apply to food we'd sell there.
+### Prohibited & Restricted Products
+Food/agricultural items that are banned or restricted, and from where.
+### Sanitary & Phytosanitary Requirements
+Health certificates, phytosanitary certificates and inspections for the product categories above.
 
 ## Free Trade Agreements
 Trade agreements {country_name} has with major partners (especially the USA, since that's our \
@@ -98,10 +163,6 @@ Any seasonal bans, quotas, or licensing windows affecting food/agricultural impo
 Products that are protected, subsidized, subject to import substitution policy, or otherwise given \
 special domestic-industry protection that would affect a foreign supplier's ability to compete.
 
-## Sanitary & Phytosanitary Requirements
-Food safety, health certificate, or phytosanitary inspection requirements for importing the product \
-categories above.
-
 ## Frequently Imported & Exported Products
 A short, practical analysis of what {country_name} typically imports and exports in the food/ \
 agricultural space, and what that pattern suggests about where the real opportunities or competitive \
@@ -114,9 +175,8 @@ notes, or anything else materially relevant that doesn't fit the sections above.
 
 ## Sources
 MANDATORY — this section must always be present and must never be empty. List every distinct source \
-(with its URL) you used anywhere in this document, one per line as "- <title or publisher> — <URL>". \
-If you used web search at all (you should have), you have sources to list here; do not skip this \
-section or leave it thin.
+(with its URL) you used anywhere in this document, one per line as "- <title or publisher> — <URL>"\
+{" — starting with each Country Commercial Guide chapter you drew on" if guide else ""}.
 
 Formatting rules:
 - Every specific figure (a rate, a percentage, a date, a threshold) must be attributed to a source \
@@ -129,16 +189,20 @@ itself, starting with the title line.
 """
 
 
-def build_country_commercial_profile(country_name, extra_prompt=''):
+def build_country_commercial_profile(country_name, extra_prompt='', guide=None, our_products=None):
+    """`guide`: the country's Country Commercial Guide chapters
+    (trade_gov/commercial_guides.py), the profile's primary source when the
+    country has one. `our_products`: {basis, lines} — our products for this
+    market from Market Opportunities, for the Opportunities section."""
     api_key = _get_api_key()
     if not api_key:
         raise RuntimeError('No Claude API key configured (set claude_api_key in the backend .env file)')
 
     payload = {
         'model': MODEL,
-        'max_tokens': MAX_TOKENS,
-        'tools': [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': MAX_SEARCHES}],
-        'messages': [{'role': 'user', 'content': _build_prompt(country_name) + extra_prompt}],
+        'max_tokens': MAX_TOKENS_WITH_GUIDE if guide else MAX_TOKENS,
+        'tools': [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': MAX_SEARCHES_WITH_GUIDE if guide else MAX_SEARCHES}],
+        'messages': [{'role': 'user', 'content': _build_prompt(country_name, guide, our_products) + extra_prompt}],
     }
     headers = {
         'x-api-key': api_key,
@@ -146,7 +210,7 @@ def build_country_commercial_profile(country_name, extra_prompt=''):
         'content-type': 'application/json',
     }
 
-    response = httpx.post(ANTHROPIC_API_URL, json=payload, headers=headers, timeout=300)
+    response = httpx.post(ANTHROPIC_API_URL, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     data = response.json()
     _raise_if_truncated(data)

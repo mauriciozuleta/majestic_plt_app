@@ -61,15 +61,37 @@
 }
 
 
-/* The company list takes whatever height is left, so the settings/user/
-   assistant block sits at the bottom on tall windows; on short windows the
-   whole sidebar scrolls instead of clipping the assistant. */
-.sidebar-shell__companies {
-  flex: 1 0 auto;
+/* Each section shows four tabs and scrolls for the rest, so a long list never
+   pushes the rest of the sidebar out of view. */
+.sidebar-shell__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  /* four fixed-height rows (2.7rem) and the gaps between them */
+  max-height: calc(4 * 2.7rem + 3 * 0.7rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
+.sidebar-shell__nav > .sidebar-nav-item {
+  flex: none;
+  height: 2.7rem;
+  box-sizing: border-box;
+}
+
+/* Four company rows (3.325rem each) and the 0.5rem gaps between them. */
+.sidebar-shell__companies {
+  flex: 0 0 auto;
+  max-height: calc(4 * 3.325rem + 3 * 0.5rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* The settings/user/assistant block sits at the bottom on tall windows; on
+   short windows the whole sidebar scrolls instead of clipping the assistant. */
 .sidebar-shell__bottom {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+  margin-top: auto;
 }

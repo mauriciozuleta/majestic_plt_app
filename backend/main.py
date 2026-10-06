@@ -43,6 +43,8 @@ from .routers import (
     product_sources,
     product_overrides,
     supermarket_catalog,
+    rag_files,
+    local_models,
     revenue_streams,
     risk_analysis,
     roadmap,
@@ -554,6 +556,8 @@ app.include_router(knowledge_base.router)
 app.include_router(assistant.router)
 app.include_router(product_sources.router)
 app.include_router(supermarket_catalog.router)
+app.include_router(rag_files.router)
+app.include_router(local_models.router)
 app.include_router(product_classification.router)
 app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)

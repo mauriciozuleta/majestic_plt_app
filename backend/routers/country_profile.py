@@ -18,8 +18,13 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..background_jobs import clear_building, get_error, is_building, mark_building, mark_error
 from ..country_profile.claude_client import build_country_commercial_profile, extract_quick_facts
-from ..database import get_db
+from ..database import SessionLocal, get_db
 from ..knowledge_base.context import business_context, context_prompt_section
+from ..trade_gov.commercial_guides import fetch_guide
+
+# Opportunity ratings worth briefing on when there's no priority list.
+_GOOD_RATINGS = ('Very High', 'High', 'Challenging')
+MAX_PRODUCT_LINES = 40
 
 router = APIRouter()
 
@@ -74,13 +79,60 @@ def get_country_profile(company_id: str, country_id: str, db: Session = Depends(
     }
 
 
+def _our_products(country_name: str) -> dict | None:
+    """Our products for this market, from Market Opportunities: the priority
+    list for this target country if there is one, otherwise the best-rated
+    matched products of its saved comparisons. -> {basis, lines} or None."""
+    db = SessionLocal()
+    try:
+        rows = db.query(models.MarketOpportunityComparison).filter_by(target_country=country_name).all()
+        by_name = {}
+        for row in rows:
+            current = by_name.get((row.source_country, row.product_name))
+            if current is None or (row.diff_pct or 1e9) < (current.diff_pct or 1e9):
+                by_name[(row.source_country, row.product_name)] = row
+        priority = db.query(models.MarketOpportunityPriority).filter_by(target_country=country_name).all()
+        if priority:
+            picked = [(item.source_country, item.product_name) for item in priority]
+            basis = 'our priority list in Market Opportunities'
+        else:
+            good = [row for row in by_name.values() if row.opportunity_rating in _GOOD_RATINGS]
+            good.sort(key=lambda row: (_GOOD_RATINGS.index(row.opportunity_rating), row.diff_pct or 1e9))
+            picked = [(row.source_country, row.product_name) for row in good[:MAX_PRODUCT_LINES]]
+            basis = 'our best-rated matches in Market Opportunities (no priority list yet)'
+        lines = []
+        for source, name in picked[:MAX_PRODUCT_LINES]:
+            row = by_name.get((source, name))
+            detail = [f'from {source}']
+            if row and row.hs_code:
+                detail.append(f'HS {row.hs_code}')
+            if row and row.diff_pct is not None:
+                detail.append(f'our price is {row.diff_pct:.0f}% of the local price ({row.opportunity_rating})')
+            lines.append(f"{name} — {'; '.join(detail)}")
+        return {'basis': basis, 'lines': lines} if lines else None
+    finally:
+        db.close()
+
+
 def _run_profile_build(country_id: str, country_name: str, extra_prompt: str = '', document_names: tuple = ()):
     path = _profile_path(country_id)
     try:
-        body = build_country_commercial_profile(country_name, extra_prompt)
+        # The official guide is the primary source when the country has one;
+        # if trade.gov can't be reached, the build carries on from web research.
+        try:
+            guide = fetch_guide(country_name)
+            guide_note = ''
+        except Exception as exc:
+            guide, guide_note = None, f' (The Country Commercial Guide could not be read: {exc}.)'
+        body = build_country_commercial_profile(country_name, extra_prompt, guide=guide, our_products=_our_products(country_name))
         generated_at = datetime.now(timezone.utc)
         based_on = f' Based on our documents: {", ".join(document_names)}.' if document_names else ''
-        header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.{based_on}\n\n'
+        if guide:
+            published = f", last published {guide['published']}" if guide.get('published') else ''
+            source = f" Built from the U.S. Commercial Service's Country Commercial Guide ({len(guide['chapters'])} chapters{published}) and web research."
+        else:
+            source = f' No Country Commercial Guide for {country_name} — built from web research.{guide_note}'
+        header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.{source}{based_on}\n\n'
         path.write_text(header + body, encoding='utf-8')
     except Exception as exc:
         mark_error(path, str(exc))

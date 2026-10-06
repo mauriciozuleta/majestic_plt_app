@@ -223,7 +223,8 @@ def search(doc_ids: list[str], query: str, top_k: int = 6) -> list[dict]:
 
     entries = []
     for doc_id in doc_ids:
-        path = rag_path(doc_id)
+        # a Path searches that RAG file directly (the RAG Files module's country files)
+        path = doc_id if isinstance(doc_id, Path) else rag_path(doc_id)
         if not path.exists():
             continue
         data = json.loads(path.read_text(encoding='utf-8'))

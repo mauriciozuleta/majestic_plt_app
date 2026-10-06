@@ -1,6 +1,7 @@
 import './Sidebar.css'
 import {
   IconChartDots,
+  IconDatabase,
   IconFiles,
   IconHome,
   IconLayoutDashboard,
@@ -54,14 +55,17 @@ function Sidebar() {
   return (
     <aside className="sidebar-shell">
       <div className="sidebar-shell__inner">
-        <SidebarNavItem icon={IconHome} label="Home" to="/" />
-        <SidebarNavItem icon={IconSitemap} label="Corporate structure" to="/corporate-structure" />
-        <SidebarNavItem icon={IconLayoutDashboard} label="Control dashboard" to="/dashboard" />
-        <SidebarNavItem icon={IconWorld} label="Commercial Structure" to="/commercial-structure" />
-        <SidebarNavItem icon={IconMapSearch} label="Market Analysis" to="/market-analysis" />
-        <SidebarNavItem icon={IconShip} label="Global Trade Data" to="/global-trade-data" />
-        <SidebarNavItem icon={IconChartDots} label="Simulations" to="/simulations" />
-        <SidebarNavItem icon={IconFiles} label="Documentation" to="/documentation" />
+        {/* A scrollable section: four tabs show, the rest scroll. */}
+        <div className="sidebar-shell__nav">
+          <SidebarNavItem icon={IconHome} label="Home" to="/" />
+          <SidebarNavItem icon={IconSitemap} label="Corporate structure" to="/corporate-structure" />
+          <SidebarNavItem icon={IconLayoutDashboard} label="Control dashboard" to="/dashboard" />
+          <SidebarNavItem icon={IconWorld} label="Commercial Structure" to="/commercial-structure" />
+          <SidebarNavItem icon={IconMapSearch} label="Market Analysis" to="/market-analysis" />
+          <SidebarNavItem icon={IconShip} label="Global Trade Data" to="/global-trade-data" />
+          <SidebarNavItem icon={IconChartDots} label="Simulations" to="/simulations" />
+          <SidebarNavItem icon={IconFiles} label="Documentation" to="/documentation" />
+        </div>
 
         <div className="sidebar-shell__divider" />
 
@@ -80,6 +84,7 @@ function Sidebar() {
         <div className="sidebar-shell__bottom">
           <div className="sidebar-shell__divider" />
 
+          <SidebarNavItem icon={IconDatabase} label="RAG Files" to="/rag-files" />
           <SidebarNavItem icon={IconSettings} label="Settings" to="/settings" />
           <UserRow />
           <Chatbox />
