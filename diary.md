@@ -25,14 +25,15 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- Last commit: `f3953d6`. **Everything from this long session is uncommitted** (the user hasn't asked for a commit — don't commit unless
-  asked; after any commit run `graphify update .`): the Country Commercial Guide reader (`backend/trade_gov/`) and profile changes
-  (`country_profile/claude_client.py`, `routers/country_profile.py`); the **RAG Files** module (`backend/rag_files/`,
-  `routers/rag_files.py`, `src/components/ragFiles/`, `src/services/ragFiles.js`, `src/services/ragDataFiles.js`, one line in
-  `knowledge_base/rag.py`, thread cap in `knowledge_base/embed.py`); **local models** (`backend/local_models/` — `ollama_client.py`,
-  `reports.py`, `tax_report.py`, `import_tax.py`, `agent.py`; `routers/local_models.py`; `src/components/chatbox/`,
-  `src/services/localModels.js`); the sidebar changes (`layout/Sidebar/`); `src/App.jsx`; `backend/main.py`; `.gitignore`;
-  `CLAUDE.md`; this diary; the rebuilt Jamaica profile (`backend/documents/knowledge_base/62c74da6…md`) and `majestic_plt.db`.
+- Last commit: `f154581` ("Add RAG Files, local Ollama models in the chat, tax-cost reports and Commercial Guide reader") on `main`,
+  on top of `f3953d6`. It holds everything from the long 2026-10-05 session: the Commercial Guide reader (`backend/trade_gov/`) and
+  profile changes; the RAG Files module (`backend/rag_files/`, `routers/rag_files.py`, `src/components/ragFiles/`,
+  `src/services/ragFiles.js`, `ragDataFiles.js`, `knowledge_base/embed.py` thread cap, one line in `knowledge_base/rag.py`);
+  local models (`backend/local_models/` — `ollama_client.py`, `reports.py`, `tax_report.py`, `import_tax.py`, `agent.py`;
+  `routers/local_models.py`; `src/components/chatbox/`, `src/services/localModels.js`; bench scripts `backend/scripts/agent_*.py`);
+  the sidebar; `CLAUDE.md`; this diary; the rebuilt Jamaica profile and `majestic_plt.db`. The graph was refreshed after the commit.
+- Deliberately NOT committed: the ~50 modified/new `__pycache__/*.pyc` files (tracked by an old commit but never part of this work —
+  consider `git rm --cached` + a `.gitignore` entry for `__pycache__/` if the user wants them out of status).
 - `backend/documents/rag_files/` is gitignored on purpose (user documents, JSON conversions, baked RAG files, saved reports).
 - Services running now (may be gone tomorrow): `npm run dev` (backend 8012, frontend `http://127.0.0.1:5173/`) and `ollama serve`.
   If the backend doesn't serve a NEW route after an edit, restart fully (stop python `uvicorn|multiprocessing` + node `vite|concurrently|npm-cli`
