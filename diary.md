@@ -16,7 +16,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 
 
 
-## Handout — start here (written 2026-10-06, after the Air Logistics Builder / return shipment work)
+## Handout — start here (written 2026-10-06, after the leg finance commit)
 
 > **How this works.** This block exists so a new or changed session can pick up in one read. When you start a session:
 > read it, do the work, add your entries under "Entries", then **delete this block**. As the very last step of the session
@@ -25,15 +25,19 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- **Everything is committed (2026-10-06): `65113a1`** on `main` (before it `94abacd`), except the `__pycache__` files and `majestic_plt.db` (runtime
-  data, modified by the running backend — deliberately left out). The work in that commit: Financial ▸ Revenue ▸ route legs (Air Logistics Builder,
-  Shipment builder with return shipments / GSA terms, shipment-cost Details popup `ShipmentBuilder/ShipmentPanel.jsx`), the Tools tab, Settings ▸ Market
-  Opportunity settings (rating scale now read from the DB) and the DDP price / Market Level columns in Market Opportunities. Nothing from it was
-  verified in the browser. Open the app at `http://localhost:5173/` (127.0.0.1 timed out). The backend was restarted this session (new route
-  `/market-opportunity-settings`); if a NEW route 404s after an edit, restart it fully.
-- Open points: Destination Market ranges are stored but unused until the user says what they drive (Market Level stays "—" until they are filled);
-  `outboundPricePerKg` (routeMetrics.js) duplicates `priceFor` in RevenueStreamsView.jsx; ?product= in Market Opportunities scrolls to the row but nothing
-  else uses it.
+- **Everything is committed (2026-10-06): `555e885`** on `main` (before it `8e04242`, `65113a1`, `94abacd`), except the `__pycache__` files and `majestic_plt.db`
+  (runtime data the backend rewrites — deliberately left out). Latest work: Financial ▸ Revenue route legs — Air Logistics Builder, Shipment builder
+  (`ShipmentBuilder/`: `ShipmentBuilderModal`, `shipmentBuilder.js` allocation = wholesalers at cap → premium at cap → niche split the rest, nobody dropped;
+  `ShipmentPanel` cards with Details/Edit/manual pill; `shipmentFinance.js` + `useLegFinance.js` + `LegFinanceCards`/`RouteFinanceCells` = per-leg and route
+  Shipment Revenue / COS / Profit; return legs use GSA price x Kg or the return route price x Kg, and COS x Kg x available cargo); Tools tab; Settings ▸
+  Market Opportunity settings (margin ranges, Destination Market ranges, Cargo Caps, sell price %); Market Opportunities columns DDP price / Market Level /
+  Suggested sell price and a table for the no-match products (checkbox, SAM, prices). Services: backend `uvicorn` on 8012 and vite on 5173 (`npm run dev`;
+  use `http://localhost:5173/`; the backend takes ~40 s to answer after a start). If a backend edit doesn't show, restart it (the reloader misses things).
+- **Never PUT to `/market-opportunity-settings` to test** (it overwrites the user's saved ranges); headless checks: `msedge --headless=new --dump-dom` or puppeteer-core in
+  `%TEMP%/pp` (`check*.mjs`), read-only.
+- Open points: Market Level / sell price stay "—" until the Destination Market ranges are filled (the user has Premium 100–2000, Niche 70–100, Wholesalers 0–70);
+  `legPricePerKg` (routeMetrics.js) duplicates `priceFor` in RevenueStreamsView.jsx; the return shipment's products no longer feed the money figures;
+  22 no-match products have no USD/kg (non-weight units).
 - Deliberately NOT committed: the ~50 modified/new `__pycache__/*.pyc` files (tracked by an old commit but never part of this work —
   consider `git rm --cached` + a `.gitignore` entry for `__pycache__/` if the user wants them out of status).
 - `backend/documents/rag_files/` is gitignored on purpose (user documents, JSON conversions, baked RAG files, saved reports).
