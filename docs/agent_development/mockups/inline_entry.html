@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Inline entry points (mockup)</title>
+<link rel="stylesheet" href="_theme.css" />
+<style>
+  body { padding: 18px; width: 1240px; }
+  .route { display: grid; grid-template-columns: 30px 80px 100px 90px 130px 160px 140px 110px 120px auto; gap: 6px; align-items: center; padding: 10px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); font-size: 13px; }
+  .popover { position: relative; margin: 8px 0 0 auto; width: 430px; border: 1px solid var(--amber); border-radius: 12px; background: var(--bg-card); padding: 12px; box-shadow: 0 18px 40px rgba(0,0,0,.45); }
+  .btn { white-space: nowrap; }
+  .popover:before { content: ''; position: absolute; top: -7px; right: 34px; width: 12px; height: 12px; background: var(--bg-card); border-left: 1px solid var(--amber); border-top: 1px solid var(--amber); transform: rotate(45deg); }
+  .sug { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-panel); padding: 7px 10px; font-size: 12px; margin-top: 6px; }
+  .mo { margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="col" style="gap:6px">
+  <div class="muted small">Financial ▸ Revenue ▸ Export/Import operations</div>
+  <div class="route">
+    <span>▾</span><b>MDE</b><b>KIN</b><b>MIA</b><span>Majestic Cargo</span><span>A321F (A-321-P2F)</span>
+    <span class="pos">USD $152,043</span><span class="neg">USD $92,153</span><span class="pos">USD $59,890</span>
+    <span class="row" style="justify-content:flex-end"><span class="btn warn">✦ Ask the agent</span><span class="btn">Edit</span><span class="btn">Delete</span></span>
+  </div>
+  <div class="popover">
+    <div class="row between"><b>✦ Agent · this route</b><span class="tiny dim">Esc to close</span></div>
+    <div class="row wrap" style="margin:8px 0 4px"><span class="chip">FRESH24</span><span class="chip">MDE → KIN → MIA</span><span class="chip">Shipment · 36 products</span><span class="chip">Return: compensated</span></div>
+    <span class="sug">Why is the profit lower than the revenue suggests? <span class="chip read">explain</span></span>
+    <span class="sug">Find the best cap per market level for a 27,000 kg payload <span class="chip sim">simulate</span></span>
+    <span class="sug">What if the air fare rises 10 %? <span class="chip sim">simulate</span></span>
+    <span class="sug">Fill the return leg: suggest GSA price and COS from the last 3 shipments <span class="chip write">propose</span></span>
+    <div class="composer" style="margin-top:10px"><div class="input">Or type your own question about this route…</div><span class="btn primary">Ask</span></div>
+  </div>
+
+  <div class="mo">
+    <div class="muted small">Market Analysis ▸ Market Opportunities ▸ Colombia → Jamaica</div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Product</th><th>HS</th><th class="num">Source price</th><th class="num">Target price</th><th class="num">Diff %</th><th class="num">Tax ×</th><th>Opportunity</th><th>Market Level</th><th class="num">Sell price</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Perolera Pineapple</td><td>080430</td><td class="num">0.59</td><td class="num">4.40</td><td class="num">13.4 %</td><td class="num">x1.00</td><td>Very High</td><td>Wholesalers</td><td class="num">2.64</td><td><span class="btn warn tiny">✦ Explain</span></td></tr>
+          <tr><td>Hass Avocado</td><td>080440</td><td class="num">2.10</td><td class="num">5.80</td><td class="num">36.2 %</td><td class="num">x0.62 *</td><td>Challenging</td><td>Wholesalers</td><td class="num">3.48</td><td><span class="btn warn tiny">✦ Explain</span></td></tr>
+          <tr><td>Strawberry</td><td>081010</td><td class="num">1.90</td><td class="num">9.10</td><td class="num">20.9 %</td><td class="num">x0.85</td><td>High</td><td>Niche Markets</td><td class="num">4.20</td><td><span class="btn warn tiny">✦ Explain</span></td></tr>
+        </tbody>
+      </table>
+      <div class="row between" style="margin-top:8px"><span class="tiny dim">Right of every row and every Settings card: “✦ Explain / Ask the agent” opens the agent with that row as context.</span><span class="btn ghost">✦ Ask about this comparison</span></div>
+    </div>
+  </div>
+</div>
+<div class="mock-note">Mockup — illustrative</div>
+</body>
+</html>

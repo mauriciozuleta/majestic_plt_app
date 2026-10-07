@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model lanes (mockup)</title>
+<link rel="stylesheet" href="_theme.css" />
+<style>
+  body { padding: 18px; width: 1360px; }
+  .lanes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .lane { border-radius: 14px; border: 1px solid var(--border-strong); background: var(--bg-panel); padding: 12px 14px; }
+  .lane h3 { margin: 0 0 2px; font-size: 14px; }
+  .lane .sub { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+  .lane.local { border-color: rgba(53,211,153,.55); }
+  .lane.api { border-color: rgba(56,189,248,.55); }
+  .lane.both { border-color: rgba(232,163,61,.65); }
+  .t { padding: 6px 9px; margin-top: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); font-size: 12px; }
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; }
+  .node { border: 1px solid var(--border-strong); border-radius: 8px; padding: 5px 9px; background: var(--bg-card); }
+  .node.local { border-color: rgba(53,211,153,.6); }
+  .node.api { border-color: rgba(56,189,248,.6); }
+  .node.code { border-color: rgba(167,139,250,.6); }
+  .node.user { border-color: rgba(232,163,61,.7); }
+  .arrow { color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="col" style="gap:12px">
+  <div class="row between"><b style="font-size:16px">Who does what — three lanes</b><span class="tiny dim">The guard enforces tiers in code whichever model runs; the lane only decides which model does the language work.</span></div>
+  <div class="lanes">
+    <div class="lane local">
+      <h3>Local only <span class="chip ok">free · offline</span></h3>
+      <div class="sub">Data is inside the app’s DB, the task is simple, and the result is checked by code or lands in a branch.</div>
+      <div class="t">Shipment instruction → typed parameters (builder runs in code)</div>
+      <div class="t">“Set niche profit 25 %, wholesaler cap 1,200” → value edits <b>in a branch</b></div>
+      <div class="t">Wording a finished result from its facts</div>
+      <div class="t">Shrinking big tool results before the planner sees them</div>
+      <div class="t">Routing: read / simulate / write</div>
+      <div class="t">RAG reports, titles, daily summary of moved metrics</div>
+    </div>
+    <div class="lane api">
+      <h3>API only (Claude) <span class="chip">strongest model</span></h3>
+      <div class="sub">Open-ended, outside the DB, risky, or untrusted input.</div>
+      <div class="t">Planning across many tools; choosing the tools</div>
+      <div class="t">Web search, DIAN / Comtrade orchestration, source refresh</div>
+      <div class="t">Anything that reads documents or web pages (prompt-injection risk)</div>
+      <div class="t">Ambiguous requests, trade-off analysis, optimising scenarios</div>
+      <div class="t">Merging a branch: conflicts and the change-set wording</div>
+      <div class="t">Sensitive actions (only with explicit confirmation)</div>
+    </div>
+    <div class="lane both">
+      <h3>Local drafts · API checks <span class="chip write">cheap + safe</span></h3>
+      <div class="sub">Local does the bulk; a short API call confirms before it matters.</div>
+      <div class="t">Shipment/route edits that will be <b>proposed to live data</b></div>
+      <div class="t">Batch edits to many values in a branch before they are merged</div>
+      <div class="t">Product → tariff line / HS suggestions in “review” cases</div>
+      <div class="t">Values extracted from a document (each with its quote)</div>
+      <div class="t">The user-facing daily/weekly report (sampled)</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>The “local drafts, API checks” protocol</b>
+    <div class="flow">
+      <span class="node user">User instruction</span><span class="arrow">→</span>
+      <span class="node local">Local model: typed draft (JSON schema)</span><span class="arrow">→</span>
+      <span class="node code">Code: validate + run engine + preview numbers</span><span class="arrow">→</span>
+      <span class="node api">API check: instruction + draft + preview → approve / reject + reason</span><span class="arrow">→</span>
+      <span class="node user">You: Apply / Discard</span>
+    </div>
+    <div class="flow" style="margin-top:6px"><span class="tiny dim">Failure paths:</span>
+      <span class="node code">validation fails</span><span class="arrow">→</span><span class="node api">API does the job itself</span>
+      <span class="node api">API rejects</span><span class="arrow">→</span><span class="node api">API redoes it; the disagreement is logged</span>
+      <span class="node api">still unclear</span><span class="arrow">→</span><span class="node user">asks you</span></div>
+  </div>
+</div>
+<div class="mock-note">Mockup</div>
+</body>
+</html>

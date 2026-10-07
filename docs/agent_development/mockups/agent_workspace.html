@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Agent workspace (mockup)</title>
+<link rel="stylesheet" href="_theme.css" />
+<style>
+  .workspace { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; flex: 1; min-height: 0; }
+  .chat { display: flex; flex-direction: column; gap: 10px; }
+  .context { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="item">Home</div><div class="item">Corporate structure</div><div class="item">Control dashboard</div><div class="item">Commercial Structure</div>
+    <div class="label">Companies</div>
+    <div class="item">FRESH24</div><div class="item">FRESH24-Caribbean</div><div class="item">FRESH24-Colombia</div><div class="item">Majestic Cargo</div>
+    <div class="grow"></div>
+    <div class="item">Settings</div><div class="item active">Tools</div>
+    <div class="card small" style="margin-top:8px"><div class="dim tiny">ASSISTANT</div>Claude — assistant <span class="chip ok" style="margin-left:4px">Agent</span></div>
+  </aside>
+  <main class="main">
+    <div class="pills"><span class="pill">Tax Calculator</span><span class="pill">RAG Files</span><span class="pill">Accounting Health Check</span><span class="pill active">Agent</span></div>
+
+    <div class="card row between">
+      <div class="context">
+        <strong>Agent</strong>
+        <span class="chip">Company: FRESH24</span>
+        <span class="chip">Route: MDE → KIN → MIA</span>
+        <span class="chip">Pair: Colombia → Jamaica</span>
+        <span class="tiny dim">context the agent can see — click to change</span>
+      </div>
+      <div class="row"><span class="chip read">read</span><span class="chip sim">simulate</span><span class="chip write">propose writes</span><span class="btn ghost small">Mode: Ask before changing ▾</span></div>
+    </div>
+
+    <div class="workspace">
+      <section class="chat">
+        <div class="msg user">What happens to the MDE → KIN profit if wholesalers are capped at 1,200 kg and the return becomes compensated at 60 % target cargo?</div>
+
+        <div class="col">
+          <div class="step"><span class="tick">✓</span><span>Read route <b>MDE → KIN → MIA</b>, aircraft A321F, shipment (36 products)</span><span class="chip read">read · 0.3 s</span></div>
+          <div class="step"><span class="tick">✓</span><span>Simulated <b>A</b>: wholesaler Cargo Cap 1,500 → 1,200 kg, rebuilt the allocation</span><span class="chip sim">simulate · 0.4 s</span></div>
+          <div class="step"><span class="tick">✓</span><span>Simulated <b>B</b>: A + return “compensated”, return target cargo 60 %</span><span class="chip sim">simulate · 0.5 s</span></div>
+          <div class="step"><span class="tick run">◔</span><span>Looking up the Colombia multipliers for the 3 new niche products…</span><span class="chip read">DIAN · cached 2/3</span></div>
+        </div>
+
+        <div class="msg bot">
+          <b>B is the better scenario.</b> Lowering the wholesaler cap frees 3,300 kg that the niche products absorb at a 20 % margin, and the compensated return turns an empty leg into revenue.
+          <table style="margin-top:8px">
+            <thead><tr><th></th><th class="num">Revenue</th><th class="num">COS</th><th class="num">Profit</th><th class="num">Δ profit</th></tr></thead>
+            <tbody>
+              <tr><td>Today</td><td class="num">152,043</td><td class="num neg">92,153</td><td class="num">59,890</td><td class="num dim">—</td></tr>
+              <tr><td>A · cap 1,200 kg</td><td class="num">156,310</td><td class="num neg">94,070</td><td class="num">62,240</td><td class="num pos">+2,350</td></tr>
+              <tr><td>B · A + compensated return</td><td class="num">161,980</td><td class="num neg">95,410</td><td class="num">66,570</td><td class="num pos">+6,680</td></tr>
+            </tbody>
+          </table>
+          <div class="small muted" style="margin-top:6px">Nothing has been changed. I can apply B (2 settings + 1 route field) — see the proposal on the right.</div>
+        </div>
+
+        <div class="composer"><div class="input">Ask the agent to simulate, explain or change something…</div><span class="btn primary">Send</span></div>
+      </section>
+
+      <section class="col">
+        <div class="tabs"><span class="tab active">Proposal <span class="chip write">3</span></span><span class="tab">Scenarios <span class="chip">3</span></span><span class="tab">Activity</span></div>
+        <div class="card">
+          <div class="row between"><h4>Proposed changes · scenario B</h4><span class="chip ok">reversible</span></div>
+          <table>
+            <thead><tr><th>Where</th><th>Field</th><th>Change</th></tr></thead>
+            <tbody>
+              <tr><td>Settings ▸ Destination Market<br><span class="tiny dim">Wholesalers</span></td><td>Cargo Caps (kg)</td><td><span class="before">1500</span> → <span class="after">1200</span></td></tr>
+              <tr><td>Revenue ▸ MDE → KIN</td><td>Type of return</td><td><span class="before">full</span> → <span class="after">compensated</span></td></tr>
+              <tr><td>Revenue ▸ MDE → KIN</td><td>Return target cargo %</td><td><span class="before">—</span> → <span class="after">60</span></td></tr>
+            </tbody>
+          </table>
+          <div class="small muted" style="margin-top:8px">Side effects: re-rates nothing · the Shipment builder must be rebuilt (<b>Update shipment</b>) to use the new cap.</div>
+          <div class="row" style="margin-top:10px"><span class="btn warn">Apply all (3)</span><span class="btn">Apply selected</span><span class="btn ghost">Discard</span><span class="tiny dim" style="margin-left:auto">Undo kept for 24 h</span></div>
+        </div>
+        <div class="card">
+          <h4>What the agent used</h4>
+          <div class="row wrap"><span class="chip read">Revenue route + shipment</span><span class="chip read">Destination Market settings</span><span class="chip sim">Shipment allocation engine</span><span class="chip sim">Route finance engine</span><span class="chip read">Tax multipliers (Jamaica)</span></div>
+          <div class="tiny dim" style="margin-top:6px">Every number comes from the app’s own engines, not from the model. The model only plans, calls tools and explains.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<div class="mock-note">Mockup — illustrative numbers</div>
+</body>
+</html>

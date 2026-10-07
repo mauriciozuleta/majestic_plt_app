@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Activity log and permissions (mockup)</title>
+<link rel="stylesheet" href="_theme.css" />
+<style>
+  body { padding: 18px; width: 1240px; }
+  .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; align-items: start; }
+  .tl { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel); align-items: center; font-size: 12px; }
+  .perm { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .toggle { width: 34px; height: 18px; border-radius: 999px; background: var(--border-strong); position: relative; }
+  .toggle.on { background: #14b8a6; }
+  .toggle i { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+  .toggle.on i { left: 18px; }
+</style>
+</head>
+<body>
+<div class="col" style="gap:12px">
+  <div class="row between"><b style="font-size:16px">Agent ▸ Activity</b><div class="row"><span class="chip">Today</span><span class="chip">All modules</span><span class="chip">All tiers</span></div></div>
+  <div class="grid">
+    <div class="col">
+      <div class="tl"><span class="muted">11:42 · run #218</span><span><b>Applied</b> scenario B — Destination Market ▸ Wholesalers cap 1500 → 1200; route MDE→KIN return type full → compensated; return cargo 60 %<div class="tiny dim">approved by M. Zuleta · 3 changes in 1 transaction</div></span><span class="row"><span class="chip write">write</span><span class="btn tiny">Undo</span></span></div>
+      <div class="tl"><span class="muted">11:40 · run #218</span><span>Simulated scenarios A, B, C for route MDE→KIN<div class="tiny dim">route finance engine · allocation engine · no data changed</div></span><span class="chip sim">simulate</span></div>
+      <div class="tl"><span class="muted">11:38 · run #218</span><span>Read route, shipment, Destination Market settings, Jamaica multipliers<div class="tiny dim">9 tool calls · 14,200 tokens</div></span><span class="chip read">read</span></div>
+      <div class="tl"><span class="muted">10:05 · run #217</span><span><b>Saved</b> 12 tax multipliers for United States → Colombia (DIAN, 12 lookups, 7 cached)<div class="tiny dim">approved by M. Zuleta · rate-limited: 1 lookup / 3 s</div></span><span class="row"><span class="chip write">write</span><span class="btn tiny">Undo</span></span></div>
+      <div class="tl"><span class="muted">09:12 · run #216</span><span><b>Proposed</b> (not applied): set Premium sell price 30 → 35 %<div class="tiny dim">discarded by M. Zuleta</div></span><span class="chip">discarded</span></div>
+      <div class="tl" style="border-color:rgba(248,113,113,.5)"><span class="muted">09:03 · run #215</span><span><b>Blocked</b>: transfer USD 4,000 between bank accounts<div class="tiny dim">sensitive action — needs the “Sensitive writes” permission</div></span><span class="chip danger">blocked</span></div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h4>Permissions</h4>
+        <div class="perm"><span><b>Read</b> <span class="muted">— look at any module’s data</span></span><span class="toggle on"><i></i></span></div>
+        <div class="perm"><span><b>Simulate</b> <span class="muted">— run engines on a copy; nothing is saved</span></span><span class="toggle on"><i></i></span></div>
+        <div class="perm"><span><b>Reversible writes</b> <span class="muted">— settings, route parameters, priority lists, saved multipliers</span><div class="tiny dim">Ask before applying ▾ (or: apply automatically)</div></span><span class="toggle on"><i></i></span></div>
+        <div class="perm"><span><b>Sensitive writes</b> <span class="muted">— money, accounting entries, deletes</span><div class="tiny dim">off · every use needs an explicit confirmation</div></span><span class="toggle"><i></i></span></div>
+        <div class="perm" style="border:0"><span><b>Scheduled runs</b> <span class="muted">— e.g. weekly “watch” on the main routes</span></span><span class="toggle"><i></i></span></div>
+      </div>
+      <div class="card">
+        <h4>Limits</h4>
+        <div class="row between small"><span class="muted">Tokens per run</span><b>60,000</b></div>
+        <div class="row between small"><span class="muted">Tool calls per run</span><b>30</b></div>
+        <div class="row between small"><span class="muted">DIAN lookups</span><b>1 / 3 s · 20 per run</b></div>
+        <div class="row between small"><span class="muted">Undo window</span><b>7 days</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="mock-note">Mockup — illustrative</div>
+</body>
+</html>

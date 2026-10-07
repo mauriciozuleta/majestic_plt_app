@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Agent architecture</title>
+<link rel="stylesheet" href="_theme.css" />
+<style>
+  body { padding: 18px; width: 1240px; }
+  .layer { border: 1px solid var(--border-strong); border-radius: 14px; padding: 12px 14px; background: var(--bg-panel); }
+  .layer > .title { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .boxes { display: grid; gap: 10px; }
+  .box { border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg-card); padding: 9px 11px; font-size: 12px; }
+  .box b { display: block; font-size: 12.5px; margin-bottom: 2px; }
+  .box.new { border-color: rgba(232,163,61,.7); }
+  .box.old { border-color: rgba(56,189,248,.45); }
+  .arrow { text-align: center; color: var(--text-dim); font-size: 18px; line-height: 1; margin: 2px 0; }
+  .legend { display: flex; gap: 14px; font-size: 11px; color: var(--text-muted); align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 5px; border: 1px solid; }
+</style>
+</head>
+<body>
+<div class="col" style="gap:4px">
+  <div class="row between"><b style="font-size:16px">Agent architecture — what is new and what is reused</b>
+    <div class="legend"><span><i class="dot" style="border-color:rgba(232,163,61,.8)"></i>new</span><span><i class="dot" style="border-color:rgba(56,189,248,.6)"></i>exists today</span></div></div>
+
+  <div class="layer"><div class="title">Frontend (React)</div>
+    <div class="boxes" style="grid-template-columns:repeat(4,1fr)">
+      <div class="box new"><b>Agent workspace</b>Tools ▸ Agent: conversation, step trace, Proposal / Scenarios / Activity tabs</div>
+      <div class="box new"><b>Inline “✦ Ask the agent”</b>On a route row, a Market Opportunities row, a Settings card — opens the agent with that context</div>
+      <div class="box old"><b>Sidebar Assistant (Chatbox)</b>Kept as the quick chat; gets an “Agent” mode toggle</div>
+      <div class="box new"><b>Client-action bridge</b>Runs what only the browser can (matching a comparison, opening a modal) and reports back</div>
+    </div></div>
+  <div class="arrow">▾ &nbsp;HTTP + server-sent events (progress) &nbsp;▾</div>
+
+  <div class="layer"><div class="title">Agent service (FastAPI, <code>backend/agent/</code>)</div>
+    <div class="boxes" style="grid-template-columns:repeat(4,1fr)">
+      <div class="box new"><b>Run API</b><code>POST /agent/runs</code>, event stream, approve / reject / undo</div>
+      <div class="box new"><b>Loop + model lanes</b>Claude plans (reuses <code>claude_client.py</code> / <code>assistant.py</code>); a local model (Ollama) does bounded, validated tasks; the API checks local drafts before they matter</div>
+      <div class="box new"><b>Guard</b>Tiers (read · simulate · reversible write · sensitive), rate limits, per-company scope, dry-run first</div>
+      <div class="box new"><b>Tool registry</b>One typed function per capability, JSON schema, tier, module — see the catalogue</div>
+    </div></div>
+  <div class="arrow">▾ &nbsp;tools call, in-process, no HTTP self-calls &nbsp;▾</div>
+
+  <div class="layer"><div class="title">Capabilities</div>
+    <div class="boxes" style="grid-template-columns:repeat(4,1fr)">
+      <div class="box new"><b>Engines (Python)</b>Ports of the pure JS logic: route finance, shipment allocation, DDP / market level / sell price — parity-tested against the JS with shared fixtures</div>
+      <div class="box old"><b>Existing services</b><code>tax_calc</code> (+ DIAN), <code>gl_engine</code>, <code>packer</code>, payroll, comtrade, market-size, knowledge base, product sources</div>
+      <div class="box new"><b>Branches</b>A pinned baseline (<code>main</code>) and one copy of <code>majestic_plt.db</code> per simulation; the agent edits the branch, modules are measured on it, merge = a change set. Never live rows</div>
+      <div class="box new"><b>Change sets</b>Proposed writes as data: before / after, reason, risk. Applied atomically with a snapshot; undo restores it</div>
+    </div></div>
+  <div class="arrow">▾</div>
+
+  <div class="layer"><div class="title">Data and outside world</div>
+    <div class="boxes" style="grid-template-columns:repeat(4,1fr)">
+      <div class="box old"><b>SQLite <code>majestic_plt.db</code></b>All modules’ tables</div>
+      <div class="box new"><b>New tables</b><code>agent_runs</code>, <code>agent_events</code>, <code>agent_changesets</code>, <code>agent_snapshots</code>, <code>agent_baselines</code>, <code>agent_branches</code>, <code>agent_branch_edits</code>, <code>agent_scenarios</code>, <code>agent_model_stats</code></div>
+      <div class="box old"><b>Claude API</b>Key in <code>.env</code> (<code>CLAUDE_API_KEY</code>)</div>
+      <div class="box old"><b>DIAN · Comtrade · Trade.gov</b>Rate-limited, cached, via their own modules</div>
+    </div></div>
+</div>
+</body>
+</html>

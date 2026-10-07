@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Scenario comparison (mockup)</title>
+<link rel="stylesheet" href="_theme.css" />
+<style>
+  body { padding: 18px; width: 1180px; }
+  .param { font-size: 11px; }
+  .delta-bar { display: grid; grid-template-columns: 90px 1fr 70px; gap: 8px; align-items: center; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="col" style="gap:12px">
+  <div class="row between">
+    <div class="row"><b style="font-size:16px">Scenarios</b><span class="chip">MDE → KIN → MIA</span><span class="chip sim">3 simulated · nothing saved to the app’s data</span></div>
+    <div class="row"><span class="btn">Save scenario…</span><span class="btn">Export CSV</span><span class="btn warn">Propose changes from B</span></div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>Scenario</th><th>What changed vs today</th><th class="num">Revenue</th><th class="num">COS</th><th class="num">Profit</th><th class="num">Empty payload</th><th class="num">Δ profit</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Today</b><div class="tiny dim">live data</div></td>
+          <td class="param muted">—</td>
+          <td class="num">152,043</td><td class="num neg">92,153</td><td class="num"><b>59,890</b></td><td class="num">0 kg</td><td class="num dim">—</td>
+        </tr>
+        <tr>
+          <td><b>A</b> · lower wholesale cap</td>
+          <td class="param"><span class="chip sim">Wholesalers cap 1,500 → 1,200 kg</span></td>
+          <td class="num">156,310</td><td class="num neg">94,070</td><td class="num"><b>62,240</b></td><td class="num">0 kg</td><td class="num pos">+2,350</td>
+        </tr>
+        <tr>
+          <td><b>B</b> · A + compensated return</td>
+          <td class="param"><span class="chip sim">Wholesalers cap 1,200</span> <span class="chip sim">Return: compensated</span> <span class="chip sim">Return cargo 60 %</span></td>
+          <td class="num">161,980</td><td class="num neg">95,410</td><td class="num"><b>66,570</b></td><td class="num">0 kg</td><td class="num pos">+6,680</td>
+        </tr>
+        <tr>
+          <td><b>C</b> · bigger sell margin</td>
+          <td class="param"><span class="chip sim">Niche profit 20 → 30 %</span> <span class="chip sim">Premium 30 → 40 %</span></td>
+          <td class="num">158,900</td><td class="num neg">92,153</td><td class="num"><b>66,747</b></td><td class="num">0 kg</td><td class="num pos">+6,857</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="row" style="align-items:flex-start; gap:14px">
+    <div class="card" style="flex:1">
+      <h4>Profit by scenario</h4>
+      <div class="col">
+        <div class="delta-bar"><span>Today</span><div class="bar"><i style="width:70%"></i></div><span class="num">59,890</span></div>
+        <div class="delta-bar"><span>A</span><div class="bar"><i style="width:73%"></i></div><span class="num">62,240</span></div>
+        <div class="delta-bar"><span>B</span><div class="bar"><i style="width:78%"></i></div><span class="num">66,570</span></div>
+        <div class="delta-bar"><span>C</span><div class="bar"><i style="width:78.3%"></i></div><span class="num">66,747</span></div>
+      </div>
+    </div>
+    <div class="card" style="flex:1">
+      <h4>Sensitivity · scenario B (profit change)</h4>
+      <table>
+        <thead><tr><th>Input</th><th class="num">−10 %</th><th class="num">+10 %</th></tr></thead>
+        <tbody>
+          <tr><td>Air fare per kg (leg cost %)</td><td class="num pos">+3,190</td><td class="num neg">−3,190</td></tr>
+          <tr><td>Origin prices (FCA)</td><td class="num pos">+2,060</td><td class="num neg">−2,060</td></tr>
+          <tr><td>Tax multipliers</td><td class="num pos">+1,330</td><td class="num neg">−1,330</td></tr>
+          <tr><td>Target prices</td><td class="num neg">−4,720</td><td class="num pos">+4,720</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card" style="flex:1">
+      <h4>Agent’s reading</h4>
+      <div class="small">C and B gain the same, by different means: C needs buyers to accept +10 points of margin, B needs a return cargo to exist. B’s risk is on the return side (GSA price not set); C’s is price acceptance. <span class="muted">I would validate B’s return demand first.</span></div>
+      <div class="tiny dim" style="margin-top:8px">Numbers: route finance engine · allocation engine · illustrative.</div>
+    </div>
+  </div>
+</div>
+<div class="mock-note">Mockup — illustrative numbers</div>
+</body>
+</html>

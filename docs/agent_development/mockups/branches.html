@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Simulation branches (mockup)</title>
+<link rel="stylesheet" href="_theme.css" />
+<style>
+  body { padding: 0; width: 1500px; }
+  .banner { background: rgba(167,139,250,.16); border-bottom: 1px solid rgba(167,139,250,.6); padding: 8px 20px; display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .page { padding: 16px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .git { white-space: pre; font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12px; line-height: 1.7; }
+  .git .gm { color: var(--teal); }
+  .git .gb { color: var(--violet); }
+  .git .gx { color: var(--amber-text); }
+  .switch { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border-strong); border-radius: 8px; padding: 5px 10px; background: var(--bg-panel); font-size: 12px; }
+  .diffrow td:first-child { width: 36%; }
+  .conflict { border: 1px solid rgba(248,113,113,.55); background: rgba(248,113,113,.08); border-radius: 8px; padding: 8px 10px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="banner"><b>Viewing branch “cap-1200-compensated”</b><span class="muted">— a copy of baseline <b>main@2026-10-07</b>. Nothing you see or change here affects your live data.</span><span class="btn" style="margin-left:auto">Back to live</span><span class="btn">Compare with main</span></div>
+<div class="page">
+  <div class="col">
+    <div class="row between"><b style="font-size:16px">Branches</b>
+      <div class="row"><span class="switch">Viewing: <b style="color:var(--violet)">cap-1200-compensated</b> ▾</span><span class="btn">New branch from main</span></div></div>
+
+    <div class="card">
+      <h4>History</h4>
+      <div class="git">
+        <div><span class="gm">●──────●──────────────●</span>  <b class="gm">main</b> · baseline pinned 2026-10-07 11:00</div>
+        <div><span class="gm">│</span>      <span class="gb">╲</span></div>
+        <div><span class="gm">│</span>       <span class="gb">●──●──●</span>  <b class="gb">cap-1200-compensated</b> · 3 edits · agent run #218</div>
+        <div><span class="gm">│</span></div>
+        <div><span class="gm">│</span>   <span class="gb">╲</span><span class="gb">●──●</span>  <b class="gb">niche-30-pct</b> · 2 edits · run #219</div>
+        <div><span class="gm">│</span></div>
+        <div><span class="gm">●</span>  live app data (changed 4 rows since the baseline)  <span class="gx">⤴ merge target</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Branch actions</h4>
+      <table>
+        <thead><tr><th>Branch</th><th>Parent</th><th>Edits</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b style="color:var(--violet)">cap-1200-compensated</b></td><td>main@10-07</td><td>3</td><td><span class="chip ok">ready to merge</span></td><td><span class="btn tiny">Open</span> <span class="btn tiny warn">Merge…</span></td></tr>
+          <tr><td><b style="color:var(--violet)">niche-30-pct</b></td><td>main@10-07</td><td>2</td><td><span class="chip">compared</span></td><td><span class="btn tiny">Open</span> <span class="btn tiny">Discard</span></td></tr>
+          <tr><td><b style="color:var(--violet)">airfare-plus-10</b></td><td>main@10-05</td><td>1</td><td><span class="chip danger">main moved</span></td><td><span class="btn tiny">Rebase</span> <span class="btn tiny">Discard</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="card">
+      <div class="row between"><h4>Diff · cap-1200-compensated vs main</h4><span class="chip sim">3 changed values</span></div>
+      <table>
+        <thead><tr><th>Where</th><th>Field</th><th>main</th><th>branch</th></tr></thead>
+        <tbody class="diffrow">
+          <tr><td>Settings ▸ Destination Market<br><span class="tiny dim">Wholesalers</span></td><td>Cargo Caps (kg)</td><td>1500</td><td class="after">1200</td></tr>
+          <tr><td>Revenue ▸ MDE → KIN</td><td>Type of return</td><td>full</td><td class="after">compensated</td></tr>
+          <tr><td>Revenue ▸ MDE → KIN</td><td>Return target cargo %</td><td>—</td><td class="after">60</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h4>Measured on the branch (the app’s own modules, run on the copy)</h4>
+      <table>
+        <thead><tr><th>Metric</th><th class="num">main</th><th class="num">branch</th><th class="num">Δ</th></tr></thead>
+        <tbody>
+          <tr><td>MDE → KIN · Revenue</td><td class="num">152,043</td><td class="num">161,980</td><td class="num pos">+9,937</td></tr>
+          <tr><td>MDE → KIN · COS</td><td class="num">92,153</td><td class="num">95,410</td><td class="num neg">+3,257</td></tr>
+          <tr><td>MDE → KIN · Profit</td><td class="num">59,890</td><td class="num"><b>66,570</b></td><td class="num pos">+6,680</td></tr>
+          <tr><td>Products at reduced cap</td><td class="num">3</td><td class="num">5</td><td class="num">+2</td></tr>
+          <tr><td>Saved comparisons re-rated</td><td class="num">0</td><td class="num">0</td><td class="num dim">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h4>Merge into live</h4>
+      <div class="small muted" style="margin-bottom:6px">Merging does not copy the branch over live data. It creates a <b>change set</b> from the diff (3 values), checked against live: a value that live changed after the branch was made is a conflict.</div>
+      <div class="conflict"><b>0 conflicts.</b> Live changed 4 other rows since the baseline; none of them is in this diff.</div>
+      <div class="row" style="margin-top:10px"><span class="btn warn">Create change set (3)</span><span class="btn ghost">Keep working</span></div>
+    </div>
+  </div>
+</div>
+<div class="mock-note">Mockup — illustrative numbers</div>
+</body>
+</html>
