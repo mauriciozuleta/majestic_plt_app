@@ -22,3 +22,7 @@ xlrd==2.0.1
 transformers==4.46.3
 torch==2.5.1
 sentencepiece==0.2.0
+
+# Colombia (DIAN WebArancel) tax lookups, backend/tax_calc/colombia_dian/ — drives a real Chromium. One-time browser setup: `playwright install chromium`.
+playwright==1.63.0
+beautifulsoup4==4.15.0

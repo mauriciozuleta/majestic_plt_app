@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchCountryProductPrices, fetchMarketOpportunityExchangeRate } from '../../services/marketOpportunities'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { fetchCountryProductPrices } from '../../services/marketOpportunities'
 import { fetchRagCountries } from '../../services/ragFiles'
-import { calculateTax, fetchTaxCountries, refreshTariffData, searchTariffLines } from '../../services/taxCalculator'
+import { calculateTax, fetchTaxCountries, refreshTariffData } from '../../services/taxCalculator'
 import { computeTaxMultipliers, fetchTaxMultipliers, formatMultiplier, productKey, suggestTariffLine } from '../../services/taxMultipliers'
-import { EMPTY_FORM, useTaxCalcStore } from '../../store/useTaxCalcStore'
+import { useTaxCalcStore } from '../../store/useTaxCalcStore'
 import { usePersistentSet } from '../../utils/usePersistentSet'
-import { formatCurrencyValue, formatDualCurrency } from '../../utils/currencyFormat'
+import { formatCurrencyValue } from '../../utils/currencyFormat'
+import DianLookupPanel from './DianLookupPanel'
+import { fromTariffResult } from './taxResult'
+import { useDianFlow } from './useDianFlow'
 import './TaxCalculatorView.css'
 
 const num = (text) => (text === '' || text == null || Number.isNaN(Number(text)) ? null : Number(text))
-const digitsOf = (text) => (text || '').replace(/\D/g, '')
 
+// Colombia has no tariff file: its Gravamen and IVA are read from DIAN's site for the product's HS code (backend/tax_calc/colombia_dian/).
+const COLOMBIA = { country: 'Colombia', kind: 'dian', source: 'DIAN MUISCA WebArancel (live lookup)', can_refresh: false }
+
+// Every import country works the same way: the export country, the import country, a product from the exporter's list, and the taxes of 1 kg in USD.
 function TaxCalculatorView() {
-  const { destination, origin, query, product, line, lineNote, form, result, history, update, setForm, addHistory, removeHistory, clearHistory } = useTaxCalcStore()
+  const { origin, destination, product, line, lineNote, form, result, history, dianLines, update, setForm, addHistory, removeHistory, clearHistory, rememberDianLine } = useTaxCalcStore()
 
   // The whole panel can be folded away to its header (remembered between visits).
   const [collapsedPanels, setCollapsedPanels] = usePersistentSet('tax-calculator:collapsed')
@@ -24,29 +30,26 @@ function TaxCalculatorView() {
       else next.add('panel')
       return next
     })
-  const [countries, setCountries] = useState([])
+
+  const [fileCountries, setFileCountries] = useState([]) // the countries with a tariff file (Jamaica, United States)
   const [originNames, setOriginNames] = useState([])
   const [originProducts, setOriginProducts] = useState(null) // null while loading
   const [multipliers, setMultipliers] = useState(new Map())
   const [productFilter, setProductFilter] = useState('')
-  const [lines, setLines] = useState(null)
-  const [searching, setSearching] = useState(false)
-  const [rate, setRate] = useState(null) // local currency units per USD
+  const [candidates, setCandidates] = useState([]) // other tariff lines the product could be under
   const [error, setError] = useState('')
   const [updating, setUpdating] = useState(false)
-  const [priceChoices, setPriceChoices] = useState([]) // portfolio products that could give the price of a searched tariff line
-  const previousDestination = useRef(destination)
 
-  const info = countries.find((item) => item.country === destination)
-  const currency = info?.currency || 'USD'
+  const importers = useMemo(() => [...fileCountries.map((item) => ({ ...item, kind: 'file' })), COLOMBIA].sort((a, b) => a.country.localeCompare(b.country)), [fileCountries])
+  const info = importers.find((item) => item.country === destination)
+  const isDian = info?.kind === 'dian'
+  const isFile = info?.kind === 'file'
+  const price = num(form.price)
 
   // ------------------------------------------------------------ loading
   useEffect(() => {
     fetchTaxCountries()
-      .then((data) => {
-        setCountries(data.countries)
-        if (!data.countries.some((item) => item.country === useTaxCalcStore.getState().destination)) update({ destination: data.countries[0]?.country || '' })
-      })
+      .then((data) => setFileCountries(data.countries))
       .catch((err) => setError(err.message))
     fetchRagCountries()
       .then((data) => {
@@ -57,15 +60,17 @@ function TaxCalculatorView() {
       .catch(() => {})
   }, [update])
 
+  // a valid import country (never the export country itself)
   useEffect(() => {
-    setRate(null)
-    if (!currency || currency === 'USD') return
-    fetchMarketOpportunityExchangeRate(currency)
-      .then((data) => setRate(data.available ? data.rate : null))
-      .catch(() => setRate(null))
-  }, [currency])
+    if (importers.length === 0) return
+    const current = useTaxCalcStore.getState().destination
+    if (!current || !importers.some((item) => item.country === current) || current === origin) {
+      const next = importers.find((item) => item.country !== origin)
+      if (next && next.country !== current) update({ destination: next.country, line: null, lineNote: '', result: null })
+    }
+  }, [importers, origin, update])
 
-  // the origin's portfolio, with its prices per kg
+  // the exporter's portfolio, with its prices per kg
   useEffect(() => {
     if (!origin) return undefined
     let cancelled = false
@@ -78,10 +83,10 @@ function TaxCalculatorView() {
     }
   }, [origin])
 
-  // every product of the portfolio gets its multiplier for this destination (stored server side), shown in the list
+  // for a country with a tariff file, every product of the portfolio gets its multiplier (stored server side), shown in the list
   useEffect(() => {
     setMultipliers(new Map())
-    if (!destination || !origin || !originProducts || originProducts.length === 0) return undefined
+    if (!isFile || !origin || !originProducts || originProducts.length === 0) return undefined
     let cancelled = false
     computeTaxMultipliers(destination, origin, originProducts)
       .then(() => fetchTaxMultipliers(destination, origin))
@@ -90,90 +95,102 @@ function TaxCalculatorView() {
     return () => {
       cancelled = true
     }
-  }, [destination, origin, originProducts])
+  }, [isFile, destination, origin, originProducts])
 
-  // the tariff search
+  // ------------------------------------------------------------ history
+  const record = useCallback(
+    (normalized) => {
+      const state = useTaxCalcStore.getState()
+      if (!normalized || !state.product) return
+      addHistory({
+        id: `${state.origin}|${state.destination}|${productKey(state.product.name)}`,
+        savedAt: new Date().toISOString(),
+        origin: state.origin,
+        destination: state.destination,
+        product: state.product,
+        line: state.line,
+        price: num(state.form.price),
+        result: normalized,
+      })
+    },
+    [addHistory],
+  )
+
+  // ------------------------------------------------------------ Colombia (DIAN)
+  const onDianResult = useCallback(
+    (normalized) => {
+      update({ result: normalized })
+      record(normalized)
+    },
+    [update, record],
+  )
+  const dianFlow = useDianFlow({
+    enabled: isDian && Boolean(product),
+    hsCode: product?.hsCode || '',
+    savedLine: product ? dianLines[productKey(product.name)] : '',
+    price,
+    onLineChosen: (code) => product && rememberDianLine(productKey(product.name), code),
+    onResult: onDianResult,
+  })
+
+  // ------------------------------------------------------------ countries with a tariff file
   useEffect(() => {
-    if (!destination || query.trim().length < 2) {
-      setLines(null)
-      return undefined
+    if (!isFile || !line || !(price > 0)) return undefined
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const api = await calculateTax(destination, { code: line.code, price_per_kg_usd: price, quantity_kg: 1, origin: origin || null, commercial_importer: form.commercial })
+        if (cancelled) return
+        const normalized = fromTariffResult(destination, api)
+        setError('')
+        update({ result: normalized })
+        record(normalized)
+      } catch (err) {
+        if (cancelled) return
+        setError(err.message)
+        update({ result: null })
+      }
+    }, 350)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
-    setSearching(true)
-    const timer = setTimeout(() => {
-      searchTariffLines(destination, query.trim())
-        .then((data) => {
-          setLines(data.lines)
-          setError('')
-        })
-        .catch((err) => setError(err.message))
-        .finally(() => setSearching(false))
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [destination, query])
-
-  // a destination change (not the first render): the product's tariff line belongs to the old destination
-  useEffect(() => {
-    if (previousDestination.current === destination) return
-    previousDestination.current = destination
-    setLines(null)
-    setPriceChoices([])
-    update({ line: null, lineNote: '', result: null })
-    if (useTaxCalcStore.getState().product) chooseProduct(useTaxCalcStore.getState().product, { keepPrice: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination])
+  }, [isFile, destination, line?.code, price, origin, form.commercial, update, record]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------ choices
-  async function chooseProduct(item, { keepPrice = false } = {}) {
+  async function chooseProduct(item, { keepPrice = false, forDestination = destination } = {}) {
     setError('')
-    setPriceChoices([])
-    update({ product: item, result: null })
+    setCandidates([])
+    update({ product: item, result: null, line: null, lineNote: '' })
     if (!keepPrice) setForm({ price: item.priceUsdPerKg != null ? String(Number(item.priceUsdPerKg.toFixed(4))) : '' })
+    const kind = importers.find((entry) => entry.country === forDestination)?.kind
+    if (kind !== 'file') return
     try {
-      const suggestion = await suggestTariffLine(useTaxCalcStore.getState().destination, { name: item.name, hsCode: item.hsCode, origin: useTaxCalcStore.getState().origin, priceUsdPerKg: item.priceUsdPerKg })
-      update({ line: suggestion.line, lineNote: suggestion.line ? suggestion.note || '' : 'No tariff line was found automatically — search the tariff below.' })
+      const suggestion = await suggestTariffLine(forDestination, { name: item.name, hsCode: item.hsCode, origin: useTaxCalcStore.getState().origin, priceUsdPerKg: item.priceUsdPerKg })
+      if (useTaxCalcStore.getState().product?.name !== item.name) return // the user already clicked another product
+      setCandidates(suggestion.candidates || [])
+      update({ line: suggestion.line, lineNote: suggestion.line ? suggestion.note || '' : `No ${forDestination} tariff line was found for this product's HS code.` })
     } catch (err) {
       setError(err.message)
     }
   }
 
-  function chooseLine(item) {
-    update({ line: item, lineNote: '', result: null })
-    // a portfolio product of the origin under the same HS code gives the price per kg
-    const code = digitsOf(item.code).slice(0, 6)
-    const words = query.toLowerCase().split(/\s+/).filter((word) => word.length > 2 && !/^\d+$/.test(word))
-    const same = (originProducts || []).filter((p) => p.hsCode && digitsOf(p.hsCode).slice(0, 6) === code)
-    const named = same.filter((p) => words.length > 0 && words.every((word) => p.name.toLowerCase().includes(word.replace(/e?s$/, ''))))
-    const pool = named.length > 0 ? named : same
-    const withPrice = pool.filter((p) => p.priceUsdPerKg != null)
-    if (withPrice.length === 1) {
-      update({ product: withPrice[0] })
-      setForm({ price: String(Number(withPrice[0].priceUsdPerKg.toFixed(4))) })
-      setPriceChoices([])
-    } else {
-      setPriceChoices(withPrice.slice(0, 30))
-    }
+  function changeOrigin(name) {
+    setCandidates([])
+    update({ origin: name, product: null, line: null, lineNote: '', result: null })
+    setForm({ price: '' })
+    setProductFilter('')
   }
 
-  const goods = useMemo(() => (num(form.price) != null && num(form.quantity) != null ? num(form.price) * num(form.quantity) : null), [form.price, form.quantity])
-  const canCalculate = Boolean(line) && goods != null && num(form.quantity) > 0
+  function changeDestination(name) {
+    setCandidates([])
+    update({ destination: name, line: null, lineNote: '', result: null })
+    if (product) chooseProduct(product, { keepPrice: true, forDestination: name })
+  }
 
-  const calculate = async () => {
-    setError('')
-    try {
-      const data = await calculateTax(destination, {
-        code: line.code,
-        price_per_kg_usd: num(form.price),
-        quantity_kg: num(form.quantity),
-        quantity_units: num(form.units),
-        origin: origin || null,
-        commercial_importer: form.commercial,
-      })
-      update({ result: data })
-      addHistory({ id: `${Date.now()}`, savedAt: new Date().toISOString(), destination, origin, product, line, lineNote, form, result: data })
-    } catch (err) {
-      setError(err.message)
-      update({ result: null })
-    }
+  function chooseLine(code) {
+    const picked = candidates.find((item) => item.code === code)
+    if (picked) update({ line: picked, lineNote: 'Tariff line chosen by you.', result: null })
   }
 
   const updateData = async () => {
@@ -181,7 +198,7 @@ function TaxCalculatorView() {
     setError('')
     try {
       const updated = await refreshTariffData(destination)
-      setCountries((current) => current.map((item) => (item.country === destination ? updated : item)))
+      setFileCountries((current) => current.map((item) => (item.country === destination ? updated : item)))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -190,19 +207,16 @@ function TaxCalculatorView() {
   }
 
   const loadHistory = (entry) => {
-    update({ destination: entry.destination, origin: entry.origin, product: entry.product, line: entry.line, lineNote: entry.lineNote, form: entry.form, result: entry.result })
-  }
-
-  const money = (usd, digits = 2) => {
-    const options = { minimumFractionDigits: digits, maximumFractionDigits: digits }
-    return rate && currency !== 'USD' ? formatDualCurrency(usd * rate, currency, usd, options) : formatCurrencyValue(usd, 'USD', options)
+    update({ origin: entry.origin, destination: entry.destination, product: entry.product, line: entry.line, lineNote: '', result: entry.result })
+    setForm({ price: entry.price != null ? String(entry.price) : '' })
   }
 
   const shownProducts = useMemo(() => {
     const words = productFilter.toLowerCase().split(/\s+/).filter(Boolean)
-    return (originProducts || []).filter((p) => words.every((word) => `${p.name} ${p.category || ''}`.toLowerCase().includes(word)))
+    return (originProducts || []).filter((p) => words.every((word) => `${p.name} ${p.category || ''} ${p.hsCode || ''}`.toLowerCase().includes(word)))
   }, [originProducts, productFilter])
-  const resultMultiplier = result && result.inputs.goods_value_usd > 0 ? result.total_tax_usd / result.inputs.goods_value_usd : null
+
+  const usd = (value, digits = 2) => formatCurrencyValue(value, 'USD', { minimumFractionDigits: digits, maximumFractionDigits: digits })
 
   return (
     <div className="panel-surface tax-calc">
@@ -212,297 +226,253 @@ function TaxCalculatorView() {
           <h3>Tax Calculator</h3>
         </button>
         <p>
-          The import taxes of a shipment, calculated from each country’s published tariff. Choose the countries, pick the product, and enter the quantity. No AI is involved: every
-          figure comes with its formula. Freight and insurance are handled in the logistics module, so they are not part of this calculation.
+          The import duties and taxes of 1 kg of a product, in USD, from the importing country’s published tariff. Choose the exporting country, the importing country and one of the
+          exporter’s products. No AI is involved: every figure comes with its formula. Freight and insurance are handled in the logistics module, so they are not part of this calculation.
         </p>
       </header>
 
       {!collapsed && (
         <>
-      {error && <p className="tax-calc__error">{error}</p>}
+          {error && <p className="tax-calc__error">{error}</p>}
 
-      <section className="tax-calc__section">
-        <h4>1 · Countries</h4>
-        <div className="tax-calc__countries">
-          <label>
-            Buying from (origin)
-            <select value={origin} onChange={(event) => update({ origin: event.target.value, result: null })}>
-              {originNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="tax-calc__destination">
-            <span>Importing into (destination)</span>
-            <div className="tax-calc__tabs" role="tablist">
-              {countries.map((item) => (
-                <button key={item.country} type="button" role="tab" aria-selected={item.country === destination} className={`tax-calc__tab ${item.country === destination ? 'is-active' : ''}`} onClick={() => update({ destination: item.country })}>
-                  {item.country}
-                </button>
-              ))}
+          <section className="tax-calc__section">
+            <h4>1 · Countries</h4>
+            <div className="tax-calc__countries">
+              <label>
+                Export country (from)
+                <select value={origin} onChange={(event) => changeOrigin(event.target.value)}>
+                  {originNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Import country (to)
+                <select value={destination} onChange={(event) => changeDestination(event.target.value)}>
+                  {importers.map((item) => (
+                    <option key={item.country} value={item.country} disabled={item.country === origin}>
+                      {item.country}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-          </div>
-        </div>
-        {info && (
-          <p className="tax-calc__hint">
-            Tariff data: {info.source} · {info.lines.toLocaleString('en-US')} lines · {info.data_date ? `file from ${info.data_date}` : 'not loaded'}
-            {info.can_refresh && (
-              <button type="button" className="tax-calc__link" onClick={updateData} disabled={updating} title={info.refresh_note}>
-                {updating ? 'Updating…' : 'Update tariff data'}
-              </button>
+            {isFile && info && (
+              <p className="tax-calc__hint">
+                Tariff data: {info.source} · {info.lines?.toLocaleString('en-US')} lines · {info.data_date ? `file from ${info.data_date}` : 'not loaded'}
+                {info.can_refresh && (
+                  <button type="button" className="tax-calc__link" onClick={updateData} disabled={updating} title={info.refresh_note}>
+                    {updating ? 'Updating…' : 'Update tariff data'}
+                  </button>
+                )}
+              </p>
             )}
-          </p>
-        )}
-      </section>
+            {isDian && <p className="tax-calc__hint">Duties and taxes: {info.source} — Gravamen arancelario and IVA, read for the product’s HS code.</p>}
+          </section>
 
-      <section className="tax-calc__section">
-        <h4>2 · Product</h4>
-        <div className="tax-calc__portfolio">
-          <div className="tax-calc__portfolio-head">
-            <strong>{origin ? `${origin}’s product portfolio` : 'Product portfolio'}</strong>
-            <input type="text" value={productFilter} onChange={(event) => setProductFilter(event.target.value)} placeholder="Filter the list…" aria-label="Filter the portfolio" />
-          </div>
-          {originProducts === null && <p className="tax-calc__hint">Loading {origin}’s products…</p>}
-          {originProducts && originProducts.length === 0 && <p className="tax-calc__hint">{origin} has no products in its portfolio — search the tariff below instead.</p>}
-          {originProducts && originProducts.length > 0 && (
-            <ul className="tax-calc__results tax-calc__results--products" aria-label="Portfolio products">
-              {shownProducts.map((item) => {
-                const multiplier = multipliers.get(productKey(item.name))
-                return (
-                  <li key={item.name}>
-                    <button type="button" className={product?.name === item.name ? 'is-selected' : ''} onClick={() => chooseProduct(item)}>
-                      <strong>{item.name}</strong>
+          <section className="tax-calc__section">
+            <h4>2 · Product</h4>
+            <div className="tax-calc__portfolio">
+              <div className="tax-calc__portfolio-head">
+                <strong>{origin ? `${origin}’s product list` : 'Product list'}</strong>
+                <input type="text" value={productFilter} onChange={(event) => setProductFilter(event.target.value)} placeholder="Search the list (name, category or HS code)…" aria-label="Search the product list" />
+              </div>
+              {originProducts === null && <p className="tax-calc__hint">Loading {origin}’s products…</p>}
+              {originProducts && originProducts.length === 0 && <p className="tax-calc__hint">{origin} has no products in its portfolio yet.</p>}
+              {originProducts && originProducts.length > 0 && (
+                <ul className="tax-calc__results tax-calc__results--products" aria-label="Products">
+                  {shownProducts.map((item) => {
+                    const multiplier = multipliers.get(productKey(item.name))
+                    return (
+                      <li key={item.name}>
+                        <button type="button" className={product?.name === item.name ? 'is-selected' : ''} onClick={() => chooseProduct(item)}>
+                          <strong>{item.name}</strong>
+                          <span>
+                            {item.category || 'Uncategorized'}
+                            {item.hsCode ? ` · HS ${item.hsCode}` : ' · no HS code'}
+                          </span>
+                          <em>
+                            {item.priceUsdPerKg != null ? `${formatCurrencyValue(item.priceUsdPerKg, 'USD')}/kg` : 'no price per kg'}
+                            {multiplier && multiplier.tax_multiplier != null ? ` · taxes ${formatMultiplier(multiplier.tax_multiplier)}${multiplier.status === 'review' ? ' (review)' : ''}` : ''}
+                          </em>
+                        </button>
+                      </li>
+                    )
+                  })}
+                  {shownProducts.length === 0 && <li className="tax-calc__hint">No product matches “{productFilter}”.</li>}
+                </ul>
+              )}
+            </div>
+
+            {product && (
+              <div className="tax-calc__selected">
+                <strong>{product.name}</strong>{' '}
+                <span>
+                  {origin} → {destination}
+                </span>
+                <small>
+                  {product.category || 'Uncategorized'}
+                  {product.hsCode ? ` · HS ${product.hsCode}` : ''}
+                  {product.priceUsdPerKg != null ? ` — ${origin} price ${formatCurrencyValue(product.priceUsdPerKg, 'USD')}/kg (${product.source})` : ''}
+                </small>
+                {isFile && line && (
+                  <>
+                    <small>
+                      Tariff line <strong>{line.code}</strong> — {line.path}
+                    </small>
+                    {lineNote && <small>{lineNote}</small>}
+                    {candidates.length > 1 && (
+                      <label className="tax-calc__price-choice">
+                        Another tariff line for this product
+                        <select value={line.code} onChange={(event) => chooseLine(event.target.value)}>
+                          {candidates.map((item) => (
+                            <option key={item.code} value={item.code}>
+                              {item.code} — {item.path}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </>
+                )}
+                {isFile && !line && lineNote && <small>{lineNote}</small>}
+              </div>
+            )}
+
+            {product && (
+              <div className="tax-calc__form">
+                <label>
+                  Price per kg (USD)
+                  <input type="number" min="0" step="any" value={form.price} onChange={(event) => setForm({ price: event.target.value })} />
+                </label>
+                {destination === 'Jamaica' && (
+                  <label className="tax-calc__check">
+                    <input type="checkbox" checked={form.commercial} onChange={(event) => setForm({ commercial: event.target.checked })} /> Registered commercial importer
+                  </label>
+                )}
+                {!(price > 0) && <span className="tax-calc__hint">Enter the price of 1 kg to calculate the taxes.</span>}
+              </div>
+            )}
+
+            {isDian && product && <DianLookupPanel flow={dianFlow} productName={product.name} />}
+          </section>
+
+          {result && (
+            <section className="tax-calc__result" aria-label="Result">
+              <div className="tax-calc__headline">
+                <div className="tax-calc__total tax-calc__total--final">
+                  <span>1 kg with import taxes paid</span>
+                  <strong>{usd(result.landedUsd, 3)}</strong>
+                  <em>
+                    {result.country} · per 1 kg, in USD
+                  </em>
+                </div>
+                <div className="tax-calc__total">
+                  <span>Import taxes per kg{result.complete ? '' : ' (at least — see warnings)'}</span>
+                  <strong>{usd(result.totalTaxUsd, 3)}</strong>
+                  <em>{result.multiplier != null && `tax multiplier ${formatMultiplier(result.multiplier)} (${result.pctOfGoods?.toLocaleString('en-US')}% of the goods value)`}</em>
+                </div>
+              </div>
+              <table className="tax-calc__table">
+                <thead>
+                  <tr>
+                    <th>Tax</th>
+                    <th>Rate</th>
+                    <th>Charged on</th>
+                    <th>Calculation</th>
+                    <th className="is-num">Amount (USD)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="tax-calc__basis">
+                    <td colSpan={3}>{result.valueBasis.name}</td>
+                    <td>{result.valueBasis.formula}</td>
+                    <td className="is-num">{usd(result.valueBasis.amountUsd)}</td>
+                  </tr>
+                  {result.taxes.map((tax) => (
+                    <tr key={tax.name} className={tax.recoverable ? 'is-recoverable' : ''}>
+                      <td>
+                        {tax.name}
+                        {tax.note && <small>{tax.note}</small>}
+                      </td>
+                      <td>{tax.rate}</td>
+                      <td>{tax.basis}</td>
+                      <td>{tax.formula}</td>
+                      <td className="is-num">{usd(tax.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <table className="tax-calc__table tax-calc__final" aria-label="Cost of 1 kg">
+                <caption>Cost of 1 kg</caption>
+                <tbody>
+                  <tr>
+                    <td>Goods</td>
+                    <td className="is-num">{usd(result.goodsUsd, 3)}</td>
+                  </tr>
+                  <tr>
+                    <td>+ Import taxes{result.complete ? '' : ' (at least)'}</td>
+                    <td className="is-num">{usd(result.totalTaxUsd, 3)}</td>
+                  </tr>
+                  <tr className="tax-calc__final-total">
+                    <td>= 1 kg with import taxes paid</td>
+                    <td className="is-num">{usd(result.landedUsd, 3)}</td>
+                  </tr>
+                  {result.taxes.some((tax) => tax.recoverable) && (
+                    <tr className="is-recoverable">
+                      <td>Cash paid at the border also includes the advance payments marked above (credited later, so not part of the cost)</td>
+                      <td className="is-num">{usd(result.taxes.filter((tax) => tax.recoverable).reduce((sum, tax) => sum + tax.amount, 0))}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <p className="tax-calc__hint">Freight, insurance, broker, handling and inland transport are not included — they belong to the logistics module.</p>
+              {result.notes.length > 0 && (
+                <ul className="tax-calc__notes">
+                  {result.notes.map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ul>
+              )}
+              {result.warnings.length > 0 && (
+                <ul className="tax-calc__warnings">
+                  {result.warnings.map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ul>
+              )}
+              <p className="tax-calc__hint">Source: {result.sources.join('; ')}.</p>
+            </section>
+          )}
+
+          {history.length > 0 && (
+            <section className="tax-calc__section" aria-label="Products calculated">
+              <h4>
+                Products calculated{' '}
+                <button type="button" className="tax-calc__link" onClick={clearHistory}>
+                  Clear all
+                </button>
+              </h4>
+              <ul className="tax-calc__history">
+                {history.map((entry) => (
+                  <li key={entry.id}>
+                    <button type="button" onClick={() => loadHistory(entry)} title="Open this calculation">
+                      <strong>{entry.product?.name}</strong>
                       <span>
-                        {item.category || 'Uncategorized'}
-                        {item.hsCode ? ` · HS ${item.hsCode}` : ''}
+                        {entry.origin || '—'} → {entry.destination} · per kg: taxes {formatCurrencyValue(entry.result.totalTaxUsd, 'USD')} · with taxes {formatCurrencyValue(entry.result.landedUsd, 'USD')}
                       </span>
-                      <em>
-                        {item.priceUsdPerKg != null ? `${formatCurrencyValue(item.priceUsdPerKg, 'USD')}/kg` : 'no price per kg'}
-                        {multiplier && multiplier.tax_multiplier != null ? ` · taxes ${formatMultiplier(multiplier.tax_multiplier)}${multiplier.status === 'review' ? ' (review)' : ''}` : ''}
-                      </em>
+                      <em>{new Date(entry.savedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</em>
+                    </button>
+                    <button type="button" className="tax-calc__remove" onClick={() => removeHistory(entry.id)} aria-label="Remove this calculation">
+                      ×
                     </button>
                   </li>
-                )
-              })}
-              {shownProducts.length === 0 && <li className="tax-calc__hint">No product matches “{productFilter}”.</li>}
-            </ul>
+                ))}
+              </ul>
+            </section>
           )}
-        </div>
-
-        <p className="tax-calc__or">…or any other product — search {destination || 'the destination'}’s tariff by name or code:</p>
-        <input type="text" className="tax-calc__search" value={query} onChange={(event) => update({ query: event.target.value })} placeholder="Product name (tomatoes, chicken wings…) or tariff code (0702…)" aria-label="Search the tariff" />
-        {searching && <p className="tax-calc__hint">Searching…</p>}
-        {lines && lines.length === 0 && <p className="tax-calc__hint">No tariff line matches “{query}”. Try another word, or a code.</p>}
-        {lines && lines.length > 0 && (
-          <ul className="tax-calc__results">
-            {lines.map((item) => (
-              <li key={item.code}>
-                <button type="button" className={line?.code === item.code ? 'is-selected' : ''} onClick={() => chooseLine(item)}>
-                  <strong>{item.code}</strong>
-                  <span>{item.path}</span>
-                  <em>{item.summary}</em>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {priceChoices.length > 0 && (
-          <label className="tax-calc__price-choice">
-            Price per kg from {origin}’s portfolio
-            <select
-              value=""
-              onChange={(event) => {
-                const picked = priceChoices.find((p) => p.name === event.target.value)
-                if (picked) {
-                  update({ product: picked })
-                  setForm({ price: String(Number(picked.priceUsdPerKg.toFixed(4))) })
-                  setPriceChoices([])
-                }
-              }}
-            >
-              <option value="">Choose a product to fill in its price…</option>
-              {priceChoices.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name} — {formatCurrencyValue(p.priceUsdPerKg, 'USD')}/kg
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {line && (
-          <div className="tax-calc__selected">
-            <strong>{line.code}</strong> <span>{line.path}</span>
-            <em>{line.summary}</em>
-            {lineNote && <small>{lineNote}</small>}
-            {product && (
-              <small>
-                Product: {product.name}
-                {product.priceUsdPerKg != null ? ` — ${origin} price ${formatCurrencyValue(product.priceUsdPerKg, 'USD')}/kg (${product.source})` : ''}
-              </small>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="tax-calc__section">
-        <h4>3 · Quantity</h4>
-        <div className="tax-calc__form">
-          <label>
-            Price per kg (USD)
-            <input type="number" min="0" step="any" value={form.price} onChange={(event) => setForm({ price: event.target.value })} />
-          </label>
-          <label>
-            Quantity (kg)
-            <input type="number" min="0" step="any" value={form.quantity} onChange={(event) => setForm({ quantity: event.target.value })} />
-          </label>
-          {line?.units && line.units.toLowerCase() !== 'kg' && (
-            <label>
-              Quantity in {line.units}
-              <input type="number" min="0" step="any" value={form.units} onChange={(event) => setForm({ units: event.target.value })} />
-            </label>
-          )}
-          <label className="tax-calc__check">
-            <input type="checkbox" checked={form.commercial} onChange={(event) => setForm({ commercial: event.target.checked })} /> Registered commercial importer
-          </label>
-        </div>
-        <div className="tax-calc__actions">
-          <button type="button" className="tax-calc__primary" onClick={calculate} disabled={!canCalculate}>
-            Calculate taxes
-          </button>
-          {goods != null && <span className="tax-calc__hint">Goods value: {formatCurrencyValue(goods, 'USD')}</span>}
-          {!line && <span className="tax-calc__hint">Choose a product or a tariff line first.</span>}
-          <button type="button" className="tax-calc__link" onClick={() => update({ product: null, line: null, lineNote: '', query: '', form: EMPTY_FORM, result: null })}>
-            Clear
-          </button>
-        </div>
-      </section>
-
-      {result && (
-        <section className="tax-calc__result" aria-label="Result">
-          <div className="tax-calc__headline">
-            <div className="tax-calc__total tax-calc__total--final">
-              <span>Cost of the goods with import taxes paid</span>
-              <strong>{money(result.landed_cost_usd)}</strong>
-              <em>{result.inputs.quantity_kg > 0 && `${money(result.landed_cost_usd / result.inputs.quantity_kg, 3)} per kg`}</em>
-            </div>
-            <div className="tax-calc__total">
-              <span>Import taxes{result.complete ? '' : ' (at least — see warnings)'}</span>
-              <strong>{money(result.total_tax_usd)}</strong>
-              <em>
-                {result.total_per_kg_usd != null && `${formatCurrencyValue(result.total_per_kg_usd, 'USD', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} per kg · `}
-                {resultMultiplier != null && `tax multiplier ${formatMultiplier(resultMultiplier)} (${result.total_pct_of_goods?.toLocaleString('en-US')}% of the goods value)`}
-              </em>
-            </div>
-          </div>
-          <table className="tax-calc__table">
-            <thead>
-              <tr>
-                <th>Tax</th>
-                <th>Rate</th>
-                <th>Charged on</th>
-                <th>Calculation</th>
-                <th className="is-num">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="tax-calc__basis">
-                <td colSpan={3}>{result.value_basis.name}</td>
-                <td>{result.value_basis.formula}</td>
-                <td className="is-num">{formatCurrencyValue(result.value_basis.amount_usd, 'USD')}</td>
-              </tr>
-              {result.taxes.map((tax) => (
-                <tr key={tax.name} className={tax.recoverable ? 'is-recoverable' : ''}>
-                  <td>
-                    {tax.name}
-                    {tax.note && <small>{tax.note}</small>}
-                  </td>
-                  <td>{tax.rate}</td>
-                  <td>{tax.basis}</td>
-                  <td>{tax.formula}</td>
-                  <td className="is-num">{money(tax.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <table className="tax-calc__table tax-calc__final" aria-label="Cost of the goods">
-            <caption>Cost of the goods</caption>
-            <tbody>
-              <tr>
-                <td>Goods</td>
-                <td className="is-num">{money(result.inputs.goods_value_usd)}</td>
-              </tr>
-              <tr>
-                <td>+ Import taxes{result.complete ? '' : ' (at least)'}</td>
-                <td className="is-num">{money(result.total_tax_usd)}</td>
-              </tr>
-              <tr className="tax-calc__final-total">
-                <td>= Cost with import taxes paid</td>
-                <td className="is-num">{money(result.landed_cost_usd)}</td>
-              </tr>
-              {result.inputs.quantity_kg > 0 && (
-                <tr className="tax-calc__final-total">
-                  <td>Per kg ({result.inputs.quantity_kg.toLocaleString('en-US')} kg)</td>
-                  <td className="is-num">{money(result.landed_cost_usd / result.inputs.quantity_kg, 3)}</td>
-                </tr>
-              )}
-              {result.taxes.some((tax) => tax.recoverable) && (
-                <tr className="is-recoverable">
-                  <td>Cash paid at the border also includes the advance payments marked above (credited later, so not part of the cost)</td>
-                  <td className="is-num">{money(result.taxes.filter((tax) => tax.recoverable).reduce((sum, tax) => sum + tax.amount, 0))}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <p className="tax-calc__hint">Freight, insurance, broker, handling and inland transport are not included — they belong to the logistics module.</p>
-          {result.notes.length > 0 && (
-            <ul className="tax-calc__notes">
-              {result.notes.map((text) => (
-                <li key={text}>{text}</li>
-              ))}
-            </ul>
-          )}
-          {result.warnings.length > 0 && (
-            <ul className="tax-calc__warnings">
-              {result.warnings.map((text) => (
-                <li key={text}>{text}</li>
-              ))}
-            </ul>
-          )}
-          <p className="tax-calc__hint">Source: {result.sources.join('; ')}.</p>
-        </section>
-      )}
-
-      {history.length > 0 && (
-        <section className="tax-calc__section" aria-label="Calculations performed">
-          <h4>
-            Calculations performed{' '}
-            <button type="button" className="tax-calc__link" onClick={clearHistory}>
-              Clear all
-            </button>
-          </h4>
-          <ul className="tax-calc__history">
-            {history.map((entry) => (
-              <li key={entry.id}>
-                <button type="button" onClick={() => loadHistory(entry)} title="Open this calculation">
-                  <strong>{entry.product?.name || entry.line?.path?.split(' > ').pop() || entry.line?.code}</strong>
-                  <span>
-                    {entry.origin || '—'} → {entry.destination} · {Number(entry.result.inputs.quantity_kg).toLocaleString('en-US')} kg · taxes {formatCurrencyValue(entry.result.total_tax_usd, 'USD')} · with taxes{' '}
-                    {formatCurrencyValue(entry.result.landed_cost_usd, 'USD')}
-                  </span>
-                  <em>{new Date(entry.savedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</em>
-                </button>
-                <button type="button" className="tax-calc__remove" onClick={() => removeHistory(entry.id)} aria-label="Remove this calculation">
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
         </>
       )}
     </div>

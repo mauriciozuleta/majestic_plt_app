@@ -10,6 +10,10 @@ from sqlalchemy.orm import Session
 from .. import models, tax_calc
 from ..database import get_db
 from ..tax_calc import Inputs, mapping
+from ..tax_calc.colombia_dian import import_taxes as dian_import_taxes
+from ..tax_calc.colombia_dian.dian_types import TaxLookupRequest
+from ..tax_calc.colombia_dian.service import jobs as dian_jobs
+from ..tax_calc.colombia_dian.service import service as dian_service
 
 router = APIRouter()
 
@@ -175,3 +179,62 @@ def suggest_line(country: str, name: str, hs_code: str | None = None, origin: st
     candidates = [calculator.get(line['code']) for line in mapping.lines_for_hs(calculator, hs_code)][:30]
     chosen = calculator.get(computed['tariff_code']) if computed.get('tariff_code') else None
     return {'line': chosen, 'method': computed.get('method'), 'status': computed['status'], 'note': computed.get('note'), 'candidates': [c for c in candidates if c]}
+
+
+# ---------------------------------------------------------------- Colombia (DIAN WebArancel): Gravamen + IVA of an HS code
+# backend/tax_calc/colombia_dian/ — Playwright reproduces the user workflow on DIAN's tariff consultation. A lookup takes ~5-20 s, so the UI
+# starts a job and polls it for progress; the GET variant waits for the answer (scripts, tests). See that folder's README.md.
+
+
+class DianLookupIn(BaseModel):
+    hsCode: str
+    date: str | None = None
+    forceRefresh: bool = False
+    debug: bool = False
+
+
+class DianBatchIn(BaseModel):
+    hsCodes: list[str] = Field(min_length=1, max_length=100)
+    date: str | None = None
+    concurrency: int = Field(default=1, ge=1, le=2)
+    delayMs: int = Field(default=1500, ge=0, le=60000)
+    forceRefresh: bool = False
+
+
+class DianCalculateIn(BaseModel):
+    customsValue: float = Field(ge=0)
+    gravamen: dict | None = None  # one TaxValue (the row the user chose, or the only valid one)
+    iva: dict | None = None
+    ivaStatus: str = 'listed'
+
+
+@router.post('/tax-calc/colombia/dian/lookups')
+def start_dian_lookup(payload: DianLookupIn):
+    job = dian_jobs.start_lookup('CO', payload.hsCode, payload.date, payload.forceRefresh, payload.debug)
+    return {'jobId': job['id'], 'status': job['status']}
+
+
+@router.post('/tax-calc/colombia/dian/batch')
+def start_dian_batch(payload: DianBatchIn):
+    job = dian_jobs.start_batch('CO', payload.hsCodes, payload.date, payload.concurrency, payload.delayMs, payload.forceRefresh)
+    return {'jobId': job['id'], 'status': job['status']}
+
+
+@router.get('/tax-calc/colombia/dian/jobs/{job_id}')
+def get_dian_job(job_id: str):
+    job = dian_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail='Unknown or expired lookup job.')
+    return job
+
+
+@router.post('/tax-calc/colombia/dian/calculate')
+def calculate_dian_taxes(payload: DianCalculateIn):
+    """The pure calculator (no network): customs value + the Gravamen and IVA the user is working with."""
+    return dian_import_taxes.calculate_import_taxes(payload.customsValue, payload.gravamen, payload.iva, payload.ivaStatus)
+
+
+@router.get('/tax-calc/colombia/dian/{hs_code}')
+def lookup_dian(hs_code: str, date: str | None = None, forceRefresh: bool = False):
+    """Waits for the lookup and returns the TaxLookupResult."""
+    return dian_service.lookup(TaxLookupRequest(country='CO', hsCode=hs_code, date=date, forceRefresh=forceRefresh))

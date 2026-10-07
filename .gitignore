@@ -69,3 +69,6 @@ backend/documents/rag_files/
 
 # Tax calculator tariff data (USITC HTS download, Jamaica tariff copy) — re-created from the app's "Update tariff data"
 backend/documents/tax_data/
+
+# DIAN lookup debug snapshots (screenshots + HTML), only written in debug mode
+backend/tax_calc/colombia_dian/debug/

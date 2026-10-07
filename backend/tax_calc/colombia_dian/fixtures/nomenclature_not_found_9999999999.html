@@ -1,0 +1,867 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="es"><head>
+<title>Dirección de Impuestos y Aduanas Nacionales de Colombia</title>
+<link href="/WebArancel/estilosPortal/hojaEstiloDian.css" rel="stylesheet" type="text/css">
+<link href="/WebArancel/estilosPortal/styles.css" rel="stylesheet" type="text/css">
+<link href="/WebArancel/estilosPortal/transmenu.css" rel="stylesheet" type="text/css">
+<link href="/WebArancel/estilosPortal/menu.css" rel="stylesheet" type="text/css">
+<link href="/WebArancel/estilosPortal/detalles.css" rel="stylesheet" type="text/css">
+<link href="/WebArancel/estilosPortal/estilosRich.css" rel="stylesheet" type="text/css">
+
+<script type="text/javascript" async="" src="https://ssl.google-analytics.com/ga.js"></script><script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/ga.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/v2arregloflash.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/v21arregloflash.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/v22arregloflash.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/roll.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/transmenuC.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/expandingMenu.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/Menu.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/valbuscador.js"></script>
+<script language="javascript" type="text/javascript" src="/WebArancel/funcionesPortal/swfobject.js"></script>
+
+    <script type="text/javascript" src="/WebArancel/funciones/AdmTabla.js"></script>
+    <script type="text/javascript" src="/WebArancel/funciones/AdmLista.js"></script>
+    <script type="text/javascript" src="/WebArancel/funciones/Hashtable.js"></script>
+    <script type="text/javascript" src="/WebArancel/funciones/AdmFabricaMensajes.js"></script>
+    <script type="text/javascript" src="/WebArancel/funciones/AdmMensajes.js"></script>
+    <script type="text/javascript" src="/WebArancel/funciones/AdmValidaciones.js"></script>
+    <script type="text/javascript" src="/WebArancel/javascript/PasswordRules.js"></script>
+    <script type="text/javascript" src="/WebArancel/funciones/Menu.js"></script>
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-29697470-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+<script type="text/javascript" language="javascript">
+function funcion1() { 
+	//document.getElementById('buscador').action = 'nombre_pagina2';
+	document.getElementById('TablaBusca').submit();
+	//return true;
+} 
+
+function fondo(){
+
+document.getElementById("TablaBusca").setAttribute("style", "background-image:url(images/basebuscar.jpg);");
+
+}
+
+
+
+</script>
+
+	<script language="javascript" type="text/javascript">
+		function raiz() {
+			if(document.getElementById("raiz").style.display=='none') {
+				document.getElementById("raiz").style.display='block';
+			}else{
+				document.getElementById("raiz").style.display='none';
+			}
+		}
+		
+		
+		function iniciar() {
+		//aleatorio();
+		init();
+		//initMenu("lista_izq");
+		initMenu("lista_izq2");
+		sfHover("lista_izq");
+		sfHover("lista_izq2");
+		}
+	</script>
+	<script language="javascript" type="text/javascript">
+	function aleatorio() {
+			{
+			var now = new Date();
+			//var sec_divide = now.getSeconds();
+			//rnd_number = Math.floor(sec_divide/13); // /20=0, 1, 2 /10=0, 1, 2, 3, 4, 5 etc...
+			rnd_number = Math.floor(Math.random()*69);
+			//alert (rnd_number);
+			document.write('<img src="images/fotos/foto' + rnd_number +'.jpg">');
+			}
+		}
+	function imagenes(imagen,mensaje,ancho,alto){
+		document.write("<img src='"+imagen+"' alt='"+mensaje+"' width='"+ancho+"' height='"+alto+"' title='"+mensaje+"' border='0' usemap='#Map'/>");
+	}
+
+	</script>
+	<script language="JavaScript" type="text/javascript"> 
+		function blockError(){return true;}
+		window.onerror = blockError;
+	</script>
+<script type="text/javascript">
+
+    function sfHover(caja) {
+	var sfEls = document.getElementById(caja).getElementsByTagName("LI");
+	for (var i=0; i<sfEls.length; i++) {
+		sfEls[i].onmouseover=function() {
+			this.className+=" sfhover";
+		}
+		sfEls[i].onmouseout=function() {
+			this.className=this.className.replace(new RegExp(" sfhover\\b"), "");
+		}
+	}
+}
+
+function MM_findObj(n, d) { //v4.01
+  var p,i,x;  if(!d) d=document; if((p=n.indexOf("?"))>0&&parent.frames.length) {
+    d=parent.frames[n.substring(p+1)].document; n=n.substring(0,p);}
+  if(!(x=d[n])&&d.all) x=d.all[n]; for (i=0;!x&&i<d.forms.length;i++) x=d.forms[i][n];
+  for(i=0;!x&&d.layers&&i<d.layers.length;i++) x=MM_findObj(n,d.layers[i].document);
+  if(!x && d.getElementById) x=d.getElementById(n); return x;
+}
+
+//--><!]]>
+
+function MM_swapImgRestore() { //v3.0
+  var i,x,a=document.MM_sr; for(i=0;a&&i<a.length&&(x=a[i])&&x.oSrc;i++) x.src=x.oSrc;
+}
+
+function MM_preloadImages() { //v3.0
+  var d=document; if(d.images){ if(!d.MM_p) d.MM_p=new Array();
+    var i,j=d.MM_p.length,a=MM_preloadImages.arguments; for(i=0; i<a.length; i++)
+    if (a[i].indexOf("#")!=0){ d.MM_p[j]=new Image; d.MM_p[j++].src=a[i];}}
+}
+
+function MM_swapImage() { //v3.0
+  var i,j=0,x,a=MM_swapImage.arguments; document.MM_sr=new Array; for(i=0;i<(a.length-2);i+=3)
+   if ((x=MM_findObj(a[i]))!=null){document.MM_sr[j++]=x; if(!x.oSrc) x.oSrc=x.src; x.src=a[i+2];}
+}
+//-->
+</script>
+<script type="text/javascript">
+swfobject.embedSWF("inicio_files/infantil.swf", "f_infantil", "170", "120", "8.0.0");
+swfobject.embedSWF("inicio_files/Botones_redes_sociales.swf", "f_redes", "170", "60", "8.0.0");
+</script>
+<style type="text/css">#img0{filter: alpha(opacity=0);-moz-opacity: 0;opacity: 0;}</style>
+<style type="text/css">#img1{filter: alpha(opacity=0);-moz-opacity: 0;opacity: 0;}</style>
+<style type="text/css">
+#img2{filter: alpha(opacity=0);-moz-opacity: 0;opacity: 0;}
+</style>
+</head>
+<body onload="iniciar();MM_preloadImages('images/botmuis20.gif','images/botayudaroll.jpg');initi();">
+<script type="text/javascript" language="javascript">
+fondo();
+
+</script>
+
+<table class="padded-table" width="960" align="center">
+  <tbody><tr>
+   <td class="borde_izquierdo" width="1"> </td>
+   <td colspan="2">
+	    <div id="cabezote" class="cabezote3">
+	    </div>	
+     </td>	 
+   <td class="borde_derecho" width="2"></td>
+  </tr>
+  <!-- bandera-->
+  <tr>
+   <td class="td" width="1"> </td>
+   <td colspan="2" class="td"></td>
+   <td class="td" width="2"></td>
+  </tr>
+ <!-- botones de flash--> 
+   <tr>
+   <td class="borde_izquierdo" width="1">&nbsp;</td>
+   <td colspan="2" class="td">
+   		<table class="padded-table" style="border: 0pt none;" width="100%">
+		<tbody><tr>
+		<td>
+		<div id="botonera" class="dibujo">
+	<!-- 	<div id="wrap" align="center"> -->
+			<div id="menu">
+		<!-- Estaba en este lado -->
+
+				
+								
+				<a class="" id="sobre"><img src="/WebArancel/imagenesPortal/sobreladian.jpg" alt="Sobre la DIAN" name="Menu1" border="0" height="30" width="120"></a>
+				
+				
+				<a id="normatividad"><img src="/WebArancel/imagenesPortal/normatividad.jpg" alt="Normatividad" name="Menu2" border="0" height="30" width="120"></a>
+				
+				
+				<a id="cifras"><img src="/WebArancel/imagenesPortal/cifras.jpg" alt="Cifras y Gestión" name="Menu3" border="0" height="30" width="120"></a>
+				
+				
+				<a id="servicios"><img src="/WebArancel/imagenesPortal/servicios.jpg" alt="Servicios al Ciudadano" name="Menu4" border="0" height="30" width="120"></a>
+				
+				
+				<a class="" id="contratacion"><img src="/WebArancel/imagenesPortal/contratacion.jpg" alt="Contratación" name="Menu5" border="0" height="30" width="120"></a>
+				
+				
+				<a class="" id="ventas"><img src="/WebArancel/imagenesPortal/ventas.jpg" alt="Ventas y Remates" name="Menu6" border="0" height="30" width="120"></a>			 </div>
+			</div>
+		<!--	</div>		-->
+			<script language="javascript" type="text/javascript">
+	// set up drop downs anywhere in the body of the page. I think the bottom of the page is better.. 
+	// but you can experiment with effect on loadtime.
+	if (TransMenu.isSupported()) {
+
+		//==================================================================================================
+		// create a set of dropdowns
+		//==================================================================================================
+		// the first param should always be down, as it is here
+		//
+		// The second and third param are the top and left offset positions of the menus from their actuators
+		// respectively. To make a menu appear a little to the left and bottom of an actuator, you could use
+		// something like -5, 5
+		//
+		// The last parameter can be .topLeft, .bottomLeft, .topRight, or .bottomRight to inidicate the corner
+		// of the actuator from which to measure the offset positions above. Here we are saying we want the 
+		// menu to appear directly below the bottom left corner of the actuator
+		//==================================================================================================
+		var ms = new TransMenuSet(TransMenu.direction.down, 1, 0, TransMenu.reference.bottomLeft);
+
+		//==================================================================================================
+		// create a dropdown menu
+		//==================================================================================================
+		// the first parameter should be the HTML element which will act actuator for the menu
+		//==================================================================================================
+				
+		//==================================================================================================
+
+		//==================================================================================================
+		var menu2 = ms.addMenu(document.getElementById("sobre"));
+		menu2.addItem("Presentaci&oacute;n","http://www.dian.gov.co/contenidos/sobredian/presenta.html");
+		menu2.addItem("Despacho Director","http://www.dian.gov.co/contenidos/sobredian/despacho.html");
+		menu2.addItem("Nuestra Gente","http://www.dian.gov.co/contenidos/sobredian/gente.html");
+		menu2.addItem("Planes de Mejoramiento","http://www.dian.gov.co/dian/14cifrasgestion.nsf/PlanesMejoramiento?openForm");
+		menu2.addItem("Calidad y Control","http://www.dian.gov.co/contenidos/sobredian/calidadycontrol.html");
+		menu2.addItem("Modelo de excelencia","http://www.dian.gov.co/contenidos/sobredian/modelo_excelencia.html");
+		
+		//==================================================================================================
+
+		//==================================================================================================
+		var menu3 = ms.addMenu(document.getElementById("normatividad"));
+		menu3.addItem("T&eacute;cnica","http://www.dian.gov.co/contenidos/normas/tecnica.html");
+		menu3.addItem("Convenios","http://www.dian.gov.co/contenidos/normas/convenios.html");
+
+		
+		//==================================================================================================
+
+		//==================================================================================================
+		var menu4 = ms.addMenu(document.getElementById("cifras"));
+		menu4.addItem("Estad&iacute;sticas","http://www.dian.gov.co/contenidos/cifras/estadisticas.html");
+		menu4.addItem("Gesti&oacute;n y Control","http://www.dian.gov.co/contenidos/cifras/gestion.html");
+		menu4.addItem("Rendici&oacute;n de Cuentas","http://www.dian.gov.co/contenidos/cifras/rendicion.html");
+		menu4.addItem("Entidades de Control","http://www.dian.gov.co/contenidos/cifras/entidades.html");
+		menu4.addItem("Estados Financieros","http://www.dian.gov.co/dian/14cifrasgestion.nsf/pages/Estados_Financieros?openDocument");
+		menu4.addItem("Presupuesto","http://www.dian.gov.co/contenidos/sobredian/presupuesto.html");
+		menu4.addItem("Informe Evaluaci&oacute;n SCI","http://www.dian.gov.co/dian/14cifrasgestion.nsf/pages/Informe_evaluacion_SCI?OpenDocument");
+		//menu4.addItem("Pormenorizado 2011","http://www.dian.gov.co/dian/14cifrasgestion.nsf/pages/Pormenorizado?OpenDocument");
+		
+		//==================================================================================================
+
+		//==================================================================================================
+		var menu5 = ms.addMenu(document.getElementById("servicios"));
+		menu5.addItem("Tr&aacute;mites","http://www.dian.gov.co/contenidos/servicios/tramites.html");
+		menu5.addItem("Publicaciones","http://www.dian.gov.co/contenidos/servicios/publicaciones.html");
+		menu5.addItem("Formularios","http://www.dian.gov.co/contenidos/servicios/formularios.html");
+		menu5.addItem("Quejas y soluciones","http://www.dian.gov.co/contenidos/servicios/quejas_y_soluciones.html");
+		menu5.addItem("Preguntas frecuentes","http://www.dian.gov.co/DIAN/15Servicios.nsf/PreguntasF?OpenView");
+		menu5.addItem("Glosario","http://www.dian.gov.co/dian/12SobreD.nsf/pages/Glosario_DIAN");
+		//==================================================================================================
+
+		//==================================================================================================
+		var menu6 = ms.addMenu(document.getElementById("contratacion"));
+		menu6.addItem("Modalidades de Selecci&oacute;n","http://www.dian.gov.co/contenidos/contratacion/bienes.html");
+		menu6.addItem("Plan de Compras","http://www.dian.gov.co/contenidos/contratacion/compras.html");
+		menu6.addItem("Hist&oacute;rico","http://www.dian.gov.co/contenidos/contratacion/historico.html");
+		menu6.addItem("CSIGPN", "http://www.dian.gov.co/contenidos/contratacion/csigpn.html");	
+		//menu6.addItem("Estudios de Mercado", "http://www.dian.gov.co/descargas/Contratacion/Estudios/Convocatoria_Estudios_de_mercados_2011.pdf");
+		
+		//==================================================================================================
+
+		//==================================================================================================
+		var menu7 = ms.addMenu(document.getElementById("ventas"));
+		menu7.addItem("Inmuebles, mercancias y vehículos","http://www.dian.gov.co/contenidos/ventas/ventas.html");
+		//menu7.addItem("Servicios","http://www.dian.gov.co/Content/ventas/servicios.htm");
+		//menu7.addItem("Servicios","http://www.dian.gov.co/Content/ventas/servicios.htm");
+		
+		//==================================================================================================
+
+		//==================================================================================================
+		// write drop downs into page
+		//==================================================================================================
+		// this method writes all the HTML for the menus into the page with document.write(). It must be
+		// called within the body of the HTML page.
+		//==================================================================================================
+		TransMenu.renderAll();
+	}
+	</script><div id="TransMenu0" class="transMenu top" style="width: 4px; height: 4px; visibility: hidden;"><div class="content" style="width: 2px; height: 2px; top: -4px;"><table class="items" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Presentación</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Despacho Director</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Nuestra Gente</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Planes de Mejoramiento</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Calidad y Control</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Modelo de excelencia</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr></tbody></table><div class="shadowBottom" style="top: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="shadowRight" style="left: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="background" style="width: 0px; height: 0px; background-color: rgb(230, 242, 237);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div></div></div><div id="TransMenu1" class="transMenu top" style="width: 4px; height: 4px; visibility: hidden;"><div class="content" style="width: 2px; height: 2px; top: -4px;"><table class="items" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Técnica</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Convenios</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr></tbody></table><div class="shadowBottom" style="top: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="shadowRight" style="left: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="background" style="width: 0px; height: 0px; background-color: rgb(230, 242, 237);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div></div></div><div id="TransMenu2" class="transMenu top" style="width: 4px; height: 4px; visibility: hidden;"><div class="content" style="width: 2px; height: 2px; top: -4px;"><table class="items" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Estadísticas</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Gestión y Control</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Rendición de Cuentas</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Entidades de Control</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Estados Financieros</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Presupuesto</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Informe Evaluación SCI</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr></tbody></table><div class="shadowBottom" style="top: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="shadowRight" style="left: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="background" style="width: 0px; height: 0px; background-color: rgb(230, 242, 237);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div></div></div><div id="TransMenu3" class="transMenu top" style="width: 4px; height: 4px; visibility: hidden;"><div class="content" style="width: 2px; height: 2px; top: -4px;"><table class="items" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Trámites</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Publicaciones</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Formularios</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Quejas y soluciones</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Preguntas frecuentes</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Glosario</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr></tbody></table><div class="shadowBottom" style="top: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="shadowRight" style="left: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="background" style="width: 0px; height: 0px; background-color: rgb(230, 242, 237);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div></div></div><div id="TransMenu4" class="transMenu top" style="width: 4px; height: 4px; visibility: hidden;"><div class="content" style="width: 2px; height: 2px; top: -4px;"><table class="items" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Modalidades de Selección</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Plan de Compras</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Histórico</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">CSIGPN</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr></tbody></table><div class="shadowBottom" style="top: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="shadowRight" style="left: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="background" style="width: 0px; height: 0px; background-color: rgb(230, 242, 237);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div></div></div><div id="TransMenu5" class="transMenu top" style="width: 4px; height: 4px; visibility: hidden;"><div class="content" style="width: 2px; height: 2px; top: -4px;"><table class="items" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr><tr class="item"><td nowrap="" style="padding:3px; padding-left:8px;">Inmuebles, mercancias y vehículos</td><td width="14" style="padding:3px; padding-right:8px;"><img src="/WebArquitectura/imagenesPortal/x.gif" width="14" height="14"></td></tr><tr><td colspan="2"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="5"></td></tr></tbody></table><div class="shadowBottom" style="top: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="shadowRight" style="left: 0px; background-color: rgb(136, 136, 136);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div><div class="background" style="width: 0px; height: 0px; background-color: rgb(230, 242, 237);"><img src="/WebArquitectura/imagenesPortal/x.gif" width="1" height="1"></div></div></div>
+						<div style="width: 185px; height: 134px; visibility: hidden; left: 309px; top: 139px; z-index: 103;" id="TransMenu0" class="transMenu top">
+						<div style="width: 183px; height: 132px; top: -132px;" class="content">
+						<table class="items" border="0" cellpadding="0" cellspacing="0">
+							<tbody>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Presentación</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Despacho
+									Director</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Nuestra
+									Gente</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Planes
+									de Mejoramiento</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Calidad
+									y Control</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Modelo
+									de excelencia</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+							</tbody>
+						</table>
+						<div style="top: 130px; width: 178px; background-color: rgb(136, 136, 136);" class="shadowBottom"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="left: 181px; height: 129px; background-color: rgb(136, 136, 136);" class="shadowRight"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="width: 181px; height: 130px; background-color: rgb(230, 242, 237);" class="background"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						</div>
+						</div>
+						<div style="width: 108px; height: 54px; visibility: hidden;" id="TransMenu1" class="transMenu top">
+						<div style="width: 106px; height: 52px; top: -54px;" class="content">
+						<table class="items" border="0" cellpadding="0" cellspacing="0">
+							<tbody>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Técnica</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Convenios</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+							</tbody>
+						</table>
+						<div style="top: 50px; width: 101px; background-color: rgb(136, 136, 136);" class="shadowBottom"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="left: 104px; height: 49px; background-color: rgb(136, 136, 136);" class="shadowRight"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="width: 104px; height: 50px; background-color: rgb(230, 242, 237);" class="background"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						</div>
+						</div>
+						<div style="width: 181px; height: 174px; visibility: hidden;" id="TransMenu2" class="transMenu top">
+						<div style="width: 179px; height: 172px; top: -174px;" class="content">
+						<table class="items" border="0" cellpadding="0" cellspacing="0">
+							<tbody>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Estadísticas</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Gestión
+									y Control</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Rendición
+									de Cuentas</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Entidades
+									de Control</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Estados
+									Financieros</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Presupuesto</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Informe
+									Evaluación SCI</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<!-- 
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Pormenorizado
+									2011</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img
+										src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>  -->
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+							</tbody>
+						</table>
+						<div style="top: 170px; width: 174px; background-color: rgb(136, 136, 136);" class="shadowBottom"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="left: 177px; height: 169px; background-color: rgb(136, 136, 136);" class="shadowRight"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="width: 177px; height: 170px; background-color: rgb(230, 242, 237);" class="background"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						</div>
+						</div>
+						<div style="width: 168px; height: 134px; visibility: hidden;" id="TransMenu3" class="transMenu top">
+						<div style="width: 166px; height: 132px; top: -134px;" class="content">
+						<table class="items" border="0" cellpadding="0" cellspacing="0">
+							<tbody>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Trámites</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Publicaciones</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Formularios</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Quejas
+									y soluciones</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Preguntas
+									frecuentes</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Glosario</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+							</tbody>
+						</table>
+						<div style="top: 130px; width: 161px; background-color: rgb(136, 136, 136);" class="shadowBottom"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="left: 164px; height: 129px; background-color: rgb(136, 136, 136);" class="shadowRight"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="width: 164px; height: 130px; background-color: rgb(230, 242, 237);" class="background"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						</div>
+						</div>
+						<div style="width: 193px; height: 94px; visibility: hidden; left: 789px; top: 139px; z-index: 102;" id="TransMenu4" class="transMenu top">
+						<div style="width: 191px; height: 92px; top: -92px;" class="content">
+						<table class="items" border="0" cellpadding="0" cellspacing="0">
+							<tbody>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Modalidades
+									de Selección</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Plan
+									de Compras</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Histórico</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">CSIGPN</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+							</tbody>
+						</table>
+						<div style="top: 90px; width: 186px; background-color: rgb(136, 136, 136);" class="shadowBottom"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="left: 189px; height: 89px; background-color: rgb(136, 136, 136);" class="shadowRight"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="width: 189px; height: 90px; background-color: rgb(230, 242, 237);" class="background"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						</div>
+						</div>
+						<div style="width: 245px; height: 34px; visibility: hidden; left: 907px; top: 139px; z-index: 101;" id="TransMenu5" class="transMenu top">
+						<div style="width: 243px; height: 32px; top: -32px;" class="content">
+						<table class="items" border="0" cellpadding="0" cellspacing="0">
+							<tbody>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+								<tr class="item">
+									<td style="padding: 3px 3px 3px 8px;" nowrap="nowrap">Inmuebles,
+									mercancias y vehículos</td>
+									<td style="padding: 3px 8px 3px 3px;" width="14"><img src="/WebArancel/imagenesPortal/x.gif" height="14" width="14"></td>
+								</tr>
+								<tr>
+									<td colspan="2"><img src="/WebArancel/imagenesPortal/x.gif" height="5" width="1"></td>
+								</tr>
+							</tbody>
+						</table>
+						<div style="top: 30px; width: 238px; background-color: rgb(136, 136, 136);" class="shadowBottom"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="left: 241px; height: 29px; background-color: rgb(136, 136, 136);" class="shadowRight"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						<div style="width: 241px; height: 30px; background-color: rgb(230, 242, 237);" class="background"><img src="/WebArancel/imagenesPortal/x.gif" height="1" width="1"></div>
+						</div>
+						</div>
+
+						</td>
+		</tr>
+	  </tbody></table>   </td>
+   <td class="borde_derecho" width="2">&nbsp;</td>
+  </tr>
+  <tr class="borde_izquierdo">   
+      <td class="td" width="1"></td>
+  </tr>
+  <tr>
+   <td class="borde_izquierdo" width="1">&nbsp;</td>
+   <td class="td1" style="background-image: url(&quot;aditional_files/fondo_y.jpg&quot;); background-repeat: no-repeat;" width="200">
+
+			<script type="text/javascript">
+		
+				var menuMuisca = new dTree('menuMuisca');
+				menuMuisca.add(0, -1,'Usuarios registrados');
+				menuMuisca.add(1, 0,'Solicitud inscripci&oacute;n RUT', 'http://muisca.dian.gov.co/WebRutMuisca/DefInscripcionRut.faces', 'Solicitud inscripci&oacute;n RUT');
+				menuMuisca.add(2, 0,'Servicios Inform&aacute;ticos Electr&oacute;nicos', 'http://muisca.dian.gov.co', 'Diligenciamiento de documentos \nPresentaci&oacute;n Virtual de documentos \nPresentaci&oacute;n de Informaci&oacute;n por env&iacute;o de archivos (ex&oacute;gena) \nMecanismo de firma con certificado digital \nPrevalidadores de Datos para Presentaci&oacute;n de Informaci&oacute;n \nPrograma de ayuda renta  \nPortal DIAN \nObligaci&oacute;n Financiera \nCorrecci&oacute;n de inconsistencias');
+				menuMuisca.add(3, 0,'Salida  de mercanc&iacute;as', 'http://salidademercancias.dian.gov.co', 'Salida de mercanc&iacute;as');
+				menuMuisca.add(4, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				menuMuisca.add(5, 0,'Renovaci&oacute;n de mecanismo digital','http://muisca.dian.gov.co','Renovaci&oacute;n de mecanismo digital');
+				menuMuisca.add(6, 0,'Comentarios y Quejas','http://muisca.dian.gov.co/WebSolicitudesexternas/DefMenuSolicitudNS.faces','Comentarios y Quejas');
+				
+                //document.write(menuMuisca);
+				
+				
+				var menuMuisca2 = new dTree('menuMuisca2');
+				menuMuisca2.add(1, 0,'Servicios Inform&aacute;ticos Electr&oacute;nicos', 'http://muisca.dian.gov.co', 'Diligenciamiento de documentos \nPresentaci&oacute;n Virtual de documentos \nPresentaci&oacute;n de Informaci&oacute;n por env&iacute;o de archivos (ex&oacute;gena) \nMecanismo de firma con certificado digital \nPrevalidadores de Datos para Presentaci&oacute;n de Informaci&oacute;n \nPrograma de ayuda renta  \nPortal DIAN \nObligaci&oacute;n Financiera \nCorrecci&oacute;n de inconsistencias');
+				menuMuisca2.add(2, 0,'Salida  de mercanc&iacute;as', 'http://salidademercancias.dian.gov.co', 'Salida de mercanc&iacute;as');
+				menuMuisca2.add(3, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				menuMuisca2.add(4, 0,'Renovaci&oacute;n de mecanismo digital','http://muisca.dian.gov.co','Renovaci&oacute;n de mecanismo digital');
+				menuMuisca2.add(5, 0,'Comentarios y Quejas','http://muisca.dian.gov.co/WebSolicitudesexternas/DefMenuSolicitudNS.faces','Comentarios y Quejas');
+				
+				var menuMuisca6 = new dTree('menuMuisca6');
+				menuMuisca6.add(1, 0,'Servicios Inform&aacute;ticos Electr&oacute;nicos', 'http://muisca.dian.gov.co', 'Diligenciamiento de documentos \nPresentaci&oacute;n Virtual de documentos \nPresentaci&oacute;n de Informaci&oacute;n por env&iacute;o de archivos (ex&oacute;gena) \nMecanismo de firma con certificado digital \nPrevalidadores de Datos para Presentaci&oacute;n de Informaci&oacute;n \nPrograma de ayuda renta  \nPortal DIAN \nObligaci&oacute;n Financiera \nCorrecci&oacute;n de inconsistencias');
+				menuMuisca6.add(2, 0,'Salida  de mercanc&iacute;as', 'http://salidademercancias.dian.gov.co', 'Salida de mercanc&iacute;as');
+				menuMuisca6.add(3, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				
+				var menuMuisca7 = new dTree('menuMuisca7');
+				menuMuisca7.add(1, 0,'Servicios Inform&aacute;ticos Electr&oacute;nicos', 'http://muisca.dian.gov.co', 'Diligenciamiento de documentos \nPresentaci&oacute;n Virtual de documentos \nPresentaci&oacute;n de Informaci&oacute;n por env&iacute;o de archivos (ex&oacute;gena) \nMecanismo de firma con certificado digital \nPrevalidadores de Datos para Presentaci&oacute;n de Informaci&oacute;n \nPrograma de ayuda renta  \nPortal DIAN \nObligaci&oacute;n Financiera \nCorrecci&oacute;n de inconsistencias');
+				menuMuisca7.add(2, 0,'Salida  de mercanc&iacute;as', 'http://salidademercancias.dian.gov.co', 'Salida de mercanc&iacute;as');
+				menuMuisca7.add(3, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				menuMuisca7.add(4, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				menuMuisca7.add(5, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				menuMuisca7.add(6, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				menuMuisca7.add(7, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				menuMuisca7.add(8, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				
+				var menuMuisca8 = new dTree('menuMuisca8');
+				menuMuisca8.add(1, 0,'Servicios Inform&aacute;ticos Electr&oacute;nicos', 'http://muisca.dian.gov.co', 'Diligenciamiento de documentos \nPresentaci&oacute;n Virtual de documentos \nPresentaci&oacute;n de Informaci&oacute;n por env&iacute;o de archivos (ex&oacute;gena) \nMecanismo de firma con certificado digital \nPrevalidadores de Datos para Presentaci&oacute;n de Informaci&oacute;n \nPrograma de ayuda renta  \nPortal DIAN \nObligaci&oacute;n Financiera \nCorrecci&oacute;n de inconsistencias');
+				menuMuisca8.add(2, 0,'Salida  de mercanc&iacute;as', 'http://salidademercancias.dian.gov.co', 'Salida de mercanc&iacute;as');
+				menuMuisca8.add(3, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				
+				var menuMuisca9 = new dTree('menuMuisca9');
+				menuMuisca9.add(1, 0,'Servicios Inform&aacute;ticos Electr&oacute;nicos', 'http://muisca.dian.gov.co', 'Diligenciamiento de documentos \nPresentaci&oacute;n Virtual de documentos \nPresentaci&oacute;n de Informaci&oacute;n por env&iacute;o de archivos (ex&oacute;gena) \nMecanismo de firma con certificado digital \nPrevalidadores de Datos para Presentaci&oacute;n de Informaci&oacute;n \nPrograma de ayuda renta  \nPortal DIAN \nObligaci&oacute;n Financiera \nCorrecci&oacute;n de inconsistencias');
+				menuMuisca9.add(2, 0,'Salida  de mercanc&iacute;as', 'http://salidademercancias.dian.gov.co', 'Salida de mercanc&iacute;as');
+				menuMuisca9.add(3, 0,'Importaci&oacute;n - carga','http://importacionescarga.dian.gov.co','Importaci&oacute;n - carga');
+				
+				
+				//document.write(menuMuisca2);
+				
+		
+				var menuMuisca1 = new dTree('menuMuisca1');
+				menuMuisca1.add(0, -1,'Otros servicios inform&aacute;ticos');
+				menuMuisca1.add(1, 0,'Descarga Prevalidadores', '', 'Descarga Prevalidadores');
+				//menuMuisca1.add(2, 1,'Tributarios','', 'Descarga Prevalidador de Convenios');				
+				menuMuisca1.add(2,1,'Contingencia Carga &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>(Versi&oacute;n optimizada)','http://www.dian.gov.co/descargas/prevalidador/2010/PrevalidadorContingenciaCarga_2010_v1.1_(Optimizada).exe','Descarga Prevalidador Contingencia Carga versi&oacute;n optimizada - Enero 01  de 2010');
+				menuMuisca1.add(3, 1,'Importaci&oacute;n Carga &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>(Versi&oacute;n optimizada)','http://www.dian.gov.co/descargas/prevalidador/2010/PrevalidadorProcesoDeCarga_2010_v1.6_Optimizada.exe','Descarga Prevalidador Importaci&oacute;n Carga versi&oacute;n optimizada - Enero 18 de 2010');
+				menuMuisca1.add(4, 1,'Salida de mercanc&iacute;as','http://www.dian.gov.co/descargas/prevalidador/2011/Prevalidador_ProcesoSalidaMercancias_2011_v1.12.exe','Descarga Prevalidador Salida de mercanc&iacute;as - Septiembre 22 de 2011');
+				menuMuisca1.add(5, 1,'Declaraci&oacute;n de Exportaci&oacute;n','http://www.dian.gov.co/descargas/prevalidador/2010/Prevalidador_DeclaracionExportacion_Dex_2010_v2.2.exe','Descarga Prevalidador Declaraci&oacute;n de Exportaci&oacute;n - Abril 09 de 2010');
+				menuMuisca1.add(6, 1,'Frigor&iacute;ficos y pieles','http://www.dian.gov.co/descargas/prevalidador/2008/PrevalidadorAnimalesyPieles_2008_v1.1.exe','Descarga Prevalidador Frigor&iacute;ficos y pieles - Julio 28 de 2009')
+				menuMuisca1.add(7, 1,'Convenios 2008 - 2011', 'http://www.dian.gov.co/descargas/prevalidador/2008/PrevalidadorConvenios_2008_V2.1.exe', 'Descarga Prevalidador Convenios de Cooperaci&oacute;n - Septiembre 09 de 2008');
+				menuMuisca1.add(8, 1,'Informaci&oacute;n Tributaria &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Vigencia 2010)','http://www.dian.gov.co/descargas/prevalidador/2011/Prevalidador_DIAN_Tributario_2011_v1.4.exe','Descarga Prevalidador informaci&oacute;n Tributaria vigencia 2010 - Agosto 09 de 2011');	
+				menuMuisca1.add(9, 1,'Informaci&oacute;n Tributaria &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Vigencia 2009)','http://www.dian.gov.co/descargas/prevalidador/2010/Prevalidador_DIAN_Tributario_2010_v1.2.exe','Descarga Prevalidador informaci&oacute;n Tributaria vigencia 2009 - Abril 06 de 2010');				
+				menuMuisca1.add(10, 1,'Informaci&oacute;n Tributaria &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Vigencia 2008)','http://www.dian.gov.co/descargas/prevalidador/2008/Prevalidador_DIAN_Tributario_2009_v2.5.exe','Descarga Prevalidador informaci&oacute;n Tributaria vigencia 2008 - Abril 02 de 2009');
+				menuMuisca1.add(11, 1,'Informaci&oacute;n Tributaria &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Vigencia 2007)', 'http://www.dian.gov.co/descargas/prevalidador/2007/Prevalidador_DIAN_Tributario_2008_v1.2.exe', 'Descarga Prevalidador informaci&oacute;n Tributaria Vigencia 2007 - Febrero 02 de 2009');
+				menuMuisca1.add(12, 1,'Declaraci&oacute;n Juegos de Suerte &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y Azar)', 'http://www.dian.gov.co/descargas/prevalidador/2011/Prevalidador_DIAN_Declaracion_JuegosdeSuerteyAzar_2011_v1.3.exe', 'Descarga Prevalidador Declaraci&oacute;n Juegos de Suerte y Azar Marzo 08 de 2011');				
+				menuMuisca1.add(13, 1,'Precios de Transferencia &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(A&ntilde;o gravable 2010)', 'http://www.dian.gov.co/descargas/prevalidador/2011/Prevalidador_Precios_Transferencia_2011_v1.0.exe', 'Descarga Prevalidador de Precios de Transferencia (A&ntilde;o gravable 2010)- Junio 24 de 2011');
+				menuMuisca1.add(14, 1,'Precios de Transferencia &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(A&ntilde;o gravable 2009)', 'http://www.dian.gov.co/descargas/prevalidador/2010/PrevalidadorPreciosTransferencia_2010_V1.0.exe', 'Descarga Prevalidador de Precios de Transferencia (A&ntilde;o gravable 2009)- Junio 24 de 2010');
+				menuMuisca1.add(15, 1,'Informaci&oacute;n Cambiaria', 'http://www.dian.gov.co/descargas/prevalidador/2011/PrevalidadorCambiario_2011_V2.4.exe', 'Descarga Prevalidador de Informaci&oacute;n Cambiaria - Marzo 10 de 2011');
+				menuMuisca1.add(16, 1,'Hojas 2 formularios 520 y 540 <br> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(A partir del 01 Octubre de &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2008)', 'http://www.dian.gov.co/descargas/prevalidador/2008/PrevalidadorAduanero_2008_V1.1.exe', 'Descarga prevalidador para hojas 2 formularios 520 y 540 (A partir del 01 Octubre de 2008)');
+				menuMuisca1.add(17, 1,'Certificado al proveedor 2008', 'http://www.dian.gov.co/descargas/prevalidador/2008/PrevalidadorCertificadoProveedor_2009_v1.4.exe', 'Descarga prevalidador Certificado al proveedor 2008 - Agosto 06 de 2009');
+				menuMuisca1.add(18, 1,'Cuadro Insumo Producto','http://www.dian.gov.co/descargas/prevalidador/2010/Prevalidador_DIAN_Cip_2010_v1.2.exe','Descarga prevalidador Cuadro Insumo Producto - Febrero 23 de 2010');
+				menuMuisca1.add(19, 1,'Factura electr&oacute;nica','http://www.dian.gov.co/descargas/prevalidador/2011/PrevalidadorFacturacionElectronica_2008_v1.1.exe','Descarga prevalidador Factura electr&oacute;nica - Agosto 25 de 2011');				
+				menuMuisca1.add(20, 1,'Componente MSXML Microsoft', 'http://www.microsoft.com/downloads/details.aspx?displaylang=es&FamilyID=3144B72B-B4F2-46DA-B4B6-C5D7485F2B42', 'Descarga componente MSXML - Microsoft');
+		 
+				menuMuisca1.add(21, 0,'Descarga Programa Ayuda Renta', 'http://www.dian.gov.co/dian/12sobred.nsf/programarenta?openview', 'Descarga Programa Ayuda Renta');
+				
+				menuMuisca1.add(22, 0,'SIEX', 'http://websiex.dian.gov.co', 'SIEX');
+				
+				menuMuisca1.add(23, 0,'Operaci&oacute;n Aduanera', 'http://www.dian.gov.co/dian/20dian-virtual.nsf/pages/operacion_aduanera?opendocument', 'Operaci&oacute;n Aduanera');
+				
+				menuMuisca1.add(24, 0,'Tablas Param&eacute;tricas','http://muisca.dian.gov.co/WebParametrizacion/DefSelProcesoTblsParametricas.faces','Consulte las tablas param&eacute;tricas');
+				//menuMuisca1.add(25, 0,'Capacitaci&oacute;n', 'http://www.dian.gov.co/Content/dianvirtual/capacitacion.htm', 'Capacitaci&oacute;n');
+				menuMuisca1.add(26, 0,'Chat Contact Center', 'http://190.70.103.101/dianchat/', 'Chat Contact Center');
+				menuMuisca1.add(27, 0,'Foro Dian', 'http://190.242.54.244:8060/foro', 'Foro Dian');
+				//menuMuisca1.add(28, 0,'Funcionarios Autorizados Jornadas', 'http://jornadas.dian.gov.co:20480/WebDiligenciamiento/DefInfAutorizacion.faces', 'Funcionarios Autorizados Jornadas');//
+				
+				//document.write(menuMuisca1);
+			  </script>
+              
+    <div class="dtree">
+    <div id="on_line">Servicios en línea</div>
+    
+    <div class="dTreeRoot" id="menuMuisca2x"><a href="http://muisca.dian.gov.co/WebRutMuisca/DefInscripcionRutPortal.faces"><img src="/WebArancel/imagenesPortal/inscripcion_rut.jpg" alt="Inscripción RUT" title="Inscripción RUT" border="0" height="47" width="200"></a></div>
+    
+    	<div class="dTreeRoot" id="menuMuisca9x"><a href="http://muisca.dian.gov.co/WebArquitectura/DefNuevosUsuarios.faces"><img src="/WebArancel/imagenesPortal/usuariosnuevos.jpg" alt="Usuarios nuevos" title="Usuarios nuevos" border="0" height="47" width="200"></a></div>
+
+        
+        <div class="dTreeRoot" id="menuMuisca"><a href="http://muisca.dian.gov.co/WebArquitectura/DefLogin.faces"><img src="/WebArancel/imagenesPortal/usuariosregistrados.jpg" alt="Usuarios registrados" title="Usuarios registrados" border="0" height="47" width="200"></a></div>
+        
+        <div class="dTreeRoot" id="menuMuisca4x"><a href="http://www.dian.gov.co/contenidos/servicios/guia.html"><img src="/WebArancel/imagenesPortal/serviciosenlinea.jpg" alt="Guía de Servicios en Línea" title="Guía de Servicios en Línea" height="47" width="200"></a></div>
+        
+        <div class="dTreeRoot" id="menuMuisca6x"><a href="http://www.dian.gov.co/contenidos/otros/consulta_de_arancel.html"><img src="/WebArancel/imagenesPortal/gestionaduanera.jpg" alt="Sistema de Gestión Aduanera" title="Sistema de Gestión Aduanera" border="0" height="47" width="200"></a></div>
+        
+
+        
+        <div class="dTreeRoot" id="menuMuisca1x" onclick="raiz();" style="cursor:pointer;"></div>
+        <div id="raiz" style="display:none;">
+        <div id="dmenuMuisca10" class="clip" style="display:block;">
+
+            
+            
+        <div id="dmenuMuisca11" class="clip" style="display:none;">
+
+        
+			</div>
+            
+            
+            <div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca121" class="node" href="http://www.dian.gov.co/contenidos/otros/prevalidadores.html" title="Prevalidadores" onclick="javascript: menuMuisca1.s(21);">Prevalidadores</a></div>
+    
+            <div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca122" class="node" href="http://websiex.dian.gov.co/" title="SIEX" onclick="javascript: menuMuisca1.s(22);">SIEX</a></div>
+            
+            <div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca123" class="node" href="http://muisca.dian.gov.co/WebArancel/DefMenuConsultas.faces" title="Operación Aduanera" onclick="javascript: menuMuisca1.s(23);">Consulta de arancel</a></div>
+            
+            <div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca124" class="node" href="http://muisca.dian.gov.co/WebParametrizacion/DefSelProcesoTblsParametricas.faces" title="Consulte las tablas paramétricas" onclick="javascript: menuMuisca1.s(24);">Tablas Paramétricas</a></div>
+            
+            <div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca125" class="node" href="http://muisca.dian.gov.co/WebRutMuisca/DefConsultaEstadoRUT.faces" title="Consulte el estado de su RUT" onclick="javascript: menuMuisca1.s(24);">Consulta Estado RUT</a></div>
+            
+            <div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca126" class="node" href="http://muisca.dian.gov.co/WebGestionmasiva/DefSelPublicacionesExterna.faces" title="Consulte de Inconsistencias" onclick="javascript: menuMuisca1.s(24);">Consulta de Inconsistencias</a></div>
+            
+            <div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca127" class="node" href="https://certificadosdeorigen.dian.gov.co/autocalificacion/Admonform03/scripts_php/consulta.php" title="Consulte Declaración Juramentada Determinación de Orígen" onclick="javascript: menuMuisca1.s(24);">Declaración Juramentada Determinación de Orígen</a></div>
+            
+            <div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca128" class="node" href="http://muisca.dian.gov.co/WebArquitectura/DefVerificarSistema.faces" title="Verifique su Sistema para Firma" onclick="javascript: menuMuisca1.s(24);">Verificar su Sistema para Firma</a></div>
+
+           <!-- <div class="dTreeNode" onMouseOver="this.className='dTreeNodeHover'" onMouseOut="this.className='dTreeNode'"><img src="/WebArancel/imagenesPortal/botEmpty.gif" alt=""><img src="/WebArancel/imagenesPortal/botEmpty10.gif" alt=""><a id="smenuMuisca128" class="node" href="http://jornadas.dian.gov.co:20480/WebDiligenciamiento/DefInfAutorizacion.faces" title="Consulte los Funcionarios Autorizados Jornadas" onClick="javascript: menuMuisca1.s(24);">Funcionarios Autorizados Jornadas</a></div>-->
+        <!--    <div class="dTreeNode" onMouseOver="this.className='dTreeNodeHover'" onMouseOut="this.className='dTreeNode'" style="display:none;"><img src="inicio_files/botEmpty.gif" alt=""><img src="inicio_files/botEmpty10.gif" alt=""><a id="smenuMuisca125" class="node" href="contenidos/otros/capacitacion.html" title="Capacitación" onClick="javascript: menuMuisca1.s(25);">Capacitación</a></div>-->
+        
+        </div>
+        </div>
+    	<div id="on_line2">Destacados del mes</div>
+                <div class="dTreeRoot" id="menuMuisca5x"><a href="http://muisca.dian.gov.co/WebArquitectura/mecanismodigital/DescargaFirmaDigital.html"><img src="/WebArancel/imagenesPortal/firmadigital.jpg" alt="Firma digital" title="Firma digital" border="0" height="47" width="200"></a></div>
+        
+        <div class="dTreeRoot" id="menuMuisca7x"><a href="http://muisca.dian.gov.co/WebArquitectura/consultarut/DescargaRut.html"><img src="/WebArancel/imagenesPortal/copiarut.jpg" alt="Solicite su copia del RUT en dos pasos" title="Solicite su copia del RUT en dos pasos" border="0" height="47" width="200"></a></div>
+        
+         <div class="dTreeRoot" id="menuMuisca7x"><a href="http://muisca.dian.gov.co/WebArquitectura/DefPasswordRecuperacion.faces"><img src="/WebArancel/imagenesPortal/olvido.jpg" alt="Recuperar Contraseña" title="Recuperar su Contraseña" border="0" height="47" width="200"></a></div>
+    
+	</div>
+ 	<div id="novedadesservicio">
+ 	  <h3>Novedades de los <br>
+ 	    servicios en línea</h3>   
+    </div>
+	</td>
+
+	
+	<!-- FIN PARTE  IZQUIERDA -->  
+	
+   <td class="td2" width="760">
+      <table>
+<tbody>
+<tr>
+<td><script type="text/javascript">
+
+
+      function validarCodigoNomenclatura(){
+        if(document.getElementById("vistaConsultaGeneralNomenclaturas:formConsultaNomenclaturas:codNomenclatura").value.length >= 2){
+          return true;
+        }else{
+          var unaFabricaMensajes = new DFabricaMensajes();
+          var unMensaje = unaFabricaMensajes.getMensaje(0,COD_TIPO_ERROR,"Consulta general","Ingrese mínimo un capítulo","Error");
+          miGestorMensajes.agregarMensaje(unMensaje);
+          miGestorMensajes.mostrarMensaje();
+          return false;
+        }
+      }
+
+      </script></td>
+</tr>
+</tbody>
+</table>
+<form id="vistaSalidaLugarEmbarque:formConsultaNomenclaturas" method="post" action="/WebArancel/DefConsultaGeneralNomenclaturas.faces" enctype="application/x-www-form-urlencoded">
+<table summary="" class="padded-table" width="100%" style="border:0;">
+				<tbody>
+			  	 	<tr>
+						<td class="migas_pan" style="font-family:Arial, Helvetica, sans-serif; font-size:12px;"><span class="migas_donde">¿Dónde estoy?: </span>
+						<span class="migas_inicio"><a href="http://www.dian.gov.co/" style="font-family:Arial, Helvetica, sans-serif; font-size:12px;">Inicio</a> </span>
+						<span class="migas_separador">| </span><span class="migas_item"><a href="DefMenuConsultas.faces">Consultas Arancel</a></span>
+						<span class="migas_separador">| </span><span class="migas_item">Consulta general de la nomenclatura</span>
+						</td>
+		      		</tr>
+              		<tr>
+              			<td class="muisca_area_pequena" style="font-family:Arial, Helvetica, sans-serif; font-size:12px;"><h1>Consulta general de la nomenclatura</h1>
+                  		<h2 style="font-family:Arial, Helvetica, sans-serif; font-size:12px;">servicios en línea muisca</h2></td>
+              		</tr>
+			  		<tr>
+			  			<td style="padding-left:80px !important;"> <table class="formulario_muisca" width="100%">
+<tbody>
+<tr>
+<td><table class="formulario_muisca">
+<tbody>
+<tr>
+<td class="tdFilaIzqConsulta">Código nomenclatura:</td>
+<td class="tdCuerpoConsulta"><table class="consulta">
+<tbody>
+<tr>
+<td class="tdCuerpoConsulta"><input id="vistaSalidaLugarEmbarque:formConsultaNomenclaturas:codNomenclatura" type="text" name="vistaSalidaLugarEmbarque:formConsultaNomenclaturas:codNomenclatura" labeldisplay="Código" value="9999999999" size="20"></td>
+<td class="tdCuerpoConsulta">Ingrese mínimo un capítulo</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<table style="text-align:center;" width="100%">
+<tbody>
+<tr>
+<td><input id="vistaSalidaLugarEmbarque:formConsultaNomenclaturas:btConsultarNomenclatura" type="image" src="/WebArancel/imagenes/es/botones/botbuscar.gif" name="vistaSalidaLugarEmbarque:formConsultaNomenclaturas:btConsultarNomenclatura" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbuscar.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" onclick="if(!validarCodigoNomenclatura())return false"></td>
+</tr>
+</tbody>
+</table>
+<table id="tblMensajes" style="display:none"><tbody><tr><td>5</td><td>2</td><td>Consulta General</td><td>No existen nomenclaturas.</td><td></td><td></td></tr></tbody></table></td></tr></tbody></table> <input type="hidden" name="com.sun.faces.VIEW" value="REDACTED">
+ <input type="hidden" name="vistaSalidaLugarEmbarque:formConsultaNomenclaturas" id="vistaSalidaLugarEmbarque:formConsultaNomenclaturas" value="vistaSalidaLugarEmbarque:formConsultaNomenclaturas"></form>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+  
+
+  
+  
+  	
+
+  
+
+    
+
+      
+        
+        
+          
+          
+        
+
+        
+        
+          
+        
+      
+
+    
+	
+        
+      
+
+    
+
+	
+   
+
+
+   </td>
+	
+   <td class="borde_derecho">&nbsp;</td>
+  </tr>
+
+  <tr>
+   <td class="borde_izquierdo">&nbsp;</td>
+   <td colspan="2" class="borde_inferior_nuevo"><table width="100%" border="0" cellspacing="0" cellpadding="0" class="creditos_pie">
+     <tbody><tr>
+       <td>© Derechos Reservados DIAN - Dirección de Impuestos y Aduanas Nacionales</td>
+       <td align="right"><strong>2012</strong></td>
+     </tr>
+   </tbody></table></td>
+   <td class="borde_derecho">&nbsp;</td>
+  </tr>  
+  
+</tbody></table>    
+    
+  <table width="960" border="0" align="center" cellpadding="0" cellspacing="0" class="fuera_tabla">
+  <tbody><tr>
+    <td><p>Última actualización 15 de Diciembre de 2011 - <a href="http://www.dian.gov.co/dian/12SobreD.nsf/pages/Politicas_Privacidad?OpenDocument" class="Estilo4">Políticas de privacidad y términos de uso</a> | <a href="#" class="Estilo4">Mapa del sitio</a> | <a href="http://horalegal.sic.gov.co/" class="Estilo4">Hora Legal Colombiana</a></p>
+      <p><strong>Sede principal</strong>: Bogotá, <a href="http://www.dian.gov.co/dian/12sobred.nsf/pages/fun-directivos?opendocument" class="Estilo4"> Nivel Central</a>,
+        carrera 8 Nº 6 - 64 edificio San Agustín; PBX (57+1) 6079999; fax 
+        (57+1) 3337841; <br>
+        <strong>Contac Center para Bogotá:</strong> 057(1)  3256800; <strong>Línea 
+        gratuita nacional:</strong> 01 8000 -129080; horario de atención: lunes a sábado de 
+    6:00a.m. a 10:00 p.m.<br>
+    <strong>Correo electrónico de contacto:</strong> <a href="mailto:asistencia@dian.gov.co" class="Estilo4">asistencia@dian.gov.co</a> | <a href="http://www.dian.gov.co/dian/12sobred.nsf/fc22bc5cf1ab7bfa05257030005c2805/3e315db03d8bf330052570ff00500892?OpenDocument" class="Estilo4">Puntos de contacto</a></p></td>
+  </tr>
+</tbody></table>
+
+<map name="Map"><area shape="rect" coords="2,2,86,42" href="http://www.dian.gov.co/Content/ayuda/ayuda.htm" alt="Ayuda">
+<area shape="rect" coords="92,2,183,43" href="http://www.dian.gov.co/Content/ingles/presentation.htm" alt="English release">
+</map>
+<map name="Map2"><area shape="rect" coords="86,9,166,79" href="http://wsp.presidencia.gov.co/Paginas/Presidencia.aspx" target="_blank" alt="Presidencia de la República">
+<area shape="rect" coords="195,5,260,78" href="http://www.urnadecristal.gov.co/" target="_blank" alt="Urna de Cristal">
+<area shape="rect" coords="296,7,393,83" href="http://www.gobiernoenlinea.gov.co/home_ciudadanos.aspx" target="_blank" alt="Gobierno en Línea">
+<area shape="rect" coords="420,4,522,81" href="http://wcoomdpublications.org/online-db/hs-database.html?id=21&amp;selected=cat1&amp;submenu=2&amp;___store=espagnol&amp;p=1" target="_blank" alt="Organización Mundial de Aduanas">
+<area shape="rect" coords="540,13,636,72" href="http://www.contratos.gov.co" target="_blank" alt="Portal de la Contratación Pública">
+<area shape="rect" coords="344,98,524,151" href="http://www.servicioalciudadano.gov.co/" target="_blank" alt="Programa Nacional de Servicio al Ciudadano">
+<area shape="rect" coords="554,97,710,150" href="http://www.pte.gov.co/index.htm" target="_blank" alt="Portal de Transparencia Económica">
+<area shape="rect" coords="178,98,316,148" href="http://www.dian.gov.co/content/defensoria/index.htm" target="_blank" alt="Defensoría del Contribuyente y el Usuario Aduanero">
+<area shape="rect" coords="2,103,149,148" href="http://www.dian.gov.co/descargas/publicidad/campana_UIAF/base_uiaf.swf" target="_blank" alt="Unidad de Información y Análisis Financiero">
+</map>
+<script type="text/javascript">manejarMensajes();</script><table><tbody><tr><td id="tdFrameMensaje"><div id="divMensajeShadow" style="position:absolute; width:400px; height:280px; left:500px; top:375px;z-index:2;  filter:alpha(opacity=50);-moz-opacity: 0.5;opacity: 0.5; "></div><div id="divMensaje" style="position:absolute;left:490px; top:365px;width:400px; height:280px; z-index:2;" class="drag"><table width="100%" border="0" style="background:url('imagenes/es/fondos/fondoMensajeError.gif') no-repeat right top;"><tbody><tr><td width="14%" rowspan="2">&nbsp;</td><td height="51" colspan="2">&nbsp;</td><td width="25%">&nbsp;</td></tr><tr><td height="19" colspan="2" align="left" valign="middle"><font face="Arial" size="1" color="#FFFFFF"><strong>ERROR</strong></font></td><td valign="bottom"><div align="center"><img src="imagenes/es/botones/botcerrarojo.gif" alt="" width="72" height="20" onmouseout="this.src = 'imagenes/es/botones/botcerrarojo.gif'" onmouseover="this.src = 'imagenes/es/botones/botrollover.gif'" onclick="cerrarLayer();"></div></td></tr><tr><td height="33" colspan="4" align="center" valign="middle"><font face="Arial" size="2" color="#000000"><strong>Consulta General</strong></font></td></tr><tr><td height="100" colspan="4" align="center"><div class="elDivScroll" style="width:360px; height:100px; overflow:auto; background-color:#ffffff; border:3px double #E2A0A0; filter:alpha(opacity=70);-moz-opacity: 0.7;opacity: 0.7;"><table><tbody><tr><td height="90" width="350px" align="justify" valign="middle"><font size="2" face="Arial">No existen nomenclaturas.</font></td></tr></tbody></table></div></td></tr><tr><td height="49" colspan="4" align="right" valign="top"></td></tr><tr><td height="27">&nbsp;</td><td width="30%" height="27">&nbsp;</td><td width="31%">&nbsp;</td><td height="27">&nbsp;</td></tr></tbody></table></div></td></tr></tbody></table>
+
+
+
+<script id="f5_cspm">(function(){var f5_cspm={f5_p:'FACBBKFANGAFLCDFMOODGMPDKHBFDMCMLEDBDJBDCGAMIDFCBAFFGEFCFINOGNFDMFIBAMIABMKJAIBIPIAAKMPPAPFJLJNDBABNHCIBGLBNCIDFPPHAEJLHLGCOOLIO',setCharAt:function(str,index,chr){if(index>str.length-1)return str;return str.substr(0,index)+chr+str.substr(index+1);},get_byte:function(str,i){var s=(i/16)|0;i=(i&15);s=s*32;return((str.charCodeAt(i+16+s)-65)<<4)|(str.charCodeAt(i+s)-65);},set_byte:function(str,i,b){var s=(i/16)|0;i=(i&15);s=s*32;str=f5_cspm.setCharAt(str,(i+16+s),String.fromCharCode((b>>4)+65));str=f5_cspm.setCharAt(str,(i+s),String.fromCharCode((b&15)+65));return str;},set_latency:function(str,latency){latency=latency&0xffff;str=f5_cspm.set_byte(str,40,(latency>>8));str=f5_cspm.set_byte(str,41,(latency&0xff));str=f5_cspm.set_byte(str,35,2);return str;},wait_perf_data:function(){try{var wp=window.performance.timing;if(wp.loadEventEnd>0){var res=wp.loadEventEnd-wp.navigationStart;if(res<60001){var cookie_val=f5_cspm.set_latency(f5_cspm.f5_p,res);window.document.cookie='f5avr0245619605aaaaaaaaaaaaaaaa_cspm_='+encodeURIComponent(cookie_val)+';path=/;'+'';}
+return;}}
+catch(err){return;}
+setTimeout(f5_cspm.wait_perf_data,100);return;},go:function(){var chunk=window.document.cookie.split(/\s*;\s*/);for(var i=0;i<chunk.length;++i){var pair=chunk[i].split(/\s*=\s*/);if(pair[0]=='f5_cspm'&&pair[1]=='1234')
+{var d=new Date();d.setTime(d.getTime()-1000);window.document.cookie='f5_cspm=;expires='+d.toUTCString()+';path=/;'+';';setTimeout(f5_cspm.wait_perf_data,100);}}}}
+f5_cspm.go();}());</script></body></html>

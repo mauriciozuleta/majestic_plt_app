@@ -6,6 +6,7 @@
   "scripts": {
     "predev": "npx kill-port 5173 8012 || true",
     "dev:frontend": "vite --host 0.0.0.0 --port 5173 --strictPort",
+    "test:dian-live": ".venv\\Scripts\\python.exe -W ignore backend/tests/run_dian_live.py",
     "dev:backend": "python -m uvicorn --app-dir . backend.main:app --reload --reload-dir backend --host 0.0.0.0 --port 8012",
     "dev": "concurrently -n FRONTEND,BACKEND -c blue,green \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "vite build",

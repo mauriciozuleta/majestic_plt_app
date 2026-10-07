@@ -1,0 +1,235 @@
+.dian__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.dian__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dian__form input {
+  min-width: 9rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.dian__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  color: var(--text-dim, var(--text-muted));
+}
+
+.dian__steps li::before {
+  content: '○ ';
+}
+
+.dian__steps li.is-done {
+  color: #4ade80;
+}
+
+.dian__steps li.is-done::before {
+  content: '✓ ';
+}
+
+.dian__steps li.is-current {
+  color: #fbbf24;
+}
+
+.dian__steps li.is-current::before {
+  content: '◔ ';
+}
+
+.dian__error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid #f87171;
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.dian__error pre {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+}
+
+.dian__selection ul,
+.dian__choose ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dian__selection button {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dian__selection button:hover {
+  border-color: #14b8a6;
+}
+
+.dian__selection button span {
+  color: var(--text-muted);
+}
+
+.dian__result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.dian__product {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.85rem;
+}
+
+.dian__product em {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.dian__taxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.6rem;
+}
+
+.dian__tax {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  padding: 0.6rem 0.75rem;
+}
+
+.dian__tax-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.dian__tax-rate {
+  font-size: 1.35rem;
+  color: var(--text-primary);
+}
+
+.dian__tax-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.dian__chip {
+  align-self: flex-start;
+  margin-top: 0.2rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+
+.dian__chip.is-excluded {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+}
+
+.dian__chip.is-exempt {
+  background: rgba(74, 222, 128, 0.18);
+  color: #4ade80;
+}
+
+.dian__choose {
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.07);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.dian__choose p {
+  margin: 0;
+}
+
+.dian__choose label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.dian__choose em {
+  color: var(--text-muted);
+}
+
+.dian__warnings {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #fbbf24;
+  font-size: 0.78rem;
+}
+
+.dian__note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dian__calc td:last-child {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.dian__source {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.dian__actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.dian__raw {
+  max-height: 22rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  font-size: 0.72rem;
+}

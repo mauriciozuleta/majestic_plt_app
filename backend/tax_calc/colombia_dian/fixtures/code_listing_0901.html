@@ -1,0 +1,360 @@
+<html><head><title>DIAN - MUISCA - OPERACION ADUANERA</title>
+        <link href="/WebArancel/estilos/tabla.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/tree.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/adminFunciones.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/estilosMuisca.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/estilosMuiscaV2.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/menu.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/arancel.css" rel="stylesheet" type="text/css">
+        <script type="text/javascript" src="/WebArancel/funciones/AdmReloj.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmTabla.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmLista.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/Hashtable.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmCalendario.js"></script></head><body onunload="terminarReloj()"><div onclick="bShow=true" id="calendar" class="drag" style="z-index:+999;position:absolute;visibility:hidden;"><table width="220" style="font-family:Arial;font-size:11px;border: 1px solid #A0A0A0;" bgcolor="#ffffff"><tbody><tr bgcolor="#2d5544"><td><table width="218"><tbody><tr><td style="padding:2px;font-family:Arial;font-size:11px;"><font color="#ffffff"><b><span id="caption"><span id="spanLeft" style="border:1px ;cursor:pointer" onmouseover="swapImage('changeLeft','botIzquierdo.gif');window.status='Presione para pasar al mes anterior. Deje presionado para pasar varios meses.'" onclick="decMonth()" onmouseout="clearInterval(intervalID1);swapImage('changeLeft','botIzquierdoRollOver.gif');window.status=''" onmousedown="clearTimeout(timeoutID1);timeoutID1=setTimeout('StartDecMonth()',500)" onmouseup="clearTimeout(timeoutID1);clearInterval(intervalID1)">&nbsp;<img id="changeLeft" src="imagenes/es/calendario/botIzquierdo.gif" width="10" height="11" border="0">&nbsp;</span>&nbsp;<span id="spanRight" style="border:1px ;cursor:pointer" onmouseover="swapImage('changeRight','botDerecho.gif');window.status='Presione para pasar al siguiente mes. Deje presionado para pasar varios meses.'" onmouseout="clearInterval(intervalID1);swapImage('changeRight','botDerechoRollOver.gif');window.status=''" onclick="incMonth()" onmousedown="clearTimeout(timeoutID1);timeoutID1=setTimeout('StartIncMonth()',500)" onmouseup="clearTimeout(timeoutID1);clearInterval(intervalID1)">&nbsp;<img id="changeRight" src="imagenes/es/calendario/botDerecho.gif" width="10" height="11" border="0">&nbsp;</span>&nbsp;<span id="spanMonth" style="border:1px ;cursor:pointer" onmouseover="swapImage('changeMonth','botBajo.gif');window.status='Presione para seleccionar un mes'" onmouseout="swapImage('changeMonth','botBajoRollOver.gif');window.status=''" onclick="popUpMonth()"><img id="changeMonth" src="imagenes/es/calendario/botBajo.gif" width="10" height="11" border="0"></span>&nbsp;<span id="spanYear" style="border:1px ;cursor:pointer" onmouseover="swapImage('changeYear','botBajo.gif');window.status='Presione para seleccionar un ano'" onmouseout="swapImage('changeYear','botBajoRollOver.gif');window.status=''" onclick="popUpYear()"><img id="changeYear" src="imagenes/es/calendario/botBajo.gif" width="10" height="11" border="0"></span>&nbsp;</span></b></font></td><td align="right"><a href="javascript:limpiarObjetoDestino()"><img id="imgLimpiar" src="imagenes/es/calendario/botLimpiar.gif" onmouseout="swapImage('imgLimpiar','botLimpiar.gif');" onmouseover="swapImage('imgLimpiar','botLimpiarRollOver.gif');" width="15" height="13" border="0"></a></td><td align="right"><a href="javascript:hideCalendar()"><img id="imgCerrar" src="imagenes/es/calendario/botCerrar.gif" width="15" onmouseout="swapImage('imgCerrar','botCerrar.gif');" onmouseover="swapImage('imgCerrar','botCerrarRollOver.gif');" height="13" border="0"></a></td></tr></tbody></table></td></tr><tr><td style="padding:5px" bgcolor="#ffffff"><span id="content"></span></td></tr><tr bgcolor="#f0f0f0"><td style="padding:5px" align="center"><span id="lblToday"><font color="#2d5544">Hoy es <a onmousemove="window.status='Ir al Mes Actual'" onmouseout="window.status=''" title="Ir al Mes Actual" style="text-decoration:none;color:black;" href="javascript:monthSelected=monthNow;yearSelected=yearNow;constructCalendar();">Mie, 7 Oct 2026</a></font></span></td></tr><tr bgcolor="#f0f0f0"><td style="padding:5px" align="center"><span id="lblUndefinedDate"></span></td></tr></tbody></table></div><div id="selectMonth" style="z-index:+999;position:absolute;visibility:hidden;"></div><div id="selectYear" style="z-index:+999;position:absolute;visibility:hidden;"></div>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmFabricaMensajes.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmMensajes.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmValidaciones.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/Menu.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/tooltip.js"></script><div id="ToolTip" style="position:absolute; z-index:99" class="drag"></div>
+
+    
+
+    
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr>
+        <td class="borde_izquierdo">&nbsp;</td>
+        <td width="760">
+        <!-- CONTENEDOR -->
+        <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+            <tbody><tr>
+            <td colspan="2" align="center">
+              
+              <img src="imagenes/es/fondos/v2/bg11.jpg" width="100%" height="130" align="top" alt=""></td>
+          </tr>
+          <tr>
+            <td colspan="2" align="center"><img src="imagenes/es/fondos/v2/bandera_lisa.jpg" width="100%" height="3" align="top" alt=""></td>
+          </tr>
+            <tr>
+
+              <td width="200" height="400" bgcolor="#EFEFEF" align="left" valign="top">
+                
+
+ <div class="dtree">
+    <script type="text/javascript">
+
+        var menuMuisca = new dTree('menuMuisca');
+        menuMuisca.add(0, -1,'DIAN - MUISCA - ARANCEL');
+
+        menuMuisca.add(1 ,  0, 'Consultas Arancel', '/WebArancel/DefMenuConsultas.faces', 'Consultas Arancel');
+        menuMuisca.add(2 ,  0, 'General', '/WebArancel/DefConsultaGeneralNomenclaturas.faces', 'General');
+        menuMuisca.add(3 ,  0, 'Por medidas', '/WebArancel/DefConsultaNomenclaturaPorCriterio.faces', 'Por medidas');
+        menuMuisca.add(4 ,  0, 'Por código de nomenclatura', '/WebArancel/DefConsultaNomenclaturaPorCodigo.faces', 'Por código de nomenclatura');
+        menuMuisca.add(5 ,  0, 'Estructura nomenclatura', '/WebArancel/DefConsultaEstructuraArancelaria.faces', 'Estructura nomenclatura');
+        menuMuisca.add(6 ,  0, 'Índice alfabético arancelario', '/WebArancel/DefConsultaIndiceAlfabetico.faces', 'Índice alfabético arancelario');
+        menuMuisca.add(6 ,  0, 'Reglas generales de la nomenclatura', '/WebArancel/DefResultadoReglasGenerales.faces', 'Reglas generales de la nomenclatura');
+        menuMuisca.add(7 ,  0, 'Por texto');
+        //menuMuisca.add(7 ,  0, 'Por texto', '/WebArancel/DefMenuConsultasTexto.faces', 'Por texto');
+        menuMuisca.add(8 ,  7, 'Descripción nomenclatura arancelaria', '/WebArancel/DefConsultaPorTextoDescNomenclatura.faces', 'Descripción nomenclatura arancelaria');
+        menuMuisca.add(9 ,  7, 'Índice alfabético arancelario', '/WebArancel/DefConsultaPorTextoIndiceAlfabetico.faces', 'Índice alfabético arancelario');
+
+        document.write(menuMuisca);
+
+     </script><div class="dtree">
+<div class="dTreeRoot" id="menuMuisca"><img id="imenuMuisca0" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt="">DIAN - MUISCA - ARANCEL</div><div id="dmenuMuisca0" class="clip" style="display:block;"><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca1" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca1" class="node" href="/WebArancel/DefMenuConsultas.faces" title="Consultas Arancel" onclick="javascript: menuMuisca.s(1);">Consultas Arancel</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca2" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca2" class="node" href="/WebArancel/DefConsultaGeneralNomenclaturas.faces" title="General" onclick="javascript: menuMuisca.s(2);">General</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca3" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca3" class="node" href="/WebArancel/DefConsultaNomenclaturaPorCriterio.faces" title="Por medidas" onclick="javascript: menuMuisca.s(3);">Por medidas</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca4" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca4" class="node" href="/WebArancel/DefConsultaNomenclaturaPorCodigo.faces" title="Por código de nomenclatura" onclick="javascript: menuMuisca.s(4);">Por código de nomenclatura</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca5" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca5" class="node" href="/WebArancel/DefConsultaEstructuraArancelaria.faces" title="Estructura nomenclatura" onclick="javascript: menuMuisca.s(5);">Estructura nomenclatura</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca6" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca6" class="node" href="/WebArancel/DefConsultaIndiceAlfabetico.faces" title="Índice alfabético arancelario" onclick="javascript: menuMuisca.s(6);">Índice alfabético arancelario</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca7" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca7" class="node" href="/WebArancel/DefResultadoReglasGenerales.faces" title="Reglas generales de la nomenclatura" onclick="javascript: menuMuisca.s(7);">Reglas generales de la nomenclatura</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><a href="javascript: menuMuisca.o(8);"><img id="jmenuMuisca8" src="/WebArquitectura/imagenes/es/botones/botFlechaLeft.gif" alt=""></a><img id="imenuMuisca8" src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><a href="javascript: menuMuisca.o(8);" class="node">Por texto</a></div><div id="dmenuMuisca8" class="clip" style="display:none;"><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca9" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca9" class="node" href="/WebArancel/DefConsultaPorTextoDescNomenclatura.faces" title="Descripción nomenclatura arancelaria" onclick="javascript: menuMuisca.s(9);">Descripción nomenclatura arancelaria</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca10" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca10" class="node" href="/WebArancel/DefConsultaPorTextoIndiceAlfabetico.faces" title="Índice alfabético arancelario" onclick="javascript: menuMuisca.s(10);">Índice alfabético arancelario</a></div></div></div></div>
+
+</div>
+
+
+
+
+
+
+
+
+
+              </td>
+
+              <td width="550" bgcolor="#FFFFFF" valign="top" style="padding: 5px;">
+                
+                  <table>
+<tbody>
+<tr>
+<td><script type="text/javascript">
+
+      function mostrarPerfil(ideNomenclatura){
+        document.getElementById("vistaResultadoConsNome:formResultadoConsNome:ideNomenclatura").value=ideNomenclatura;
+        document.getElementById("vistaResultadoConsNome:formResultadoConsNome:lnkConsultarPerfil").onclick();
+        return false;
+      }
+
+      function abrirVentanaMensajeMaximoRegistros(){
+        var unaFabricaMensajes = new DFabricaMensajes();
+        unMensaje = unaFabricaMensajes.getMensaje(0,COD_TIPO_CORRECTO,
+        "La consulta es demasiado grande" ,"Por favor afine los criterios de búsqueda, solo se mostrarán las primeras 66 páginas.","","");
+        miGestorMensajes.limpiarMensajes();
+        miGestorMensajes.agregarMensaje(unMensaje);
+        document.getElementById("vistaResultadoConsNome:formResultadoConsNome:mensajeRegistroMaximo").value=false;
+      }
+
+      </script></td>
+</tr>
+</tbody>
+</table>
+<form id="vistaResultadoConsNome:formResultadoConsNome" method="post" action="/WebArancel/DefResultadoConsNomenclaturas.faces" enctype="application/x-www-form-urlencoded">
+<a id="vistaResultadoConsNome:formResultadoConsNome:lnkConsultarPerfil" href="#" onclick="document.forms['vistaResultadoConsNome:formResultadoConsNome']['vistaResultadoConsNome:formResultadoConsNome:_idcl'].value='vistaResultadoConsNome:formResultadoConsNome:lnkConsultarPerfil'; document.forms['vistaResultadoConsNome:formResultadoConsNome'].submit();return false;"></a><input id="vistaResultadoConsNome:formResultadoConsNome:ideNomenclatura" type="hidden" name="vistaResultadoConsNome:formResultadoConsNome:ideNomenclatura"><input id="vistaResultadoConsNome:formResultadoConsNome:mensajeRegistroMaximo" type="hidden" name="vistaResultadoConsNome:formResultadoConsNome:mensajeRegistroMaximo" value="false"><table width="100%">
+<tbody>
+<tr>
+<td><span class="titulo2">Consulta código nomenclatura</span></td>
+</tr>
+</tbody>
+</table>
+<hr><table id="vistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas" width="100%">
+<thead>
+<tr><td class="" colspan="5" scope="colgroup"></td></tr><tr>
+          <th class="thNorm_16">Código</th>
+          <th class="thNorm_07">Comp</th>
+          <th class="thNorm_07">Supl</th>
+          <th class="thConsultaNorm">Designación de Mercancías</th>
+        </tr>
+</thead>
+<tbody>
+<tr>
+<td class="textoEnlace">0901</td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(395);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(395);return false;"></a></td>
+<td class="textoEnlace">Café, incluso tostado o descafeinado; cáscara y cascarilla de café; sucedáneos del café que contengan café en cualquier proporción.</td>
+</tr>
+<tr>
+<td class="textoEnlace"></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(3721);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(3721);return false;"></a></td>
+<td class="textoEnlace">- Café sin tostar:</td>
+</tr>
+<tr>
+<td class="textoEnlace">0901.11</td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(3724);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(3724);return false;"></a></td>
+<td class="textoEnlace">- - Sin descafeinar:</td>
+</tr>
+<tr>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37366);return false;">0901.11.10.00</a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37366);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37366);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37366);return false;">- - - Para siembra</a></td>
+</tr>
+<tr>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37368);return false;">0901.11.90.00</a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37368);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37368);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37368);return false;">- - - Los demás</a></td>
+</tr>
+<tr>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37378);return false;">0901.12.00.00</a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37378);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37378);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37378);return false;">- - Descafeinado</a></td>
+</tr>
+<tr>
+<td class="textoEnlace"></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(3728);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(3728);return false;"></a></td>
+<td class="textoEnlace">- Café tostado:</td>
+</tr>
+<tr>
+<td class="textoEnlace">0901.21</td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(3730);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(3730);return false;"></a></td>
+<td class="textoEnlace">- - Sin descafeinar:</td>
+</tr>
+<tr>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37388);return false;">0901.21.10.00</a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37388);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37388);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37388);return false;">- - - En grano</a></td>
+</tr>
+<tr>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37398);return false;">0901.21.20.00</a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37398);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37398);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37398);return false;">- - - Molido</a></td>
+</tr>
+<tr>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37408);return false;">0901.22.00.00</a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37408);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37408);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37408);return false;">- - Descafeinado</a></td>
+</tr>
+<tr>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37420);return false;">0901.90.00.00</a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37420);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37420);return false;"></a></td>
+<td class="textoEnlace"><a href="" onclick="mostrarPerfil(37420);return false;">- Los demás</a></td>
+</tr>
+</tbody>
+<tbody><tr><td align="center" colspan="5"><input type="hidden" name="hddvistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43" id="hddvistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43"><table><tbody><tr><td><input id="vistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43:btnAnterior" type="image" src="/WebArquitectura/imagenes/es/botones/botanterior.gif" name="vistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43:btnAnterior" border="0" onmouseout="this.src='/WebArquitectura/imagenes/es/botones/botanterior.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null"></td><td><select id="vistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43:lblPaginaActual" name="vistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43:lblPaginaActual" size="1" onchange="document.getElementById('hddvistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43').value = '1';submit();">	<option value="1" selected="selected">1</option>
+</select></td><td>1</td><td><input id="vistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43:btnSiguiente" type="image" src="/WebArquitectura/imagenes/es/botones/botsiguiente.gif" name="vistaResultadoConsNome:formResultadoConsNome:tblResultadoNomenclaturas:_id43:btnSiguiente" border="0" onmouseout="this.src='/WebArquitectura/imagenes/es/botones/botsiguiente.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null"></td></tr></tbody></table></td></tr></tbody></table>
+<table class="center" width="100%">
+<tbody>
+<tr>
+<td><input id="vistaResultadoConsNome:formResultadoConsNome:btRegresar" type="image" src="/WebArancel/imagenes/es/botones/botregresar.gif" name="vistaResultadoConsNome:formResultadoConsNome:btRegresar" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botregresar.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null"></td>
+</tr>
+</tbody>
+</table>
+ <input type="hidden" name="com.sun.faces.VIEW" value="REDACTED">
+ <input type="hidden" name="vistaResultadoConsNome:formResultadoConsNome" id="vistaResultadoConsNome:formResultadoConsNome" value="vistaResultadoConsNome:formResultadoConsNome"><input type="hidden" name="vistaResultadoConsNome:formResultadoConsNome:_idcl" id="vistaResultadoConsNome:formResultadoConsNome:_idcl"></form>
+
+
+
+
+
+  
+    
+  
+  
+
+    
+    
+
+    
+    
+
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+    
+
+      
+
+      
+
+      
+
+      
+      
+    
+    
+
+    
+      
+        
+      
+    
+
+    
+
+        
+          
+        
+
+      
+        
+          
+        
+        
+      
+
+      
+        
+          
+        
+      
+
+      
+        
+          
+        
+      
+
+      
+        
+          
+        
+        
+      
+
+
+            
+
+    
+
+
+    
+      
+    
+
+  
+
+  
+
+
+
+              </td>
+          </tr>
+          <tr>
+            <td colspan="2" bgcolor="#EFEFEF" align="center" valign="middle" style="padding: 5px;">
+              <form id="vistaPiePagina:frmPiePagina" method="post" action="/WebArancel/DefResultadoConsNomenclaturas.faces" enctype="application/x-www-form-urlencoded">
+<table>
+<tbody>
+<tr class="center">
+<td><span style="color:#2D5544;font-family:Arial Narrow;font-size:10px;">2005 Derechos Reservados DIAN</span></td>
+</tr>
+<tr class="center">
+<td><span style="color:#2D5544;font-family:Arial Narrow;font-size:10px;">Direccion de Impuestos y Aduanas Nacionales</span></td>
+</tr>
+</tbody>
+</table>
+ <input type="hidden" name="com.sun.faces.VIEW" value="REDACTED">
+ <input type="hidden" name="vistaPiePagina:frmPiePagina" id="vistaPiePagina:frmPiePagina" value="vistaPiePagina:frmPiePagina"></form>
+
+
+
+    
+        
+            
+            
+        
+    
+
+
+
+            </td>
+          </tr>
+      </tbody></table>
+      <!-- FIN CONTENEDOR-->
+        </td>
+        <td class="borde_derecho">&nbsp;</td>
+      </tr>
+      <tr>
+       <td class="esq_inf_izq">&nbsp;</td>
+       <td class="borde_inferior"></td>
+       <td class="esq_inf_dere">&nbsp;</td>
+      </tr>
+    </tbody></table>
+
+      <script>manejarMensajes();iniciarReloj();</script>
+
+    
+
+
+
+<script id="f5_cspm">(function(){var f5_cspm={f5_p:'JLKDIIMGECBOFHFPCFBGCHAGOAHLLAPDDDBNOMBLAHLMAENLJCMDMLBMPFNAHGNCGBEBPFOECJHABPEONGGABKMDAAMFIDLGFCEFIJHJIEKLICFMNDAPJJMINKOLKGGL',setCharAt:function(str,index,chr){if(index>str.length-1)return str;return str.substr(0,index)+chr+str.substr(index+1);},get_byte:function(str,i){var s=(i/16)|0;i=(i&15);s=s*32;return((str.charCodeAt(i+16+s)-65)<<4)|(str.charCodeAt(i+s)-65);},set_byte:function(str,i,b){var s=(i/16)|0;i=(i&15);s=s*32;str=f5_cspm.setCharAt(str,(i+16+s),String.fromCharCode((b>>4)+65));str=f5_cspm.setCharAt(str,(i+s),String.fromCharCode((b&15)+65));return str;},set_latency:function(str,latency){latency=latency&0xffff;str=f5_cspm.set_byte(str,40,(latency>>8));str=f5_cspm.set_byte(str,41,(latency&0xff));str=f5_cspm.set_byte(str,35,2);return str;},wait_perf_data:function(){try{var wp=window.performance.timing;if(wp.loadEventEnd>0){var res=wp.loadEventEnd-wp.navigationStart;if(res<60001){var cookie_val=f5_cspm.set_latency(f5_cspm.f5_p,res);window.document.cookie='f5avr0245619605aaaaaaaaaaaaaaaa_cspm_='+encodeURIComponent(cookie_val)+';path=/;'+'';}
+return;}}
+catch(err){return;}
+setTimeout(f5_cspm.wait_perf_data,100);return;},go:function(){var chunk=window.document.cookie.split(/\s*;\s*/);for(var i=0;i<chunk.length;++i){var pair=chunk[i].split(/\s*=\s*/);if(pair[0]=='f5_cspm'&&pair[1]=='1234')
+{var d=new Date();d.setTime(d.getTime()-1000);window.document.cookie='f5_cspm=;expires='+d.toUTCString()+';path=/;'+';';setTimeout(f5_cspm.wait_perf_data,100);}}}}
+f5_cspm.go();}());</script></body></html>

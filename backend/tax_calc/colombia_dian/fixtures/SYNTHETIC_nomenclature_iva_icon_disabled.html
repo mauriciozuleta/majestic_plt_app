@@ -1,0 +1,572 @@
+<html><head><title>DIAN - MUISCA - OPERACION ADUANERA</title>
+        <link href="/WebArancel/estilos/tabla.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/tree.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/adminFunciones.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/estilosMuisca.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/estilosMuiscaV2.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/menu.css" rel="stylesheet" type="text/css">
+        <link href="/WebArancel/estilos/arancel.css" rel="stylesheet" type="text/css">
+        <script type="text/javascript" src="/WebArancel/funciones/AdmReloj.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmTabla.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmLista.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/Hashtable.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmCalendario.js"></script></head><body onunload="terminarReloj()"><div onclick="bShow=true" id="calendar" class="drag" style="z-index:+999;position:absolute;visibility:hidden;"><table width="220" style="font-family:Arial;font-size:11px;border: 1px solid #A0A0A0;" bgcolor="#ffffff"><tbody><tr bgcolor="#2d5544"><td><table width="218"><tbody><tr><td style="padding:2px;font-family:Arial;font-size:11px;"><font color="#ffffff"><b><span id="caption"><span id="spanLeft" style="border:1px ;cursor:pointer" onmouseover="swapImage('changeLeft','botIzquierdo.gif');window.status='Presione para pasar al mes anterior. Deje presionado para pasar varios meses.'" onclick="decMonth()" onmouseout="clearInterval(intervalID1);swapImage('changeLeft','botIzquierdoRollOver.gif');window.status=''" onmousedown="clearTimeout(timeoutID1);timeoutID1=setTimeout('StartDecMonth()',500)" onmouseup="clearTimeout(timeoutID1);clearInterval(intervalID1)">&nbsp;<img id="changeLeft" src="imagenes/es/calendario/botIzquierdo.gif" width="10" height="11" border="0">&nbsp;</span>&nbsp;<span id="spanRight" style="border:1px ;cursor:pointer" onmouseover="swapImage('changeRight','botDerecho.gif');window.status='Presione para pasar al siguiente mes. Deje presionado para pasar varios meses.'" onmouseout="clearInterval(intervalID1);swapImage('changeRight','botDerechoRollOver.gif');window.status=''" onclick="incMonth()" onmousedown="clearTimeout(timeoutID1);timeoutID1=setTimeout('StartIncMonth()',500)" onmouseup="clearTimeout(timeoutID1);clearInterval(intervalID1)">&nbsp;<img id="changeRight" src="imagenes/es/calendario/botDerecho.gif" width="10" height="11" border="0">&nbsp;</span>&nbsp;<span id="spanMonth" style="border:1px ;cursor:pointer" onmouseover="swapImage('changeMonth','botBajo.gif');window.status='Presione para seleccionar un mes'" onmouseout="swapImage('changeMonth','botBajoRollOver.gif');window.status=''" onclick="popUpMonth()"><img id="changeMonth" src="imagenes/es/calendario/botBajo.gif" width="10" height="11" border="0"></span>&nbsp;<span id="spanYear" style="border:1px ;cursor:pointer" onmouseover="swapImage('changeYear','botBajo.gif');window.status='Presione para seleccionar un ano'" onmouseout="swapImage('changeYear','botBajoRollOver.gif');window.status=''" onclick="popUpYear()"><img id="changeYear" src="imagenes/es/calendario/botBajo.gif" width="10" height="11" border="0"></span>&nbsp;</span></b></font></td><td align="right"><a href="javascript:limpiarObjetoDestino()"><img id="imgLimpiar" src="imagenes/es/calendario/botLimpiar.gif" onmouseout="swapImage('imgLimpiar','botLimpiar.gif');" onmouseover="swapImage('imgLimpiar','botLimpiarRollOver.gif');" width="15" height="13" border="0"></a></td><td align="right"><a href="javascript:hideCalendar()"><img id="imgCerrar" src="imagenes/es/calendario/botCerrar.gif" width="15" onmouseout="swapImage('imgCerrar','botCerrar.gif');" onmouseover="swapImage('imgCerrar','botCerrarRollOver.gif');" height="13" border="0"></a></td></tr></tbody></table></td></tr><tr><td style="padding:5px" bgcolor="#ffffff"><span id="content"></span></td></tr><tr bgcolor="#f0f0f0"><td style="padding:5px" align="center"><span id="lblToday"><font color="#2d5544">Hoy es <a onmousemove="window.status='Ir al Mes Actual'" onmouseout="window.status=''" title="Ir al Mes Actual" style="text-decoration:none;color:black;" href="javascript:monthSelected=monthNow;yearSelected=yearNow;constructCalendar();">Mie, 7 Oct 2026</a></font></span></td></tr><tr bgcolor="#f0f0f0"><td style="padding:5px" align="center"><span id="lblUndefinedDate"></span></td></tr></tbody></table></div><div id="selectMonth" style="z-index:+999;position:absolute;visibility:hidden;"></div><div id="selectYear" style="z-index:+999;position:absolute;visibility:hidden;"></div>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmFabricaMensajes.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmMensajes.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/AdmValidaciones.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/Menu.js"></script>
+        <script type="text/javascript" src="/WebArancel/funciones/tooltip.js"></script><div id="ToolTip" style="position:absolute; z-index:99" class="drag"></div>
+
+    
+
+    
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody><tr>
+        <td class="borde_izquierdo">&nbsp;</td>
+        <td width="760">
+        <!-- CONTENEDOR -->
+        <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+            <tbody><tr>
+            <td colspan="2" align="center">
+              
+              <img src="imagenes/es/fondos/v2/bg11.jpg" width="100%" height="130" align="top" alt=""></td>
+          </tr>
+          <tr>
+            <td colspan="2" align="center"><img src="imagenes/es/fondos/v2/bandera_lisa.jpg" width="100%" height="3" align="top" alt=""></td>
+          </tr>
+            <tr>
+
+              <td width="200" height="400" bgcolor="#EFEFEF" align="left" valign="top">
+                
+
+ <div class="dtree">
+    <script type="text/javascript">
+
+        var menuMuisca = new dTree('menuMuisca');
+        menuMuisca.add(0, -1,'DIAN - MUISCA - ARANCEL');
+
+        menuMuisca.add(1 ,  0, 'Consultas Arancel', '/WebArancel/DefMenuConsultas.faces', 'Consultas Arancel');
+        menuMuisca.add(2 ,  0, 'General', '/WebArancel/DefConsultaGeneralNomenclaturas.faces', 'General');
+        menuMuisca.add(3 ,  0, 'Por medidas', '/WebArancel/DefConsultaNomenclaturaPorCriterio.faces', 'Por medidas');
+        menuMuisca.add(4 ,  0, 'Por código de nomenclatura', '/WebArancel/DefConsultaNomenclaturaPorCodigo.faces', 'Por código de nomenclatura');
+        menuMuisca.add(5 ,  0, 'Estructura nomenclatura', '/WebArancel/DefConsultaEstructuraArancelaria.faces', 'Estructura nomenclatura');
+        menuMuisca.add(6 ,  0, 'Índice alfabético arancelario', '/WebArancel/DefConsultaIndiceAlfabetico.faces', 'Índice alfabético arancelario');
+        menuMuisca.add(6 ,  0, 'Reglas generales de la nomenclatura', '/WebArancel/DefResultadoReglasGenerales.faces', 'Reglas generales de la nomenclatura');
+        menuMuisca.add(7 ,  0, 'Por texto');
+        //menuMuisca.add(7 ,  0, 'Por texto', '/WebArancel/DefMenuConsultasTexto.faces', 'Por texto');
+        menuMuisca.add(8 ,  7, 'Descripción nomenclatura arancelaria', '/WebArancel/DefConsultaPorTextoDescNomenclatura.faces', 'Descripción nomenclatura arancelaria');
+        menuMuisca.add(9 ,  7, 'Índice alfabético arancelario', '/WebArancel/DefConsultaPorTextoIndiceAlfabetico.faces', 'Índice alfabético arancelario');
+
+        document.write(menuMuisca);
+
+     </script><div class="dtree">
+<div class="dTreeRoot" id="menuMuisca"><img id="imenuMuisca0" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt="">DIAN - MUISCA - ARANCEL</div><div id="dmenuMuisca0" class="clip" style="display:block;"><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca1" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca1" class="node" href="/WebArancel/DefMenuConsultas.faces" title="Consultas Arancel" onclick="javascript: menuMuisca.s(1);">Consultas Arancel</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca2" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca2" class="node" href="/WebArancel/DefConsultaGeneralNomenclaturas.faces" title="General" onclick="javascript: menuMuisca.s(2);">General</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca3" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca3" class="node" href="/WebArancel/DefConsultaNomenclaturaPorCriterio.faces" title="Por medidas" onclick="javascript: menuMuisca.s(3);">Por medidas</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca4" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca4" class="node" href="/WebArancel/DefConsultaNomenclaturaPorCodigo.faces" title="Por código de nomenclatura" onclick="javascript: menuMuisca.s(4);">Por código de nomenclatura</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca5" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca5" class="node" href="/WebArancel/DefConsultaEstructuraArancelaria.faces" title="Estructura nomenclatura" onclick="javascript: menuMuisca.s(5);">Estructura nomenclatura</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca6" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca6" class="node" href="/WebArancel/DefConsultaIndiceAlfabetico.faces" title="Índice alfabético arancelario" onclick="javascript: menuMuisca.s(6);">Índice alfabético arancelario</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca7" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca7" class="node" href="/WebArancel/DefResultadoReglasGenerales.faces" title="Reglas generales de la nomenclatura" onclick="javascript: menuMuisca.s(7);">Reglas generales de la nomenclatura</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><a href="javascript: menuMuisca.o(8);"><img id="jmenuMuisca8" src="/WebArquitectura/imagenes/es/botones/botFlechaLeft.gif" alt=""></a><img id="imenuMuisca8" src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><a href="javascript: menuMuisca.o(8);" class="node">Por texto</a></div><div id="dmenuMuisca8" class="clip" style="display:none;"><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca9" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca9" class="node" href="/WebArancel/DefConsultaPorTextoDescNomenclatura.faces" title="Descripción nomenclatura arancelaria" onclick="javascript: menuMuisca.s(9);">Descripción nomenclatura arancelaria</a></div><div class="dTreeNode" onmouseover="this.className='dTreeNodeHover'" onmouseout="this.className='dTreeNode'"><img src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><img src="/WebArquitectura/imagenes/es/botones/botEmpty10.gif" alt=""><img id="imenuMuisca10" src="/WebArquitectura/imagenes/es/botones/botEmpty.gif" alt=""><a id="smenuMuisca10" class="node" href="/WebArancel/DefConsultaPorTextoIndiceAlfabetico.faces" title="Índice alfabético arancelario" onclick="javascript: menuMuisca.s(10);">Índice alfabético arancelario</a></div></div></div></div>
+
+</div>
+
+
+
+
+
+
+
+
+
+              </td>
+
+              <td width="550" bgcolor="#FFFFFF" valign="top" style="padding: 5px;">
+                
+                  <table>
+<tbody>
+<tr>
+<td><script type="text/javascript" src="/WebArancel/funciones/tooltip.js"></script><div id="ToolTip" style="position:absolute; z-index:99" class="drag"></div>
+      <script type="text/javascript">
+
+      function consultar(componente, regimen){
+        ideNomenclatura = document.getElementById("vistaPerfilMercancia:formPerfilMercancia:strNomenclatura").value;
+	codNomenclatura = document.getElementById("vistaPerfilMercancia:formPerfilMercancia:codNomenclatura").value;
+        fechaConsulta = document.getElementById("vistaPerfilMercancia:formPerfilMercancia:strFechaConsulta").value;
+        if(componente == 3){
+          window.open("/WebArancel/DefGravamenPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 4){
+          window.open("/WebArancel/DefIvaPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 5){
+          window.open("/WebArancel/DefOtrasTarifasPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 7){
+          window.open("/WebArancel/DefTarifaMedidaProteccionComercialPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 8){
+          window.open("/WebArancel/DefTarifaZRAEPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 6){
+          window.open("/WebArancel/DefTarifasAcuerdoPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 9){
+          window.open("/WebArancel/DefRegimenComercioPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 24){
+          window.open("/WebArancel/DefBienCapitalPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 10){
+          window.open("/WebArancel/DefDocumentosPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 15){
+          window.open("/WebArancel/DefIndiceAlfabeticoMedidaPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 29){
+          window.open("/WebArancel/DefDescripcionesMinimasPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 19){
+          window.open("/WebArancel/DefNotasNomePerfilPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 56){
+          window.open("/WebArancel/DefCuposMercanciaPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 20){
+          window.open("/WebArancel/DefRestriccionesPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 25){
+          window.open("/WebArancel/DefCaracteristicasEspecialesPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 16){
+          window.open("/WebArancel/DefCorrelativasAperturaPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 17){
+          window.open("/WebArancel/DefCorrelativasCierrePopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }else if(componente == 11){
+          window.open("/WebArancel/DefPreciosReferenciaPopUp.faces?nomenclatura="+ideNomenclatura+"&codNomenclatura="+codNomenclatura+"&componente="+componente+"&regimen="+regimen+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=570,height=400,scrollbars=yes,resizable=yes");
+        }
+      }
+
+      function consultarNivelesDependientes(){
+        fechaConsulta = document.getElementById("vistaPerfilMercancia:formPerfilMercancia:strFechaConsulta").value;
+        codNomenclatura = document.getElementById("vistaPerfilMercancia:formPerfilMercancia:codNomenclatura").value;
+        window.open("/WebArancel/DefNivelesDependientesPopUp.faces?codNomenclatura="+codNomenclatura+"&fechaConsulta="+fechaConsulta+"&modoPresentacionSeleccionBO=dialogo","","width=550,height=400,scrollbars=yes,resizable=yes");
+      }
+
+
+      </script></td>
+</tr>
+</tbody>
+</table>
+<table>
+<tbody>
+<tr>
+<td><form id="vistaPerfilMercancia:formPerfilMercancia" method="post" action="/WebArancel/DefPerfilMercancia.faces" enctype="application/x-www-form-urlencoded">
+<input id="vistaPerfilMercancia:formPerfilMercancia:siguienteURL" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:siguienteURL"><input id="vistaPerfilMercancia:formPerfilMercancia:ideComponente" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:ideComponente" value="0"><input id="vistaPerfilMercancia:formPerfilMercancia:regimen" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:regimen" value="0"><input id="vistaPerfilMercancia:formPerfilMercancia:strNomenclatura" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:strNomenclatura" value="36019"><input id="vistaPerfilMercancia:formPerfilMercancia:strComponente" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:strComponente"><input id="vistaPerfilMercancia:formPerfilMercancia:strFechaConsulta" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:strFechaConsulta" value="20261007"><input id="vistaPerfilMercancia:formPerfilMercancia:strRegimen" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:strRegimen"><input id="vistaPerfilMercancia:formPerfilMercancia:nomVentana" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:nomVentana"><input id="vistaPerfilMercancia:formPerfilMercancia:codNomenclatura" type="hidden" name="vistaPerfilMercancia:formPerfilMercancia:codNomenclatura" value="0702000000"><table id="tblMensajes" style="display:none"></table><table width="100%">
+<tbody>
+<tr>
+<td><span class="titulo2">Perfil de la mercancía</span></td>
+</tr>
+</tbody>
+</table>
+<hr><table class="consulta">
+<thead>
+<tr><th colspan="7" scope="colgroup">
+            </th></tr><tr>
+              <th colspan="7" class="thGeneral">DATOS GENERALES</th>
+            </tr>
+            <tr>
+              <th class="thNorm_20">Nivel Nomenclatura</th>
+              <th class="thNorm_17">Código Nomenclatura</th>
+              <th class="thNorm_13">Código Complem.</th>
+              <th class="thNorm_13">Código Suplem.</th>
+              <th class="thNorm_16">Desde</th>
+              <th class="thNorm_16">Hasta</th>
+              <th class="thNorm_05">Leg</th>
+            </tr>
+            
+</thead>
+<tbody>
+<tr>
+<td class="center">ARIAN</td>
+<td class="tdTextoVerdeNegrCen">0702.00.00.00</td>
+<td class="tdTextoVerdeNegrCen"></td>
+<td class="tdTextoVerdeNegrCen"></td>
+<td class="center">01-ene-2007</td>
+<td class="center">...</td>
+<td class="center"><img src="/WebArancel/imagenes/es/botones/botbaselegal.gif" onmouseout="toolTip()" onmouseover="toolTip(this, 'DECRETO 2153 DEL 26-DIC-2016, derogado por el Decreto 1881 del 30 de diciembre de 2021 Ministerio de Comercio, Industria y Turismo. DIARIO OFICIAL NO.  PÁG. ', {width: 150, bgColor: '#FFFFFF'})" alt=""></td>
+</tr>
+</tbody>
+</table>
+<table class="consulta">
+<tbody>
+<tr>
+<td class="tdNorm_20">Descripción</td>
+<td class="tdNorm_43">Hortalizas, plantas, raíces y tubérculos alimenticios <br>Tomates frescos o refrigerados.</td>
+<td class="tdNorm_16">01-ene-2007</td>
+<td class="tdNorm_16">...</td>
+<td class="tdNorm_05"><img src="/WebArancel/imagenes/es/botones/botbaselegal.gif" onmouseout="toolTip()" onmouseover="toolTip(this, 'DECRETO 4589 DEL 27-DIC-2006, MINISTERIO DE COMERCIO INDUSTRIA Y TURISMO. DIARIO OFICIAL NO. 46494 PÁG. 193', {width: 150, bgColor: '#FFFFFF'})" alt=""></td>
+</tr>
+<tr>
+<td class="tdNorm_20">Unidad física</td>
+<td class="tdNorm_43">kg - Kilogramo</td>
+<td class="tdNorm_16">01-ene-2007</td>
+<td class="tdNorm_16">...</td>
+<td class="tdNorm_05"><img src="/WebArancel/imagenes/es/botones/botbaselegal.gif" onmouseout="toolTip()" onmouseover="toolTip(this, 'CIRCULAR ANDINA 766 DEL 25-NOV-2011, COMUNIDAD ANDINA DE NACIONES. GACETA ANDINA NO. 1998 PÁG. 1', {width: 150, bgColor: '#FFFFFF'})" alt=""></td>
+</tr>
+</tbody>
+</table>
+<br><table class="consulta">
+<tbody>
+<tr>
+<td class="tdTituloCen">MEDIDAS</td>
+</tr>
+</tbody>
+</table>
+<table id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas" class="consulta">
+<thead>
+<tr>
+<td class="tdConsultaNormCen" scope="col">Concepto</td>
+<td class="tdConsultaNormCen" scope="col">Importaciones</td>
+<td class="tdConsultaNormCen" scope="col">Exportaciones</td>
+<td class="tdConsultaNormCen" scope="col">Tránsito</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Gravamen</span></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:0:btBImpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:0:btBImpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(3, 1);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:0:btCxExpo" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:0:btCxExpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:0:btCxtr" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:0:btCxtr" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>IVA</span></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:1:btBImpo" disabled="disabled" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:1:btBImpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(4, 1);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:1:btCxExpo" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:1:btCxExpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:1:btCxtr" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:1:btCxtr" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Otras tarifas generales</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:2:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:2:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:2:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Gravámenes por acuerdos internacionales</span></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:3:btBImpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:3:btBImpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(6, 1);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:3:btCxExpo" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:3:btCxExpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:3:btCxtr" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:3:btCxtr" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Medidas de protección comercial</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:4:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:4:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:4:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Régimen de comercio</span></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:5:btBImpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:5:btBImpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(9, 1);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:5:btCxExpo" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:5:btCxExpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:5:btCxtr" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:5:btCxtr" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Bienes de capital</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:6:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:6:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:6:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Índice Alfabético Arancelario</span></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:7:btBImpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:7:btBImpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(15, 1);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:7:btBExpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:7:btBExpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(15, 2);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:7:btCxtr" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:7:btCxtr" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Notas de nomenclatura</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:8:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:8:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:8:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Correlativas por apertura</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:9:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:9:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:9:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Correlativas por cierre</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:10:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:10:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:10:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Requisitos Específicos de Origen (REO)</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:11:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:11:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:11:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Documentos soporte</span></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:12:btBImpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:12:btBImpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(10, 1);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:12:btBExpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:12:btBExpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(10, 2);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:12:btCxtr" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:12:btCxtr" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Características especiales</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:13:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:13:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:13:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Restricciones</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:14:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:14:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:14:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Restricciones por Zonas de Régimen Aduanero Especial</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:15:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:15:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:15:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Tarifas por Zonas de Régimen Aduanero Especial</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:16:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:16:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:16:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Modalidades permitidas</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:17:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:17:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:17:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Descripciones de mercancías</span></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:18:btBImpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:18:btBImpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(29, 1);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:18:btBExpo" type="image" src="/WebArancel/imagenes/es/botones/botbv.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:18:btBExpo" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botbv.gif';null" onmouseover="this.src='/WebArancel/imagenes/es/botones/botmuis20.gif';null" onclick="consultar(29, 2);return false;"></td>
+<td class="tdCuerpoConsultaCen"><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:18:btCxtr" type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:18:btCxtr" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Documentos soporte por zona de RAE</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:19:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:19:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:19:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+<tr>
+<td class="tdFilaIzqConsulta"><span>Cupos de Mercancia</span></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:20:_id57" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:20:_id62" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+<td class="tdCuerpoConsultaCen"><input type="image" src="/WebArancel/imagenes/es/botones/botvacio.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:20:_id67" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botvacio.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null" disabled="disabled"></td>
+</tr>
+</tbody>
+<tbody><tr><td align="center" colspan="5"><input type="hidden" name="hddvistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68" id="hddvistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68"><table><tbody><tr><td><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68:btnAnterior" type="image" src="/WebArquitectura/imagenes/es/botones/botanterior.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68:btnAnterior" border="0" onmouseout="this.src='/WebArquitectura/imagenes/es/botones/botanterior.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null"></td><td><select id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68:lblPaginaActual" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68:lblPaginaActual" size="1" onchange="document.getElementById('hddvistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68').value = '1';submit();">	<option value="1" selected="selected">1</option>
+</select></td><td>1</td><td><input id="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68:btnSiguiente" type="image" src="/WebArquitectura/imagenes/es/botones/botsiguiente.gif" name="vistaPerfilMercancia:formPerfilMercancia:tblconsParametrosMedidas:_id68:btnSiguiente" border="0" onmouseout="this.src='/WebArquitectura/imagenes/es/botones/botsiguiente.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null"></td></tr></tbody></table></td></tr></tbody></table>
+<br><table class="center" width="100%">
+<tbody>
+<tr>
+<td><input id="vistaPerfilMercancia:formPerfilMercancia:btRegresar" type="image" src="/WebArancel/imagenes/es/botones/botregresar.gif" name="vistaPerfilMercancia:formPerfilMercancia:btRegresar" border="0" onmouseout="this.src='/WebArancel/imagenes/es/botones/botregresar.gif';null" onmouseover="this.src='/WebArquitectura/imagenes/es/botones/botrollover.gif';null"></td>
+</tr>
+</tbody>
+</table>
+ <input type="hidden" name="com.sun.faces.VIEW" value="REDACTED">
+ <input type="hidden" name="vistaPerfilMercancia:formPerfilMercancia" id="vistaPerfilMercancia:formPerfilMercancia" value="vistaPerfilMercancia:formPerfilMercancia"></form></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+  
+    
+  
+  
+  
+
+
+
+    
+    
+    
+
+    
+    
+    
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+    
+    
+    
+
+    
+    
+      
+    
+    
+
+      
+
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+
+        
+
+      
+
+      
+        
+        
+        
+        
+        
+      
+
+      
+        
+            
+        
+        
+            
+        
+        
+            
+        
+        
+            
+        
+        
+          
+        
+      
+
+      
+
+      
+
+  <!-- MEDIDAS -->
+
+  
+
+    
+      
+    
+
+    
+
+        
+          
+            
+          
+          
+        
+        
+          
+            
+          
+          
+            
+            
+          
+          
+            
+          
+        
+        
+          
+            
+          
+          
+            
+            
+          
+          
+            
+          
+        
+        
+          
+            
+          
+          
+            
+            
+          
+          
+            
+          
+        
+
+                
+
+      
+
+    
+
+    
+
+    
+      
+    
+  
+  
+
+
+
+
+              </td>
+          </tr>
+          <tr>
+            <td colspan="2" bgcolor="#EFEFEF" align="center" valign="middle" style="padding: 5px;">
+              <form id="vistaPiePagina:frmPiePagina" method="post" action="/WebArancel/DefPerfilMercancia.faces" enctype="application/x-www-form-urlencoded">
+<table>
+<tbody>
+<tr class="center">
+<td><span style="color:#2D5544;font-family:Arial Narrow;font-size:10px;">2005 Derechos Reservados DIAN</span></td>
+</tr>
+<tr class="center">
+<td><span style="color:#2D5544;font-family:Arial Narrow;font-size:10px;">Direccion de Impuestos y Aduanas Nacionales</span></td>
+</tr>
+</tbody>
+</table>
+ <input type="hidden" name="com.sun.faces.VIEW" value="REDACTED">
+ <input type="hidden" name="vistaPiePagina:frmPiePagina" id="vistaPiePagina:frmPiePagina" value="vistaPiePagina:frmPiePagina"></form>
+
+
+
+    
+        
+            
+            
+        
+    
+
+
+
+            </td>
+          </tr>
+      </tbody></table>
+      <!-- FIN CONTENEDOR-->
+        </td>
+        <td class="borde_derecho">&nbsp;</td>
+      </tr>
+      <tr>
+       <td class="esq_inf_izq">&nbsp;</td>
+       <td class="borde_inferior"></td>
+       <td class="esq_inf_dere">&nbsp;</td>
+      </tr>
+    </tbody></table>
+
+      <script>manejarMensajes();iniciarReloj();</script>
+
+    
+
+
+
+<script id="f5_cspm">(function(){var f5_cspm={f5_p:'NCMPAEDEKHJCMBMLBCKOLKLMJONAOOMFIEGJMICEDLIBMMIAMLGLHLMJPIOMLIMNCGHBNLFBCCHKIDOECJPAMLDLAAKDLEAFFFCBNPHNJNMBPJBBCBGBPJBJCFBCEEIL',setCharAt:function(str,index,chr){if(index>str.length-1)return str;return str.substr(0,index)+chr+str.substr(index+1);},get_byte:function(str,i){var s=(i/16)|0;i=(i&15);s=s*32;return((str.charCodeAt(i+16+s)-65)<<4)|(str.charCodeAt(i+s)-65);},set_byte:function(str,i,b){var s=(i/16)|0;i=(i&15);s=s*32;str=f5_cspm.setCharAt(str,(i+16+s),String.fromCharCode((b>>4)+65));str=f5_cspm.setCharAt(str,(i+s),String.fromCharCode((b&15)+65));return str;},set_latency:function(str,latency){latency=latency&0xffff;str=f5_cspm.set_byte(str,40,(latency>>8));str=f5_cspm.set_byte(str,41,(latency&0xff));str=f5_cspm.set_byte(str,35,2);return str;},wait_perf_data:function(){try{var wp=window.performance.timing;if(wp.loadEventEnd>0){var res=wp.loadEventEnd-wp.navigationStart;if(res<60001){var cookie_val=f5_cspm.set_latency(f5_cspm.f5_p,res);window.document.cookie='f5avr0245619605aaaaaaaaaaaaaaaa_cspm_='+encodeURIComponent(cookie_val)+';path=/;'+'';}
+return;}}
+catch(err){return;}
+setTimeout(f5_cspm.wait_perf_data,100);return;},go:function(){var chunk=window.document.cookie.split(/\s*;\s*/);for(var i=0;i<chunk.length;++i){var pair=chunk[i].split(/\s*=\s*/);if(pair[0]=='f5_cspm'&&pair[1]=='1234')
+{var d=new Date();d.setTime(d.getTime()-1000);window.document.cookie='f5_cspm=;expires='+d.toUTCString()+';path=/;'+';';setTimeout(f5_cspm.wait_perf_data,100);}}}}
+f5_cspm.go();}());</script></body></html>

@@ -1192,3 +1192,28 @@ class ProductTaxMultiplier(Base):
     note = Column(String, nullable=True)
     detail_json = Column(String, nullable=True)  # [{name, rate, amount_per_usd}] of the taxes behind the multiplier
     computed_at = Column(String, nullable=False)
+
+
+class DianTariffCache(Base):
+    """A cached Colombia (DIAN WebArancel) lookup: the normalized result of one resolved HS code on one consultation date
+    (backend/tax_calc/colombia_dian/cache.py). Key = `DIAN:{resolvedHsCode}:{consultationDate}:v{schemaVersion}`. Errors,
+    selection_required answers and results with parse warnings are never stored."""
+    __tablename__ = 'dian_tariff_cache'
+
+    cache_key = Column(String, primary_key=True)
+    resolved_hs_code = Column(String, nullable=False, index=True)
+    consultation_date = Column(String, nullable=False)
+    schema_version = Column(Integer, nullable=False)
+    payload_json = Column(String, nullable=False)
+    source_url = Column(String, nullable=True)
+    retrieved_at = Column(String, nullable=False)
+
+
+class DianCodeAlias(Base):
+    """What a typed code (4/6/8/10 digits) resolved to on a date, so a repeat lookup of a partial code needs no web call."""
+    __tablename__ = 'dian_code_alias'
+
+    input_hs_code = Column(String, primary_key=True)
+    consultation_date = Column(String, primary_key=True)
+    schema_version = Column(Integer, primary_key=True)
+    resolved_hs_code = Column(String, nullable=False)
