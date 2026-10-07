@@ -25,7 +25,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- **Everything is committed (2026-10-06): `ce43db1`** on `main` (before it `646ccba`, `555e885`, `8e04242`, `65113a1`, `94abacd`), except the `__pycache__` files and `majestic_plt.db`
+- **Everything is committed (2026-10-07): `ffd53ee`** on `main` (before it `5d226c9`, `ce43db1`, `646ccba`, `555e885`, `8e04242`, `65113a1`, `94abacd`), except the `__pycache__` files and `majestic_plt.db`
   (runtime data the backend rewrites — deliberately left out). Latest work: Financial ▸ Revenue route legs — Air Logistics Builder, Shipment builder
   (`ShipmentBuilder/`: `ShipmentBuilderModal`, `shipmentBuilder.js` allocation = wholesalers at cap → premium at cap → niche split the rest, nobody dropped;
   `ShipmentPanel` cards with Details/Edit/manual pill; `shipmentFinance.js` + `useLegFinance.js` + `LegFinanceCards`/`RouteFinanceCells` = per-leg and route
@@ -38,7 +38,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 - Latest in `ce43db1`: the suggested sell price never goes below cost (DDP); wholesalers have Min profit margin (profit ÷ cost) and Cap reduction (kg) in Settings ▸ Destination Market, applied in the builder. Open points: Market Level / sell price stay "—" until the Destination Market ranges are filled (the user has Premium 100–2000, Niche 70–100, Wholesalers 0–70);
   `legPricePerKg` (routeMetrics.js) duplicates `priceFor` in RevenueStreamsView.jsx; the return shipment's products no longer feed the money figures;
   22 no-match products have no USD/kg (non-weight units).
-- **Colombia (DIAN) tax lookup (2026-10-07, uncommitted):** `backend/tax_calc/colombia_dian/` (read its README.md and RECON.md first), API `/tax-calc/colombia/dian/*`, UI = choose
+- **Colombia (DIAN) tax lookup (2026-10-07, in `ffd53ee`):** `backend/tax_calc/colombia_dian/` (read its README.md and RECON.md first), API `/tax-calc/colombia/dian/*`, UI = choose
   Colombia as the import country in Tools ▸ Tax Calculator (one flow for every country, per 1 kg in USD). Needs `playwright install chromium` once (already done here). Live check: `npm run test:dian-live`. Not hooked into the Tax ×
   multipliers yet. Do NOT hammer DIAN: ~5 requests per lookup, results are cached 24 h (`DIAN_CACHE_TTL_HOURS`).
 - Deliberately NOT committed: the ~50 modified/new `__pycache__/*.pyc` files (tracked by an old commit but never part of this work —
