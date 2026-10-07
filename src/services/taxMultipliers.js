@@ -41,3 +41,11 @@ export const suggestTariffLine = (destination, { name, hsCode, origin, priceUsdP
 
 // "x2.23" — the taxes as a multiple of the goods value
 export const formatMultiplier = (value) => (value == null ? '—' : `x${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+
+// The Tax Calculator saves its per-kg result as the multiplier of origin -> destination for a product — the value the Market Opportunities analysis of
+// that pair reads (Tax x, DDP price, Market Level, sell price, shipment costs). Works for any destination, including Colombia (DIAN).
+// payload: { destination, origin, product_name, category, hs_code, price_usd_kg, tax_multiplier, tariff_code, tariff_path, status, note, detail }
+export const saveTaxMultiplier = (payload) => request('/tax-calc/multipliers/save', json('POST', payload))
+
+export const deleteTaxMultiplier = (destination, origin, productName) =>
+  request(`/tax-calc/multipliers?destination=${encodeURIComponent(destination)}&origin=${encodeURIComponent(origin)}&product_key=${encodeURIComponent(productName)}`, { method: 'DELETE' })

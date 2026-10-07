@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchCountryProductPrices } from '../../services/marketOpportunities'
 import { fetchRagCountries } from '../../services/ragFiles'
 import { calculateTax, fetchTaxCountries, refreshTariffData } from '../../services/taxCalculator'
-import { computeTaxMultipliers, fetchTaxMultipliers, formatMultiplier, productKey, suggestTariffLine } from '../../services/taxMultipliers'
+import { computeTaxMultipliers, deleteTaxMultiplier, fetchTaxMultipliers, formatMultiplier, productKey, saveTaxMultiplier, suggestTariffLine } from '../../services/taxMultipliers'
 import { useTaxCalcStore } from '../../store/useTaxCalcStore'
 import { usePersistentSet } from '../../utils/usePersistentSet'
 import { formatCurrencyValue } from '../../utils/currencyFormat'
 import DianLookupPanel from './DianLookupPanel'
-import { fromTariffResult } from './taxResult'
+import { fromTariffResult, toSavedMultiplier } from './taxResult'
 import { useDianFlow } from './useDianFlow'
 import './TaxCalculatorView.css'
 
@@ -18,6 +19,7 @@ const COLOMBIA = { country: 'Colombia', kind: 'dian', source: 'DIAN MUISCA WebAr
 
 // Every import country works the same way: the export country, the import country, a product from the exporter's list, and the taxes of 1 kg in USD.
 function TaxCalculatorView() {
+  const navigate = useNavigate()
   const { origin, destination, product, line, lineNote, form, result, history, dianLines, update, setForm, addHistory, removeHistory, clearHistory, rememberDianLine } = useTaxCalcStore()
 
   // The whole panel can be folded away to its header (remembered between visits).
@@ -39,6 +41,8 @@ function TaxCalculatorView() {
   const [candidates, setCandidates] = useState([]) // other tariff lines the product could be under
   const [error, setError] = useState('')
   const [updating, setUpdating] = useState(false)
+  // the last calculation saved into the Market Opportunities analysis of this origin -> destination
+  const [saveState, setSaveState] = useState({ status: 'idle' })
 
   const importers = useMemo(() => [...fileCountries.map((item) => ({ ...item, kind: 'file' })), COLOMBIA].sort((a, b) => a.country.localeCompare(b.country)), [fileCountries])
   const info = importers.find((item) => item.country === destination)
@@ -116,13 +120,44 @@ function TaxCalculatorView() {
     [addHistory],
   )
 
+  // Every fresh calculation is saved as the multiplier of this product for origin -> destination: that is what the Market Opportunities analysis of the pair
+  // reads (Tax x, DDP price, Market Level, sell price, shipment costs) — for any destination, including Colombia, which has no automatic value.
+  const saveResult = useCallback(async (normalized) => {
+    const state = useTaxCalcStore.getState()
+    const price = num(state.form.price)
+    if (!normalized || !state.product || !state.origin || !state.destination || normalized.country !== state.destination || !(price > 0)) return
+    setSaveState({ status: 'saving' })
+    try {
+      const saved = await saveTaxMultiplier(toSavedMultiplier({ origin: state.origin, destination: state.destination, product: state.product, price, result: normalized }))
+      setSaveState({ status: 'saved', multiplier: saved.tax_multiplier, origin: state.origin, destination: state.destination, productName: state.product.name })
+    } catch (err) {
+      setSaveState({ status: 'error', message: err.message })
+    }
+  }, [])
+
+  const removeSaved = async () => {
+    if (saveState.status !== 'saved') return
+    try {
+      await deleteTaxMultiplier(saveState.destination, saveState.origin, saveState.productName)
+      setSaveState({ status: 'removed' })
+    } catch (err) {
+      setSaveState({ status: 'error', message: err.message })
+    }
+  }
+
+  const openAnalysis = () => {
+    const params = new URLSearchParams({ tab: 'market-opportunities', source: saveState.origin, target: saveState.destination, product: saveState.productName })
+    navigate(`/market-analysis?${params.toString()}`)
+  }
+
   // ------------------------------------------------------------ Colombia (DIAN)
   const onDianResult = useCallback(
     (normalized) => {
       update({ result: normalized })
       record(normalized)
+      saveResult(normalized)
     },
-    [update, record],
+    [update, record, saveResult],
   )
   const dianFlow = useDianFlow({
     enabled: isDian && Boolean(product),
@@ -141,10 +176,11 @@ function TaxCalculatorView() {
       try {
         const api = await calculateTax(destination, { code: line.code, price_per_kg_usd: price, quantity_kg: 1, origin: origin || null, commercial_importer: form.commercial })
         if (cancelled) return
-        const normalized = fromTariffResult(destination, api)
+        const normalized = { ...fromTariffResult(destination, api), reviewed: Boolean(lineNote), reviewNote: lineNote }
         setError('')
         update({ result: normalized })
         record(normalized)
+        saveResult(normalized)
       } catch (err) {
         if (cancelled) return
         setError(err.message)
@@ -155,11 +191,12 @@ function TaxCalculatorView() {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [isFile, destination, line?.code, price, origin, form.commercial, update, record]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isFile, destination, line?.code, lineNote, price, origin, form.commercial, update, record, saveResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------ choices
   async function chooseProduct(item, { keepPrice = false, forDestination = destination } = {}) {
     setError('')
+    setSaveState({ status: 'idle' })
     setCandidates([])
     update({ product: item, result: null, line: null, lineNote: '' })
     if (!keepPrice) setForm({ price: item.priceUsdPerKg != null ? String(Number(item.priceUsdPerKg.toFixed(4))) : '' })
@@ -444,6 +481,27 @@ function TaxCalculatorView() {
                 </ul>
               )}
               <p className="tax-calc__hint">Source: {result.sources.join('; ')}.</p>
+              {saveState.status !== 'idle' && (
+                <div className={`tax-calc__saved is-${saveState.status}`} role="status">
+                  {saveState.status === 'saving' && 'Saving to the Market Opportunities analysis…'}
+                  {saveState.status === 'saved' && (
+                    <>
+                      <span>
+                        Saved to the Market Opportunities analysis of <strong>{saveState.origin} → {saveState.destination}</strong>: tax multiplier <strong>{formatMultiplier(saveState.multiplier)}</strong> — it feeds that
+                        comparison’s Tax ×, DDP price, Market Level, suggested sell price and the shipment costs.
+                      </span>
+                      <button type="button" className="tax-calc__link" onClick={openAnalysis}>
+                        Open that analysis
+                      </button>
+                      <button type="button" className="tax-calc__link" onClick={removeSaved}>
+                        Remove the saved value
+                      </button>
+                    </>
+                  )}
+                  {saveState.status === 'removed' && 'The saved value was removed from the Market Opportunities analysis.'}
+                  {saveState.status === 'error' && `Could not save it to the Market Opportunities analysis: ${saveState.message}`}
+                </div>
+              )}
             </section>
           )}
 

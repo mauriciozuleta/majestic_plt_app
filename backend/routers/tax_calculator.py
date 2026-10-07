@@ -100,6 +100,13 @@ class MultiplierProductIn(BaseModel):
     price_usd_kg: float | None = None  # the product's price per kg in USD, when known
 
 
+# `method` of a row saved from the Tax Calculator (Tools ▸ Tax Calculator): the result of a calculation the user made for one product, for ANY
+# destination — including those with no automatic calculator (Colombia, whose Gravamen/IVA come from DIAN's site). It feeds the Market
+# Opportunities analysis of origin -> destination (Tax x, DDP price, Market Level, sell price, shipment costs) exactly like an automatic row, and
+# is not overwritten by the automatic computation.
+SAVED_FROM_CALCULATOR = 'tax_calculator'
+
+
 class MultipliersIn(BaseModel):
     destination: str
     origin: str
@@ -140,9 +147,14 @@ def compute_multipliers(payload: MultipliersIn, db: Session = Depends(get_db)):
         if not key or key in seen:
             continue
         seen.add(key)
+        row = db.get(models.ProductTaxMultiplier, (calculator.name, payload.origin, key))
+        if row is not None and row.method == SAVED_FROM_CALCULATOR:
+            # a value the user calculated and saved in the Tax Calculator: it is not recomputed automatically
+            counts['saved'] = counts.get('saved', 0) + 1
+            continue
         computed = mapping.multiplier_for(calculator, product.model_dump(), payload.origin)
         counts[computed['status']] = counts.get(computed['status'], 0) + 1
-        row = db.get(models.ProductTaxMultiplier, (calculator.name, payload.origin, key)) or models.ProductTaxMultiplier(destination=calculator.name, origin=payload.origin, product_key=key)
+        row = row or models.ProductTaxMultiplier(destination=calculator.name, origin=payload.origin, product_key=key)
         row.product_name = product.name.strip()
         row.category = product.category
         row.hs_code = product.hs_code
@@ -159,6 +171,70 @@ def compute_multipliers(payload: MultipliersIn, db: Session = Depends(get_db)):
         db.add(row)
     db.commit()
     return {'destination': calculator.name, 'origin': payload.origin, 'products': len(seen), 'by_status': counts}
+
+
+class SavedTaxIn(BaseModel):
+    name: str
+    rate: str = ''
+    per_usd: float | None = None  # the tax per USD of goods
+
+
+class SaveMultiplierIn(BaseModel):
+    destination: str
+    origin: str
+    product_name: str
+    category: str | None = None
+    hs_code: str | None = None
+    price_usd_kg: float | None = None
+    tax_multiplier: float = Field(ge=0)  # import taxes / goods value, for 1 kg at price_usd_kg
+    tariff_code: str | None = None
+    tariff_path: str | None = None
+    status: str = 'ok'  # 'ok' | 'review' | 'incomplete'
+    note: str | None = None
+    detail: list[SavedTaxIn] = []
+
+
+@router.post('/tax-calc/multipliers/save')
+def save_multiplier(payload: SaveMultiplierIn, db: Session = Depends(get_db)):
+    """Saves the result of a Tax Calculator calculation (1 kg, USD) as the import-tax multiplier of origin -> destination for this product, which is
+    what the Market Opportunities analysis of that pair reads."""
+    if payload.status not in ('ok', 'review', 'incomplete'):
+        raise HTTPException(status_code=400, detail="status must be 'ok', 'review' or 'incomplete'.")
+    key = payload.product_name.strip().lower()
+    if not key or not payload.destination.strip() or not payload.origin.strip():
+        raise HTTPException(status_code=400, detail='A destination, an origin and a product are required.')
+    calculator = tax_calc.get(payload.destination)
+    destination = calculator.name if calculator else payload.destination.strip()
+    row = db.get(models.ProductTaxMultiplier, (destination, payload.origin.strip(), key)) or models.ProductTaxMultiplier(destination=destination, origin=payload.origin.strip(), product_key=key)
+    row.product_name = payload.product_name.strip()
+    row.category = payload.category
+    row.hs_code = payload.hs_code
+    row.price_usd_kg = payload.price_usd_kg
+    row.tariff_code = payload.tariff_code
+    row.tariff_path = payload.tariff_path
+    row.tax_multiplier = round(payload.tax_multiplier, 4)
+    row.landed_multiplier = round(1 + payload.tax_multiplier, 4)
+    row.status = payload.status
+    row.method = SAVED_FROM_CALCULATOR
+    row.note = payload.note
+    row.detail_json = json.dumps([tax.model_dump() for tax in payload.detail])
+    row.computed_at = datetime.now(timezone.utc).isoformat()
+    db.add(row)
+    db.commit()
+    return _multiplier_out(row)
+
+
+@router.delete('/tax-calc/multipliers')
+def delete_multiplier(destination: str, origin: str, product_key: str, db: Session = Depends(get_db)):
+    """Removes a saved value (the automatic one, where the destination has a calculator, comes back on the next computation)."""
+    calculator = tax_calc.get(destination)
+    name = calculator.name if calculator else destination
+    row = db.get(models.ProductTaxMultiplier, (name, origin, product_key.strip().lower()))
+    if row is None:
+        raise HTTPException(status_code=404, detail='No saved value for this product.')
+    db.delete(row)
+    db.commit()
+    return {'deleted': True}
 
 
 @router.get('/tax-calc/multipliers')

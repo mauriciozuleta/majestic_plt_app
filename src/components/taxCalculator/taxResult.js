@@ -22,6 +22,8 @@ export function fromTariffResult(country, api) {
     warnings: api.warnings || [],
     sources: api.sources || [],
     line: api.line ? { code: api.line.code, path: api.line.path } : null,
+    reviewed: false, // set by the page when the tariff line was a judgement call or the user's choice
+    reviewNote: '',
   }
 }
 
@@ -68,5 +70,30 @@ export function fromDianCalculation(price, lookup, calc) {
     warnings: complete ? warnings : [...warnings, 'A tax is not a plain percentage, so it was not computed: the total is a minimum.'],
     sources: [`${lookup.source.system} — code ${lookup.source.resolvedHsCode}, consulted ${lookup.source.consultationDate}${lookup.source.fromCache ? ' (cached)' : ''}`],
     line: { code: lookup.query.resolvedHsCode, path: lookup.product.description || '' },
+    // DIAN listed several valid rows (or a conditional IVA) and the user chose the one that applies
+    reviewed: (lookup.needsInput || []).length > 0,
+    reviewNote: (lookup.needsInput || []).length > 0 ? 'DIAN lists several rows for this product; the Gravamen/IVA row was chosen by the user in the Tax Calculator.' : '',
+  }
+}
+
+// What the Market Opportunities analysis stores for a calculation: the multiplier (import taxes / goods value, for 1 kg at the price used), the
+// tariff line, the taxes behind it and a note saying where it came from.
+export function toSavedMultiplier({ origin, destination, product, price, result }) {
+  const goods = result.goodsUsd
+  const counted = result.taxes.filter((tax) => !tax.recoverable)
+  const note = [`Saved from the Tax Calculator: ${origin} → ${destination}, 1 kg at ${usd(price)}.`, result.reviewNote, ...(result.complete ? [] : ['Some charge could not be computed: the multiplier is a minimum.'])].filter(Boolean).join(' ')
+  return {
+    destination,
+    origin,
+    product_name: product.name,
+    category: product.category || null,
+    hs_code: product.hsCode || null,
+    price_usd_kg: price,
+    tax_multiplier: result.multiplier ?? 0,
+    tariff_code: result.line?.code || null,
+    tariff_path: result.line?.path || null,
+    status: !result.complete ? 'incomplete' : result.reviewed ? 'review' : 'ok',
+    note,
+    detail: counted.map((tax) => ({ name: tax.name, rate: String(tax.rate || ''), per_usd: goods > 0 ? Math.round((tax.amount / goods) * 1e6) / 1e6 : null })),
   }
 }

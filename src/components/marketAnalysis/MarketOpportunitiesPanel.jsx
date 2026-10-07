@@ -280,10 +280,14 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
       for (const target of targets) {
         try {
           await computeTaxMultipliers(target, sourceCountry, products)
+        } catch {
+          // this target has no automatic calculator (Colombia: its values come from the Tax Calculator, saved per product)
+        }
+        try {
           const byProduct = await fetchTaxMultipliers(target, sourceCountry)
           byProduct.forEach((value, key) => next.set(`${target}|${key}`, value))
         } catch {
-          // this target has no tax calculator yet
+          // nothing stored for this target
         }
       }
       if (!cancelled) setTaxMultipliers(next)
@@ -347,7 +351,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   const taxMultiplierFor = (target, productName) => taxMultipliers.get(`${target}|${productKey(productName)}`) ?? null
   const taxMultiplierTitle = (entry) =>
     !entry
-      ? 'No tax calculator for this target country yet, or not computed yet.'
+      ? 'No import-tax multiplier for this product yet. Countries with a tariff file (Jamaica, United States) get it automatically; for Colombia calculate the product in Tools ▸ Tax Calculator and it is saved here.'
       : [
           entry.tariff_code ? `Tariff line ${entry.tariff_code}${entry.tariff_path ? ` — ${entry.tariff_path}` : ''}` : null,
           entry.detail?.length ? entry.detail.map((tax) => `${tax.name} ${tax.rate}`).join('; ') : null,
