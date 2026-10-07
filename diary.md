@@ -25,7 +25,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- **Everything is committed (2026-10-07): `ffd53ee`** on `main` (before it `5d226c9`, `ce43db1`, `646ccba`, `555e885`, `8e04242`, `65113a1`, `94abacd`), except the `__pycache__` files and `majestic_plt.db`
+- **Everything is committed (2026-10-07): `64457cf`** (agent plan: branches + model lanes) and `58a2ce4` (calculator results saved into Market Opportunities) on `main` (before them `ffd53ee`, `5d226c9`, `ce43db1`, `646ccba`, `555e885`, `8e04242`, `65113a1`, `94abacd`), except the `__pycache__` files and `majestic_plt.db`
   (runtime data the backend rewrites — deliberately left out). Latest work: Financial ▸ Revenue route legs — Air Logistics Builder, Shipment builder
   (`ShipmentBuilder/`: `ShipmentBuilderModal`, `shipmentBuilder.js` allocation = wholesalers at cap → premium at cap → niche split the rest, nobody dropped;
   `ShipmentPanel` cards with Details/Edit/manual pill; `shipmentFinance.js` + `useLegFinance.js` + `LegFinanceCards`/`RouteFinanceCells` = per-leg and route
