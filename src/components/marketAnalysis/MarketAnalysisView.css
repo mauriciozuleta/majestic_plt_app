@@ -978,6 +978,38 @@
   color: #fbbf24;
 }
 
+.market-analysis__group-head--tourism {
+  background: #3a1d2e;
+  color: #f9a8d4;
+}
+
+.market-analysis__pill-head--tourism {
+  background: #4a2238;
+  color: #fbcfe8;
+}
+
+.market-analysis__metric-cell {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.market-analysis__metric-cell small {
+  margin-left: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+}
+
+.market-analysis__metric-na {
+  color: var(--text-muted);
+}
+
+.market-analysis__group-head--duties {
+  background: #123a33;
+  color: #5eead4;
+}
+
 /* Each individual column also gets its own shade within its group's family
    — a specific, findable color per column, not just per group. */
 .market-analysis__pill-head--profile {
@@ -998,6 +1030,11 @@
 .market-analysis__pill-head--comtrade-export {
   background: #402c10;
   color: #fcd34d;
+}
+
+.market-analysis__pill-head--duties {
+  background: #164a41;
+  color: #99f6e4;
 }
 
 .market-analysis__table tbody tr:last-child td {
@@ -1535,4 +1572,29 @@
   font-size: 0.68rem;
   color: #f59e0b;
   white-space: nowrap;
+}
+
+
+/* A country with an import-tax calculator that is not in Commercial Structure yet. */
+.market-analysis__country-pending {
+  color: var(--muted, #94a3b8);
+  font-style: italic;
+}
+
+.market-analysis__add-structure {
+  background: transparent;
+  color: #5eead4;
+  border: 1px dashed #2dd4bf;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: normal;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.market-analysis__add-structure:hover {
+  background: rgba(45, 212, 191, 0.14);
 }

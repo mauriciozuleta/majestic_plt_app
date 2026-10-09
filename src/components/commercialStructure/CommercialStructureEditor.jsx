@@ -51,7 +51,7 @@ const fallbackRegions = [
 // per-company Operations tab so it can be driven by whichever company a
 // portfolio-level page picks (see CommercialStructureView), instead of
 // always reading companyId from the route.
-function CommercialStructureEditor({ companyId, companyName }) {
+function CommercialStructureEditor({ companyId, companyName, prefill = null }) {
   const [regions, setRegions] = useState([])
   const [countries, setCountries] = useState([])
   const [branches, setBranches] = useState([])
@@ -74,6 +74,8 @@ function CommercialStructureEditor({ companyId, companyName }) {
   const [regionAssignments, setRegionAssignments] = useState([])
   const companies = useAppStore((state) => state.companies)
   const formRef = useRef(null)
+  // From Market Analysis: { countryName, countryCode, regionName } to select once the structure and the reference countries have loaded.
+  const pendingPrefill = useRef(prefill)
 
   const loadStructure = async () => {
     if (!companyId) return
@@ -110,7 +112,11 @@ function CommercialStructureEditor({ companyId, companyName }) {
     setSelectedRegionName('')
     setSelectedCountryCode('')
     setSelectedBranchId('')
-    loadStructure().catch(() => undefined)
+    loadStructure()
+      .then(() => {
+        if (pendingPrefill.current?.regionName) setSelectedRegionName(pendingPrefill.current.regionName)
+      })
+      .catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId])
 
@@ -268,6 +274,12 @@ function CommercialStructureEditor({ companyId, companyName }) {
           }))
           .filter((row) => row.name)
         setAllReferenceCountries(normalized)
+        const wanted = pendingPrefill.current
+        if (wanted?.countryCode && wanted.regionName === selectedRegionName) {
+          setSelectedCountryCode(wanted.countryCode)
+          pendingPrefill.current = null
+          formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
       })
       .catch(() => setAllReferenceCountries([]))
   }, [selectedRegionName])
@@ -395,6 +407,13 @@ function CommercialStructureEditor({ companyId, companyName }) {
     <div className="panel-surface" style={{ padding: '16px 0', boxSizing: 'border-box' }}>
       <div style={{ padding: '0 8px', width: '100%' }}>
         <div ref={formRef} style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '22px' }}>
+          {prefill && (
+            <div style={{ background: 'rgba(45, 212, 191, 0.12)', border: '1px solid #2dd4bf', borderRadius: '8px', padding: '10px 14px', color: '#99f6e4' }}>
+              {savedCountry
+                ? `${prefill.countryName} is saved as a country (subsidiary) of ${companyName}. Now use “Add Branch” to create its local branch.`
+                : `Adding ${prefill.countryName} to ${companyName}: 1) review the region and country below and click “Create subsidiary” (set the country manager, or tick “same as regional manager”); 2) then click “Add Branch” to create its local branch.`}
+            </div>
+          )}
           <div
             style={{
               display: 'grid',

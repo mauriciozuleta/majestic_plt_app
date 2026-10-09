@@ -16,7 +16,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 
 
 
-## Handout — start here (written 2026-10-07, after the Colombia DIAN module)
+## Handout — start here (written 2026-10-08, after the Trinidad and Tobago module)
 
 > **How this works.** This block exists so a new or changed session can pick up in one read. When you start a session:
 > read it, do the work, add your entries under "Entries", then **delete this block**. As the very last step of the session
@@ -41,6 +41,19 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 - **Colombia (DIAN) tax lookup (2026-10-07, in `ffd53ee`):** `backend/tax_calc/colombia_dian/` (read its README.md and RECON.md first), API `/tax-calc/colombia/dian/*`, UI = choose
   Colombia as the import country in Tools ▸ Tax Calculator (one flow for every country, per 1 kg in USD). Needs `playwright install chromium` once (already done here). Live check: `npm run test:dian-live`. Not hooked into the Tax ×
   multipliers yet. Do NOT hammer DIAN: ~5 requests per lookup, results are cached 24 h (`DIAN_CACHE_TTL_HOURS`).
+- **Trinidad and Tobago tax calculator (2026-10-08, NOT committed yet):** `backend/tax_calc/trinidad.py` (read its docstring), registered in `tax_calc/__init__.py`, so it shows up in Tools ▸
+  Tax Calculator and in the Market Opportunities Tax × automatically. Source = the OCR'd CET schedule `backend/documents/knowledge_base/*Trinidad-tobago-customs.json` (Legal Notice 218/2024, HTML tables
+  HS | CET | description | duty rate | unit); `refresh()` ("Update tariff data") parses it into `documents/tax_data/Trinidad and Tobago/tariff.json` (6,584 lines; 6,355 ok, 45 repaired/'review', 184 'unreadable'
+  = rate not legible in the scan, 212 OCR rows skipped). Unreadable lines are reported with the PDF page, never guessed; hand fixes go in `overrides.json` ({"0206.49.06": {"rate": "40%"}}) next to the tariff.
+  Duty on CIF (ad valorem, specific TT$ rates converted at 6.78 TT$/US$, CARICOM origin = free); VAT 12.5% on CIF+duty is shown but `recoverable` (not counted: registered importers credit it, basic foods zero-rated —
+  the zero-rated list is not in the file). Everyday words map to the schedule's wording (chicken→fowl, beef→bovine, pork→swine). Tests: `TrinidadTests` in `backend/tests/test_tax_calc.py` (18 pass).
+  Open: the 15% poultry surcharge mentioned in T&T's commercial profile is not in the schedule and is not applied; no VAT zero-rated list; the 184 unreadable lines could be fixed by re-scanning/OCR of those pages.
+- **Bahamas calculator (2026-10-08, NOT committed):** `backend/tax_calc/bahamas.py` (docstring + `BAHAMAS_RULES.md` first), registered. Parses the schedule inside the knowledge-base .md `*bahamas-customs*` (6,005 lines; 7 'unreadable' = no rate printed in the source, e.g. 2009.1900). Duty on CIF at the General Rate; specific $ BSD per unit (beer: 10% + $10/gal); the 300% maximum variable rate is only a warning unless an Order is recorded in `tax_data/Bahamas/orders.json`; no CARICOM waiver; EPA (EU origin) warned, not loaded; excise chapters make the result incomplete; VAT 10% shown, not counted (rate from public sources, verify). Tests: `BahamasTests` (23 pass in the module). Backend was restarted WITHOUT --reload.
+- **Saint Lucia calculator (2026-10-08, NOT committed):** `backend/tax_calc/saint_lucia.py` (docstring first). Source = knowledge-base .md `*saint lucia customs duties*` = CARICOM CET **2012** edition (HS 2007 codes; Saint Lucia now uses HS 2017); 6,450 lines. The user's re-extracted `Downloads/Saint_Lucia_orientation_review/pages-599-627.md` was **spliced into that .md replacing pages 599-627** (original saved in the session scratchpad only; the file's `.rag.json` index is NOT rebuilt - re-upload to refresh chat RAG). Rate = schedule column (Free / n% / EC$ per 100 kg at 2.70); **Lists A and C now loaded: 271 lines get Saint Lucia's own rate** (column 11 of CET+13 states; all comparable ones agree with the schedule's printed rate); EU origin uses the EPA column (Excl = applied rate; phase-down codes from pp.32-33); CARICOM origin free; VAT 12.5% shown, not counted. Still unread: List D (pp.628-635, not re-extracted) and ~40 List A/C rows with wrapped values or specific $ rates (83 lines carry a warning, '*' in the summary). Hand fixes: `tax_data/Saint Lucia/overrides.json`. Tests `SaintLuciaTests` (30 pass in the module). Backend restarted without --reload.
+- **Market Analysis ▸ Country Information has an 'Import duties structure' column (2026-10-09, NOT committed):** `MarketAnalysisView.jsx` (COLUMNS entry `duties`, group 'Import duties'), `importDutyStructures.js` (one-line structure per country = the pill's tooltip), CSS `--duties` header colours. A pill is green for every country with a ready calculator (`GET /tax-calc/countries`, plus Colombia's DIAN lookup) and opens Tools ▸ Tax Calculator with that country as the import country; '—' otherwise (Barbados, Saint Martin today). A new calculator shows up by itself; add its one-liner to `importDutyStructures.js`.
+- **Grenada calculator (2026-10-09, NOT committed):** `backend/tax_calc/grenada.py` + `GRENADA_FILE_REVIEW.md` (the file review: missing EPA orders, rum/whisky Orders vs CET, 11 schedule-vs-List conflicts…). Source = KB `*Grenada customs duties*.md` (Customs Act Cap.75A, CET HS2007 in force 1 Feb 2010); 6,256 lines; Grenada's own rate from Lists A/C (6th value) overrides the CET column; VAT 15% shown, not counted (public source). Tests `GrenadaTests` (36 pass in the module).
+- **Market Analysis ▸ Country Information (2026-10-09):** countries that have a calculator but are not in Commercial Structure show as a *pending* row under their reference region (today only Grenada, Caribbean) with an 'Add to Commercial Structure' pill in the Company column; it opens `/commercial-structure?add=Grenada&code=GD&region=Caribbean&company=<owner company>` where the editor preselects company, region and country and shows a banner (Create subsidiary, then Add Branch). Files: `MarketAnalysisView.jsx/.css`, `CommercialStructureView.jsx`, `CommercialStructureEditor.jsx` (prop `prefill`). Nothing is created automatically - the user clicks Create subsidiary / Add Branch.
+- **Global Tourism & Economic Dependency module (2026-10-09, NOT committed):** backend `backend/tourism/` (read its README.md first) + `routers/tourism.py` (`/tourism/...`) + tables `tourism_*` in `models.py` (column `un_m49` added by `_ensure_schema_migrations`); UI = Tools ▸ Tourism & Economic Dependency (`src/components/tourism/`, `src/services/tourism.js`) and a **'Tourism & Economy' column group in Market Analysis ▸ Country Information** (Tourism GDP % total, Tourism GDP % direct, Employment %, Receipts USD, Dependency %, Population; latest available value + its own year). Providers: World Bank (live; receipts, GDP, population), **UN SDG API (live; series ST_GDP_ZS = tourism DIRECT GDP, 1,312 observations for 128 countries, 2008-2024)**, WTTC licensed CSV/XLSX import (feeds TOTAL GDP and employment; none imported yet so those stay N/A), IDB and Statista (need `idb_registry.json` / `statista_registry.json` + `STATISTA_API_KEY`). Direct and total GDP are separate indicators (`TOURISM_GDP_DIRECT_PCT` UNSD-only, `TOURISM_GDP_TOTAL_PCT` WTTC->Statista) and never substitute each other. World Bank's receipts series is stale for many countries (Spain 1998, Jamaica 2011, Barbados 2016). Tests: `backend/tests/test_tourism.py` (45, mocked). Provider cache: `backend/tourism/cache/` (git-ignored).
 - Deliberately NOT committed: the ~50 modified/new `__pycache__/*.pyc` files (tracked by an old commit but never part of this work —
   consider `git rm --cached` + a `.gitignore` entry for `__pycache__/` if the user wants them out of status).
 - `backend/documents/rag_files/` is gitignored on purpose (user documents, JSON conversions, baked RAG files, saved reports).
@@ -87,7 +100,7 @@ per country (`base.py` interface + helpers, `jamaica.py`, `usa.py`, registry in 
   (cheeses/milk: a Cess charge written as text "$16.541 per kg"), 4 no_line (HS codes in the cache that don't exist in the tariff, e.g. 020710 whole chicken,
   110421, 030419).
 - **Next ideas:** compute the Cess/specific text charges (needs JMD→USD at the day's rate); fix the outdated HS codes in the cache (020710→020711 …); wire the chat's import-tax answers to the calculator (replace `import_tax.py`/`rates_from_rows` row-reading); add countries —
-  Trinidad and Tobago and Saint Lucia (CARICOM CET + 12.5% VAT; needs their tariff/VAT data), Colombia (DIAN tariff), Bahamas, Barbados;
+  Saint Lucia (CARICOM CET + 12.5% VAT; needs their tariff/VAT data), Colombia (DIAN tariff), Bahamas, Barbados;
   prefill price/quantity from the Product Portfolio / saved opportunities; show Jamaican-dollar rate date.
 
 **RAG Files (what exists)**
@@ -209,6 +222,64 @@ Load/Bake jobs before editing backend `.py` files; tell the user plainly when a 
 
 
 ## Entries
+
+### 2026-10-09 — Tourism module: UN SDG API provider for DIRECT tourism GDP
+
+**Prompt:** "Update the existing Global Tourism & Economic Dependency module to correct its missing Tourism GDP data … Implement the official United Nations Statistics Division (UNSD) SDG API as an additional provider … ST_GDP_ZS … add TOURISM_GDP_DIRECT_PCT as a separate indicator, retain TOURISM_GDP_TOTAL_PCT for WTTC … never substitute direct for total … verify the API response format and actual available countries before building the full import pipeline …" (full text trimmed)
+
+Verified the live API first (bulk endpoint, pageSize/page, DataSlice, empty/500/200 behaviours, 149 areas, no ISO codes in GeoArea/List). Added `backend/tourism/unsd.py`, M49 assignment in `registry.py` (+ `M49_OVERRIDES`, UN-name aliases), `service.sync_unsd`/`sync_all`, renamed the WTTC code to `TOURISM_GDP_TOTAL_PCT` (existing rows migrated), `TOURISM_GDP_DIRECT_PCT` source priority = UNSD only, UI columns/chart/sync button. 16 new tests (45 in the module).
+
+### 2026-10-09 — Global Tourism & Economic Dependency module + Market Analysis columns
+
+**Prompt:** "check and implement this prompt adding the columns to the market analysis table" (the long 'VS Code Implementation Prompt — Global Tourism & Economic Dependency Module': five indicators, World Bank / IDB / WTTC / Statista providers, global country registry, calculation engine, data model, UI, charts, exports, API, quality labels, tests, docs).
+
+Phase 1 inspection (stack, conventions, no chart library, no auth layer, no multipart lib) then built: backend package + router + models + 29 tests + README; the Tools page (selector, year modes, sortable/filterable/paginated table, details with provenance, SVG charts, CSV/XLSX/JSON exports, providers panel with WTTC import); and the new column group in the Market Analysis table. Verified with headless Edge/puppeteer (`%TEMP%/pp/chk_tourism.mjs`) and `vite build`.
+
+### 2026-10-09 — Grenada: tax calculator, file review, pending row + Add to Commercial Structure
+
+**Prompt:** "i added \"Grenada custom duties\" to the documentation, create the tax calculator, but also check the file for inconsistencies,  grenada is currrently not created in the commercial structure, so, add it to the market analysis table, and in the company column add a pill \"Add to Commercial Structure\" and redirect user to that page so it create the respective subsidiary and branch"
+
+Built `grenada.py` (+ `GrenadaTests`, `GRENADA_FILE_REVIEW.md`), registered it, restarted the backend. Market Analysis shows Grenada as a pending Caribbean row (Import duties pill green) with the Add to Commercial Structure pill; the redirect prefills the editor. Verified with headless Edge/puppeteer (`%TEMP%/pp/chk_add.mjs`, read-only: it clicks the pill and reads the form, it does not create anything). `vite build` passes.
+
+### 2026-10-09 — Market Analysis: 'Import duties structure' column
+
+**Prompt:** "good day, please read claude.md and diary.md for context, and after that, add to the market analysis/country information table, a new column labeled \"Import duties structire\" and add there all the countries we have created a tax calculator."
+
+Added the column (label spelled 'Import duties structure') to the Country Information table: `src/components/marketAnalysis/MarketAnalysisView.jsx`, `importDutyStructures.js` (new), `MarketAnalysisView.css`. Verified in the running app with a headless render: Bahamas, Jamaica, Saint Lucia, Trinidad and Tobago, United States, Colombia are green; Barbados and Saint Martin '—'. `vite build` passes.
+
+### 2026-10-08 — Saint Lucia: Lists A and C spliced in and loaded
+
+**Prompt:** "here are list a and c path for you to add it to the .md document and replace the current content so it complemnt the calculator: C:\Users\donre\Downloads\Saint_Lucia_orientation_review\pages-599-627.md"
+
+Replaced pages 599-627 of the knowledge-base Saint Lucia .md with the clean extraction (730 pages kept, order intact), and taught `saint_lucia.py` to read the List A/C rows (Saint Lucia column) and use them over the CET rate. Validated against the schedule (0 disagreements). Tests updated.
+
+### 2026-10-08 — Saint Lucia tax calculator
+
+**Prompt:** "check saint lucia customs duties.md that i uploaded to documents and build the calculator for it"
+
+Added `backend/tax_calc/saint_lucia.py` (parser of the CET 2012 text + EPA phase-down table + adapter), registered it, `SaintLuciaTests`. Lists A/C/D (national rates) could not be read reliably — flagged, not guessed (see handout).
+
+### 2026-10-08 — Bahamas tax calculator
+
+**Prompt:** "good, build the calculator for bahamas"
+
+Added `backend/tax_calc/bahamas.py` (schedule text parser classifying tokens by content + adapter), registered in `tax_calc/__init__.py`, `BahamasTests` in `backend/tests/test_tax_calc.py`. Bahamas now appears in Tools ▸ Tax Calculator (backend restarted). Design in the handout.
+
+### 2026-10-08 — Bahamas: rules extracted from the "customs duties explanation" document
+
+**Prompt:** "ok, now analize the new bahamas-customs-1 duties explanation added to documents, to reference what is relevant to build the tax calculator for bahamas, i will load later the actual schedule, in this one i need the rues for the variable rates or any other rule that might apply for it"
+
+The uploaded .md (knowledge base, 3 MB) is the Tariff Bill 2018 **plus its full schedule** (845 pages, plain-text columns). Wrote `backend/tax_calc/BAHAMAS_RULES.md`: charge of duty, the variable-rate mechanism
+(Minister's Order up to the 300% ceiling, replaces the general rate, 5-day gazette notice), EPA preferential column, Chapter 98 exemptions, 1% bonded-warehouse duty, excise chapters, units (pound, UK gallon,
+"unpackaged" = over 20 lb), what is NOT in the document (VAT, fees, Orders in force, EPA Second Schedule, Excise Act) and how the schedule text must be parsed. No code yet; no adapter registered.
+
+### 2026-10-08 — Trinidad and Tobago tax calculator
+
+**Prompt:** "good morning, read claude.md diary.md for context and get ready to develop the tax calculator for trinidad and tobago. i added to the documentations tab the trinidad-tobago-customs that is the complete duty schedule, check its structure and build the calculator"
+
+Inspected the uploaded schedule (a scanned 596-page PDF, OCR'd into HTML tables; ~6,600 tariff lines, duty rates Free / n% / TT$ per litre, a few rotated pages come out as garbage). Added `backend/tax_calc/trinidad.py`
+(parser + adapter, same interface as Jamaica/USA), registered it in `backend/tax_calc/__init__.py`, added `TrinidadTests` to `backend/tests/test_tax_calc.py`, and extended the hint text in `MarketOpportunitiesPanel.jsx`.
+Design and numbers are in the handout above. Checked: tomatoes 0702.00.00 = 40% of CIF; chicken wings 0207.14.20 = 40%; CARICOM origin = 0; API `/tax-calc/Trinidad and Tobago/*` answers; 18 tests pass.
 
 ### 2026-10-07 — Agent plan: simulations as branches of a `main` baseline, and three model lanes
 

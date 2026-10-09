@@ -23,6 +23,7 @@ import DocumentationView, { DocumentationIndexRedirect } from './components/docu
 import SettingsView from './components/company/tabs/ManagementTab/SettingsView/SettingsView'
 import RagFilesView from './components/ragFiles/RagFilesView'
 import TaxCalculatorView from './components/taxCalculator/TaxCalculatorView'
+import TourismDependencyView from './components/tourism/TourismDependencyView'
 import ToolsView from './components/tools/ToolsView'
 import AccountingHealthCheckCard from './components/company/tabs/ManagementTab/SettingsView/AccountingHealthCheckCard'
 import AccountingAuditView from './components/accountingAudit/AccountingAuditView'
@@ -69,6 +70,7 @@ function Layout() {
                 <Route index element={<Navigate to="tax-calculator" replace />} />
                 <Route path="tax-calculator" element={<TaxCalculatorView />} />
                 <Route path="rag-files" element={<RagFilesView />} />
+                <Route path="tourism-dependency" element={<TourismDependencyView />} />
                 <Route path="accounting-health-check" element={<AccountingHealthCheckCard />} />
               </Route>
               <Route path="/rag-files" element={<Navigate to="/tools/rag-files" replace />} />

@@ -1,8 +1,13 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { IconCheck } from '@tabler/icons-react'
-import { fetchCountryProfile, fetchMarketAnalysisRegions } from '../../services/commercialStructure'
+import { fetchCountryProfile, fetchMarketAnalysisRegions, fetchReferenceCountries, fetchRegionAssignments } from '../../services/commercialStructure'
 import { fetchTradeCountries } from '../../services/globalTradeData'
+import { fetchTaxCountries } from '../../services/taxCalculator'
+import { fetchTourismCompare } from '../../services/tourism'
+import { TOURISM_INDICATORS, cellTooltip, formatTourismValue } from '../tourism/tourismFormat'
+import { useTaxCalcStore } from '../../store/useTaxCalcStore'
+import { COLOMBIA_CALCULATOR, IMPORT_DUTY_STRUCTURES } from './importDutyStructures'
 import { buildMarketAnalysisStatus } from '../../services/marketAnalysisStatus'
 import { exportCountryProfileToPdf } from '../company/tabs/OperationsTab/countryProfileExport'
 import MarketAnalysisPanel from '../company/tabs/OperationsTab/MarketAnalysis/MarketAnalysisPanel'
@@ -53,6 +58,11 @@ const COLUMNS = [
   // anything in the detail panel below.
   { key: 'comtradeImport', label: 'Import', group: 'Global Trade Data', flow: 'M' },
   { key: 'comtradeExport', label: 'Export', group: 'Global Trade Data', flow: 'X' },
+  // Countries we have built an import-tax calculator for (Tools ▸ Tax Calculator): the pill opens it with this country as the import country.
+  { key: 'duties', label: 'Import duties structure', group: 'Import duties', calculator: true },
+  // Tourism & Economic Dependency (Tools ▸ Tourism & Economic Dependency): latest available value per country, each with its own year. N/A when
+  // no provider has a compatible observation (e.g. WTTC values until a licensed file is imported).
+  ...TOURISM_INDICATORS.map((indicator) => ({ key: indicator.code, label: indicator.label, group: 'Tourism & Economy', tourism: indicator })),
 ]
 // Consecutive columns sharing a group get one merged header cell — computed
 // once since COLUMNS is static.
@@ -67,12 +77,19 @@ const GROUPS = COLUMNS.reduce((groups, column) => {
 // purely a visual reference so a column is easy to find at a glance across
 // a wide, scrolling table; the body cells stay green/muted for done/pending
 // regardless of column, so that signal is never diluted by this.
-const GROUP_COLOR = { Overview: 'overview', 'Country Product Portfolio': 'product', 'Global Trade Data': 'trade' }
+const GROUP_COLOR = { Overview: 'overview', 'Country Product Portfolio': 'product', 'Global Trade Data': 'trade', 'Import duties': 'duties', 'Tourism & Economy': 'tourism' }
 const COLUMN_COLOR = {
   profile: 'profile',
   product: 'product',
   comtradeImport: 'comtrade-import',
   comtradeExport: 'comtrade-export',
+  duties: 'duties',
+  TOURISM_GDP_TOTAL_PCT: 'tourism',
+  TOURISM_GDP_DIRECT_PCT: 'tourism',
+  TOURISM_EMPLOYMENT: 'tourism',
+  TOURISM_RECEIPTS: 'tourism',
+  TOURISM_DEPENDENCY: 'tourism',
+  POPULATION: 'tourism',
 }
 
 function formatWhen(iso) {
@@ -158,7 +175,37 @@ function MarketAnalysisView() {
   // own countries to decide whether the Global Trade Data columns link out
   // or show as not available. Fetched once; it's a short, static list.
   const [tradeCountryCodes, setTradeCountryCodes] = useState({})
+  // Countries with an import-tax calculator, by lower-case name -> { country, source } (backend list + Colombia's live DIAN lookup).
+  const [dutyCalculators, setDutyCalculators] = useState({})
+  // Reference catalog (name -> region / ISO code) and which company owns each region: used to list a country that has an import-tax
+  // calculator but is not in Commercial Structure yet, as a "pending" row with an "Add to Commercial Structure" button.
+  const [referenceCountries, setReferenceCountries] = useState([])
+  // ISO alpha-2 -> { indicators } from GET /tourism/compare (latest available), for the Tourism & Economy columns.
+  const [tourismByIso, setTourismByIso] = useState({})
+  const [tourismState, setTourismState] = useState('idle')
+  const [regionOwners, setRegionOwners] = useState({})
   const detailRef = useRef(null)
+
+  useEffect(() => {
+    fetchTaxCountries()
+      .then((data) => {
+        const byName = { [COLOMBIA_CALCULATOR.country.toLowerCase()]: COLOMBIA_CALCULATOR }
+        data.countries.filter((item) => item.ready).forEach((item) => {
+          byName[item.country.trim().toLowerCase()] = item
+        })
+        setDutyCalculators(byName)
+      })
+      .catch(() => setDutyCalculators({ [COLOMBIA_CALCULATOR.country.toLowerCase()]: COLOMBIA_CALCULATOR }))
+  }, [])
+
+  useEffect(() => {
+    fetchReferenceCountries()
+      .then((rows) => setReferenceCountries(Array.isArray(rows) ? rows : []))
+      .catch(() => setReferenceCountries([]))
+    fetchRegionAssignments()
+      .then((rows) => setRegionOwners(Object.fromEntries((Array.isArray(rows) ? rows : []).map((row) => [row.name, row.company_id]))))
+      .catch(() => setRegionOwners({}))
+  }, [])
 
   useEffect(() => {
     fetchTradeCountries()
@@ -185,6 +232,59 @@ function MarketAnalysisView() {
   countries.forEach((country) => {
     if (country.country_code) countryByIso2.set(country.country_code.toUpperCase(), country)
   })
+
+  // The table's rows: the Commercial Structure regions plus, per calculator country that is not in it yet, a pending row under its reference
+  // region (Grenada -> Caribbean). Everything else on the page keeps using `regions` / `countries` (real countries only).
+  const existingNames = new Set(countries.map((country) => country.name.trim().toLowerCase()))
+  const pendingCountries = Object.values(dutyCalculators)
+    .filter((calculator) => !existingNames.has(calculator.country.trim().toLowerCase()))
+    .map((calculator) => {
+      const reference = referenceCountries.find((item) => item.name.trim().toLowerCase() === calculator.country.trim().toLowerCase())
+      return reference?.region
+        ? { id: `pending:${reference.country_code}`, name: reference.name, country_code: reference.country_code, region: reference.region, pending: true }
+        : null
+    })
+    .filter(Boolean)
+  const displayRegions = (() => {
+    if (pendingCountries.length === 0) return regions
+    const merged = regions.map((region) => ({ ...region, countries: [...region.countries] }))
+    pendingCountries.forEach((pending) => {
+      let target = merged.find((region) => region.region === pending.region)
+      if (!target) {
+        target = { region: pending.region, countries: [] }
+        merged.push(target)
+        merged.sort((a, b) => a.region.localeCompare(b.region))
+      }
+      const owner = regionOwners[pending.region] || target.countries.find((country) => country.company_id)?.company_id || ''
+      target.countries.push({ ...pending, company_id: owner, company_name: '' })
+      target.countries.sort((a, b) => a.name.localeCompare(b.name))
+    })
+    return merged
+  })()
+
+  const addToCommercialStructure = (country) => {
+    const params = new URLSearchParams({ add: country.name, code: country.country_code || '', region: country.region || '' })
+    if (country.company_id) params.set('company', country.company_id)
+    navigate(`/commercial-structure?${params.toString()}`)
+  }
+
+  // Tourism & Economy columns: one batched request for every country in the table (pending ones included), latest available data.
+  const tourismKey = [...new Set(displayRegions.flatMap((region) => region.countries.map((country) => (country.country_code || '').toUpperCase())).filter(Boolean))].sort().join(',')
+  useEffect(() => {
+    if (!tourismKey) return undefined
+    let cancelled = false
+    setTourismState('loading')
+    fetchTourismCompare(tourismKey.split(','), 'latest')
+      .then((data) => {
+        if (cancelled) return
+        setTourismByIso(Object.fromEntries(data.rows.map((row) => [row.iso_alpha2, row.indicators])))
+        setTourismState('ready')
+      })
+      .catch(() => !cancelled && setTourismState('error'))
+    return () => {
+      cancelled = true
+    }
+  }, [tourismKey])
 
   const loadRegions = useCallback(() => {
     setLoadStatus('loading')
@@ -386,13 +486,15 @@ function MarketAnalysisView() {
                 </tr>
               </thead>
               <tbody>
-                {regions.map((region) => (
+                {displayRegions.map((region) => (
                   <Fragment key={region.region}>
                     <tr className="market-analysis__region-row">
                       <td colSpan={2 + COLUMNS.length}>
                         <span className="market-analysis__region-name">{region.region}</span>
                         <span className="market-analysis__region-count">
-                          {region.countries.length} active {region.countries.length === 1 ? 'country' : 'countries'}
+                          {region.countries.filter((country) => !country.pending).length} active{' '}
+                          {region.countries.filter((country) => !country.pending).length === 1 ? 'country' : 'countries'}
+                          {region.countries.some((country) => country.pending) && ` · ${region.countries.filter((country) => country.pending).length} to add`}
                         </span>
                       </td>
                     </tr>
@@ -408,15 +510,65 @@ function MarketAnalysisView() {
                         return (
                           <tr key={country.id} className={country.id === countryId ? 'is-selected' : ''}>
                             <td>
-                              <button type="button" className="market-analysis__country-link" onClick={() => selectCountry(country)}>
-                                {country.name}
-                              </button>
+                              {country.pending ? (
+                                <span className="market-analysis__country-pending" title="Not in Commercial Structure yet">
+                                  {country.name}
+                                </span>
+                              ) : (
+                                <button type="button" className="market-analysis__country-link" onClick={() => selectCountry(country)}>
+                                  {country.name}
+                                </button>
+                              )}
                             </td>
-                            <td className="market-analysis__company">{country.company_name}</td>
+                            <td className="market-analysis__company">
+                              {country.pending ? (
+                                <button type="button" className="market-analysis__add-structure" onClick={() => addToCommercialStructure(country)}>
+                                  Add to Commercial Structure
+                                </button>
+                              ) : (
+                                country.company_name
+                              )}
+                            </td>
                             {COLUMNS.map((column) => {
                               // Independent of rowStatus (built documents) —
                               // whether Comtrade covers this country at all is
                               // known as soon as the trade-country list loads.
+                              if (column.tourism) {
+                                const cell = tourismByIso[(country.country_code || '').toUpperCase()]?.[column.key]
+                                return (
+                                  <td
+                                    key={column.key}
+                                    className="market-analysis__pill-cell market-analysis__metric-cell"
+                                    title={cell ? cellTooltip(cell) : tourismState === 'error' ? 'Tourism data could not be loaded' : 'Loading…'}
+                                    onClick={() => navigate('/tools/tourism-dependency')}
+                                  >
+                                    {!cell ? (
+                                      tourismState === 'loading' ? '…' : '—'
+                                    ) : (
+                                      <>
+                                        <span className={cell.value == null ? 'market-analysis__metric-na' : ''}>{formatTourismValue(column.tourism.kind, cell.value, { short: true })}</span>
+                                        {cell.value != null && <small>{cell.year}</small>}
+                                      </>
+                                    )}
+                                  </td>
+                                )
+                              }
+                              if (column.calculator) {
+                                const calculator = dutyCalculators[country.name.trim().toLowerCase()]
+                                return (
+                                  <td key={column.key} className="market-analysis__pill-cell">
+                                    <DocCell
+                                      done={calculator != null}
+                                      label={calculator ? IMPORT_DUTY_STRUCTURES[calculator.country.toLowerCase()] || calculator.source : 'No import-tax calculator for this country yet'}
+                                      onClick={() => {
+                                        if (!calculator) return
+                                        useTaxCalcStore.getState().update({ destination: calculator.country, line: null, lineNote: '', result: null })
+                                        navigate('/tools/tax-calculator')
+                                      }}
+                                    />
+                                  </td>
+                                )
+                              }
                               if (column.flow) {
                                 const reporterCode = tradeCountryCodes[country.name.trim().toLowerCase()]
                                 return (

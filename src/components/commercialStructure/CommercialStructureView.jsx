@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAppStore } from '../../store/useAppStore'
 import CommercialStructureEditor from './CommercialStructureEditor'
 import './CommercialStructureView.css'
@@ -10,7 +11,12 @@ import './CommercialStructureView.css'
 // structure to view/edit.
 function CommercialStructureView() {
   const companies = useAppStore((state) => state.companies)
-  const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  // ?add=Grenada&code=GD&region=Caribbean&company=<id> (from Market Analysis ▸ "Add to Commercial Structure"): open that company and
+  // walk the editor through the new country (the subsidiary) and its branch.
+  const [searchParams] = useSearchParams()
+  const addCountry = searchParams.get('add')
+  const prefill = addCountry ? { countryName: addCountry, countryCode: searchParams.get('code') || '', regionName: searchParams.get('region') || '' } : null
+  const [selectedCompanyId, setSelectedCompanyId] = useState(searchParams.get('company') || '')
 
   useEffect(() => {
     if (!companies.length) {
@@ -47,7 +53,7 @@ function CommercialStructureView() {
       {companies.length === 0 ? (
         <div className="panel-surface commercial-structure-view__status">No companies yet — add one from the sidebar first.</div>
       ) : (
-        <CommercialStructureEditor companyId={selectedCompany?.id} companyName={selectedCompany?.name ?? ''} />
+        <CommercialStructureEditor key={prefill ? `add:${prefill.countryCode}` : 'edit'} companyId={selectedCompany?.id} companyName={selectedCompany?.name ?? ''} prefill={prefill} />
       )}
     </section>
   )

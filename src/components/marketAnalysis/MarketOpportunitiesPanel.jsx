@@ -351,7 +351,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   const taxMultiplierFor = (target, productName) => taxMultipliers.get(`${target}|${productKey(productName)}`) ?? null
   const taxMultiplierTitle = (entry) =>
     !entry
-      ? 'No import-tax multiplier for this product yet. Countries with a tariff file (Jamaica, United States) get it automatically; for Colombia calculate the product in Tools ▸ Tax Calculator and it is saved here.'
+      ? 'No import-tax multiplier for this product yet. Countries with a tariff file (Jamaica, Trinidad and Tobago, United States) get it automatically; for Colombia calculate the product in Tools ▸ Tax Calculator and it is saved here.'
       : [
           entry.tariff_code ? `Tariff line ${entry.tariff_code}${entry.tariff_path ? ` — ${entry.tariff_path}` : ''}` : null,
           entry.detail?.length ? entry.detail.map((tax) => `${tax.name} ${tax.rate}`).join('; ') : null,

@@ -1217,3 +1217,75 @@ class DianCodeAlias(Base):
     consultation_date = Column(String, primary_key=True)
     schema_version = Column(Integer, primary_key=True)
     resolved_hs_code = Column(String, nullable=False)
+
+
+# ---- Global Tourism & Economic Dependency module (backend/tourism/) ----
+
+
+class TourismCountry(Base):
+    """Country/territory registry: ISO codes, region, sovereign/territory status. Seeded from the World Bank country list (see tourism/registry.py)."""
+    __tablename__ = 'tourism_countries'
+
+    country_id = Column(String, primary_key=True)  # ISO 3166-1 alpha-2
+    country_name = Column(String, nullable=False, index=True)
+    iso_alpha2 = Column(String, nullable=False, unique=True)
+    iso_alpha3 = Column(String, nullable=True, index=True)  # only when a provider/the user supplied a real code
+    un_m49 = Column(String, nullable=True, index=True)  # UN M49 numeric area code, matched from the UN SDG API area list (see tourism/registry.assign_m49)
+    region = Column(String, nullable=False, index=True)
+    subregion = Column(String, nullable=True)
+    territory_status = Column(String, nullable=False, default='country')  # 'country' | 'territory'
+    parent_country = Column(String, nullable=True)  # alpha-2 of the sovereign state, for territories
+    in_world_bank = Column(Boolean, nullable=False, default=False)  # does the World Bank list this code (so it can be requested)
+    manual = Column(Boolean, nullable=False, default=False)
+    created_at = Column(String, nullable=False)
+
+
+class TourismObservation(Base):
+    """One value of one indicator for one country and year from one source. Different sources/editions never overwrite each other."""
+    __tablename__ = 'tourism_observations'
+    __table_args__ = (UniqueConstraint('country_id', 'indicator_code', 'reference_year', 'data_source', 'dataset_edition', name='uq_tourism_observation'),)
+
+    observation_id = Column(Integer, primary_key=True, autoincrement=True)
+    country_id = Column(String, ForeignKey('tourism_countries.country_id'), nullable=False, index=True)
+    indicator_code = Column(String, nullable=False, index=True)
+    value = Column(Float, nullable=True)
+    value_text = Column(String, nullable=True)  # exact decimal text as received/calculated
+    unit = Column(String, nullable=False)
+    reference_year = Column(Integer, nullable=False, index=True)
+    data_source = Column(String, nullable=False)  # WORLD_BANK | IDB | WTTC | STATISTA | CALCULATED
+    source_dataset = Column(String, nullable=True)
+    source_url = Column(String, nullable=True)
+    data_retrieved_at = Column(String, nullable=False)
+    dataset_edition = Column(String, nullable=False, default='')
+    methodology_note = Column(String, nullable=True)
+    is_estimated = Column(Boolean, nullable=False, default=False)
+    is_calculated = Column(Boolean, nullable=False, default=False)
+    data_quality_status = Column(String, nullable=False, default='Verified')
+    import_id = Column(Integer, nullable=True)
+
+
+class TourismProvider(Base):
+    __tablename__ = 'tourism_providers'
+
+    provider_id = Column(String, primary_key=True)
+    provider_name = Column(String, nullable=False)
+    enabled = Column(Boolean, nullable=False, default=True)
+    authentication_type = Column(String, nullable=False, default='none')  # none | api_key | licensed_file
+    last_sync = Column(String, nullable=True)
+    connection_status = Column(String, nullable=False, default='unknown')
+    supported_indicators = Column(JSON, nullable=False, default=list)
+    status_detail = Column(String, nullable=True)
+
+
+class TourismImportJob(Base):
+    __tablename__ = 'tourism_import_jobs'
+
+    import_id = Column(Integer, primary_key=True, autoincrement=True)
+    provider = Column(String, nullable=False)
+    file_name = Column(String, nullable=False)
+    import_date = Column(String, nullable=False)
+    dataset_edition = Column(String, nullable=False, default='')
+    row_count = Column(Integer, nullable=False, default=0)
+    success_count = Column(Integer, nullable=False, default=0)
+    rejected_count = Column(Integer, nullable=False, default=0)
+    validation_report = Column(JSON, nullable=False, default=dict)

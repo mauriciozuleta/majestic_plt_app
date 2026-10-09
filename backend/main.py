@@ -47,6 +47,7 @@ from .routers import (
     rag_files,
     local_models,
     tax_calculator,
+    tourism,
     revenue_streams,
     risk_analysis,
     roadmap,
@@ -69,6 +70,8 @@ def _ensure_schema_migrations():
     inspector = inspect(engine)
     with engine.begin() as connection:
         migrate_provider_fields(connection)
+        if 'tourism_countries' in inspector.get_table_names() and 'un_m49' not in {c['name'] for c in inspector.get_columns('tourism_countries')}:
+            connection.execute(text('ALTER TABLE tourism_countries ADD COLUMN un_m49 VARCHAR'))
         if 'logistics_aircraft' in inspector.get_table_names():
             aircraft_columns = {c['name'] for c in inspector.get_columns('logistics_aircraft')}
             # Existing aircraft remain selected. Imported/new catalogue records opt in explicitly.
@@ -562,6 +565,7 @@ app.include_router(supermarket_catalog.router)
 app.include_router(rag_files.router)
 app.include_router(local_models.router)
 app.include_router(tax_calculator.router)
+app.include_router(tourism.router)
 app.include_router(product_classification.router)
 app.include_router(payroll_template.router)
 app.include_router(commercial_structure.router)

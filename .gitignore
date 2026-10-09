@@ -72,3 +72,7 @@ backend/documents/tax_data/
 
 # DIAN lookup debug snapshots (screenshots + HTML), only written in debug mode
 backend/tax_calc/colombia_dian/debug/
+
+# tourism module: provider answer cache and account-specific provider registries
+backend/tourism/cache/
+backend/tourism/statista_registry.json

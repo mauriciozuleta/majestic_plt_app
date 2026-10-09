@@ -10,6 +10,19 @@ resumed session:
 Only after both reads, use `graphify query "<question>"` / `graphify path` / `graphify explain` for specific questions and read
 source files for the parts you will change. Say in your first reply that you read them.
 
+## Supermarket catalog service — check at session start
+
+Majestic's "Build supermarket catalog" talks to the separate app `D:\OneDrive\0. software Lab\Supermarket_data_fetch` over a local
+API on `http://127.0.0.1:8020`. After the mandatory reads, check it is running **and healthy**: `GET /health` AND `GET /stores` must both
+answer 200 (`/health` alone is not enough — `/stores` is what Majestic's status check calls). If either fails, stop the old process
+(whatever listens on 8020) and start it with the **global Python, not `launch_api.bat`**: the bat falls back to `py`, which resolves to
+Majestic's `.venv` when launched from here, and that environment lacks `requests`, so `/stores` crashes with an empty reply:
+
+    Start-Process "C:\Python313\python.exe" -ArgumentList 'api_server.py' -WorkingDirectory "D:\OneDrive\0. software Lab\Supermarket_data_fetch" -WindowStyle Hidden
+
+Wait ~8 s, re-check both endpoints, and tell the user whether it was already running or you started it. Do not edit that app's
+`api_server.py` or `AGENTS.md` (owned by Codex).
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

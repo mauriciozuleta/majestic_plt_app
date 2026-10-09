@@ -4,6 +4,7 @@ import './ToolsView.css'
 const TOOLS = [
   { to: '/tools/tax-calculator', label: 'Tax Calculator' },
   { to: '/tools/rag-files', label: 'RAG Files' },
+  { to: '/tools/tourism-dependency', label: 'Tourism & Economic Dependency' },
   { to: '/tools/accounting-health-check', label: 'Accounting Health Check' },
 ]
 

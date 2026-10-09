@@ -1,0 +1,344 @@
+.tourism {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.tourism__header h3 {
+  margin: 0 0 0.25rem;
+}
+
+.tourism__header p,
+.tourism__muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.tourism__panel {
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.tourism__panel h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.tourism button,
+.tourism select,
+.tourism input[type='search'],
+.tourism input[type='text'],
+.tourism input[type='number'],
+.tourism input:not([type]),
+.tourism__button {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.tourism button,
+.tourism__button {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.tourism button:disabled,
+.tourism__button.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+.tourism__selector,
+.tourism__providers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tourism__selector-row,
+.tourism__year,
+.tourism__table-head,
+.tourism__pager,
+.tourism__manual,
+.tourism__import,
+.tourism__columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tourism__spacer {
+  flex: 1;
+}
+
+.tourism__search {
+  position: relative;
+  flex: 1 1 260px;
+}
+
+.tourism__search input {
+  width: 100%;
+}
+
+.tourism__suggestions {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.2rem;
+  list-style: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tourism__suggestions button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.tourism__suggestions small {
+  color: var(--text-muted);
+}
+
+.tourism__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tourism__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid rgba(20, 184, 166, 0.5);
+  background: rgba(20, 184, 166, 0.12);
+  border-radius: 999px;
+  padding: 0.15rem 0.3rem 0.15rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+.tourism__chip button {
+  border: none;
+  background: none;
+  padding: 0.1rem;
+  display: inline-flex;
+}
+
+.tourism__scroll {
+  overflow-x: auto;
+}
+
+.tourism__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.tourism__table th,
+.tourism__table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.tourism__table th.is-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tourism__table tbody tr {
+  cursor: pointer;
+}
+
+.tourism__table tbody tr:hover,
+.tourism__table tbody tr.is-selected {
+  background: rgba(20, 184, 166, 0.08);
+}
+
+.tourism__num {
+  text-align: right !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tourism__num.is-na {
+  color: var(--text-muted);
+}
+
+.tourism__year-tag {
+  margin-left: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.tourism__link {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  color: #5eead4 !important;
+}
+
+.tourism__tag {
+  margin-left: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.tourism__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: 0.3rem;
+  background: #64748b;
+}
+
+.is-verified.tourism__dot,
+.tourism__badge.is-verified {
+  background: #16a34a;
+}
+
+.is-calculated.tourism__dot,
+.tourism__badge.is-calculated {
+  background: #2563eb;
+}
+
+.is-estimated.tourism__dot,
+.tourism__badge.is-estimated {
+  background: #a855f7;
+}
+
+.is-historical.tourism__dot,
+.tourism__badge.is-historical {
+  background: #d97706;
+}
+
+.is-review.tourism__dot,
+.tourism__badge.is-review {
+  background: #dc2626;
+}
+
+.tourism__badge {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  color: #fff;
+  background: #64748b;
+}
+
+.tourism__charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 1rem;
+}
+
+.tourism__chart {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+}
+
+.tourism__chart figcaption {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.tourism__chart svg {
+  width: 100%;
+  height: auto;
+}
+
+.tourism__chart-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+}
+
+.tourism__chart-value {
+  fill: var(--text-primary);
+  font-size: 10px;
+}
+
+.tourism__chart-grid {
+  stroke: var(--border);
+  stroke-dasharray: 3 3;
+}
+
+.tourism__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.tourism__legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 0.3rem;
+}
+
+.tourism__warning {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #fbbf24;
+}
+
+.tourism__error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #fca5a5;
+}
+
+.tourism__list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.tourism__status {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background: #64748b;
+  color: #fff;
+}
+
+.tourism__status--ok,
+.tourism__status--ready,
+.tourism__status--configured {
+  background: #16a34a;
+}
+
+.tourism__status--error {
+  background: #dc2626;
+}
+
+.tourism__status--awaiting_import,
+.tourism__status--not_configured,
+.tourism__status--partial {
+  background: #d97706;
+}
