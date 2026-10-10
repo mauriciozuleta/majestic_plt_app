@@ -127,6 +127,28 @@ def rank(line: dict, words: list[str]) -> tuple | None:
     return (-score, len(path))
 
 
+def rate_pct(text: str | None) -> float | None:
+    """'Free' -> 0.0, '40%' -> 40.0, anything else (a specific amount, unreadable text, None) -> None."""
+    if text is None:
+        return None
+    text = text.strip()
+    if text.lower() == 'free':
+        return 0.0
+    match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*%', text)
+    return float(match.group(1)) if match else None
+
+
+def higher_rate(first: str | None, second: str | None) -> str | None:
+    """STANDING RULE: when two parts of a document give different rates for the same line, use the higher one (the first wins a tie). A side that is not a
+    percentage/Free is ignored. The caller still reports the conflict."""
+    a, b = rate_pct(first), rate_pct(second)
+    if a is None:
+        return second if b is not None else first
+    if b is None:
+        return first
+    return second if b > a else first
+
+
 def digits(text: str) -> str:
     return re.sub(r'\D', '', text or '')
 

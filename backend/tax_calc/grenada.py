@@ -20,7 +20,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from .base import DATA_ROOT, Calculator, Inputs, Result, Tax, digits, money, query_words, rank
+from .base import DATA_ROOT, Calculator, Inputs, Result, Tax, digits, higher_rate, money, query_words, rank
 from .jamaica import CARICOM
 
 FOLDER = DATA_ROOT / 'Grenada'
@@ -322,7 +322,7 @@ class GrenadaCalculator(Calculator):
 
     def signature(self, line: dict):
         national = line.get('national_rate')
-        return (national['rate'] if national else line['rate'], line['specific'])
+        return (higher_rate(line['rate'], national['rate']) if national else line['rate'], line['specific'])
 
     # ------------------------------------------------------------ lookup
     @staticmethod
@@ -330,7 +330,8 @@ class GrenadaCalculator(Calculator):
         flag = ' * (national rate may differ: List A/C/D row not read)' if line['in_lists'] else ''
         national = line['national_rate']
         if national:
-            return f"Customs duty {national['rate']} (Grenada, List {national['list']}; CET {national['cet']})"
+            used = higher_rate(line['rate'], national['rate'])
+            return f"Customs duty {used} (Grenada, List {national['list']} {national['rate']}; CET {national['cet']}{'; schedule ' + line['rate'] if line['rate'] and line['rate'] != national['rate'] else ''})"
         if line['specific']:
             return f"Customs duty {line['specific']}{flag}"
         return f"Customs duty {line['rate'] or 'not legible'}{flag}"
@@ -379,14 +380,14 @@ class GrenadaCalculator(Calculator):
         national = line['national_rate']
         if national:
             if national['rate'] == 'Free' or national['rate'].endswith('%'):
-                rate_text, specific = national['rate'], None
-                result.notes.append(f"Grenada applies {national['rate']} to this line (List {national['list']} of the CET; the CET rate is {national['cet']}).")
+                rate_text, specific = higher_rate(line['rate'], national['rate']), None
+                result.notes.append(f"Grenada applies {national['rate']} to this line (List {national['list']} of the CET; the CET rate is {national['cet']}); the schedule gives {line['rate'] or 'n/a'}. Rate used: {rate_text} (the higher one, if they differ).")
             else:
                 result.complete = False
                 result.warnings.append(f"Grenada applies a rate to this line in List {national['list']} that this calculator does not read ({national['rate']}); the schedule rate is shown and the total may be wrong.")
 
         if national and line['rate'] and national['rate'] != line['rate']:
-            result.warnings.append(f"CONFLICT IN THE FILE: the schedule gives this line {line['rate']} (page {line['page']}) but List {national['list']} gives Grenada {national['rate']}. The List rate is used (the Lists carry the rates each state applies); check which one Grenada Customs collects.")
+            result.warnings.append(f"CONFLICT IN THE FILE: the schedule gives this line {line['rate']} (page {line['page']}) but List {national['list']} gives Grenada {national['rate']}. The HIGHER rate ({rate_text}) is used; check which one Grenada Customs collects.")
         spirit = SPIRIT_ORDERS.get(line['code'][:7])
         if caricom:
             result.notes.append(f'{inputs.origin} is a CARICOM member: goods that qualify for Community treatment (certificate of origin) enter free of the Common External Tariff.')
@@ -404,10 +405,19 @@ class GrenadaCalculator(Calculator):
             result.warnings.append(f"The duty rate of line {line['code']} is not legible in the file (page {line['page']}): {rate_text or 'no rate read'}. The duty is not in the total; add the rate to overrides.json in the Grenada tariff folder.")
 
         if spirit and not caricom:
+            order_usd = inputs.quantity_units * spirit['general_xcd_per_gallon'] / XCD_PER_USD if inputs.quantity_units is not None else None
+            duty_tax = next((tax for tax in result.taxes if tax.name == 'Customs duty'), None)
+            used = 'the CET/List ad valorem rate'
+            if order_usd is not None and duty_tax is not None and order_usd > duty_tax.amount:
+                result.taxes[result.taxes.index(duty_tax)] = Tax(f"Customs duty ({spirit['name']} Order, higher than the CET rate)", order_usd, f"EC${spirit['general_xcd_per_gallon']:g} per liquid gallon", 'gallon',
+                                                                 f"{inputs.quantity_units:g} gal × EC${spirit['general_xcd_per_gallon']:g} ÷ {XCD_PER_USD}")
+                used = f"the {spirit['name']} Order (EC${spirit['general_xcd_per_gallon']:g} per liquid gallon)"
+            elif order_usd is None:
+                used = 'the CET/List ad valorem rate (enter the quantity in gallons and the higher of the two is used)'
             result.warnings.append(
                 f"CONFLICT IN THE FILE: the Customs (Import Duty on {spirit['name'].title()}) Order (SRO of 1961) sets EC${spirit['general_xcd_per_gallon']:g} per liquid gallon (general) / "
                 f"EC${spirit['preferential_xcd_per_gallon']:g} (preferential), while the CET schedule and List C give Grenada an ad valorem rate for this line. "
-                'The CET rate (later, 2010) is used; check with Grenada Customs which one is collected.'
+                f'The HIGHER duty is used: {used}. Check with Grenada Customs which one is collected.'
             )
         if line['in_lists'] and not caricom:
             result.warnings.append('This line appears in a List A/C/D row of the CET (where Grenada may apply a rate different from the CET) that could not be read. The schedule rate is shown — verify it.')

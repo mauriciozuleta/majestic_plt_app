@@ -25,7 +25,7 @@ import re
 from datetime import date, datetime
 from pathlib import Path
 
-from .base import DATA_ROOT, Calculator, Inputs, Result, Tax, digits, money, query_words, rank
+from .base import DATA_ROOT, Calculator, Inputs, Result, Tax, digits, higher_rate, money, query_words, rank, rate_pct
 from .jamaica import CARICOM
 
 FOLDER = DATA_ROOT / 'Saint Lucia'
@@ -286,7 +286,7 @@ class SaintLuciaCalculator(Calculator):
 
     def signature(self, line: dict):
         national = line.get('national_rate')
-        return (national['rate'] if national else line['rate'], line['specific_xcd_per_100kg'])
+        return (higher_rate(line['rate'], national['rate']) if national else line['rate'], line['specific_xcd_per_100kg'])
 
     # ------------------------------------------------------------ lookup
     @staticmethod
@@ -294,7 +294,8 @@ class SaintLuciaCalculator(Calculator):
         flag = ' * (national rate may differ: List A/C/D not read)' if line['in_lists'] else ''
         national = line['national_rate']
         if national:
-            return f"Customs duty {national['rate']} (Saint Lucia, List {national['list']}; CET {national['cet']})"
+            used = higher_rate(line['rate'], national['rate'])
+            return f"Customs duty {used} (Saint Lucia, List {national['list']} {national['rate']}; CET {national['cet']}{'; schedule ' + line['rate'] if line['rate'] and line['rate'] != national['rate'] else ''})"
         if line['specific_xcd_per_100kg']:
             return f"Customs duty EC${line['specific_xcd_per_100kg']:g} per 100 kg{flag}"
         return f"Customs duty {line['rate'] or 'not legible'}{flag}"
@@ -364,7 +365,10 @@ class SaintLuciaCalculator(Calculator):
         if national:
             if national['rate'] == 'Free' or national['rate'].endswith('%'):
                 rate_text, specific = national['rate'], None
-                result.notes.append(f"Saint Lucia applies {national['rate']} to this line (List {national['list']} of the CET; the CET rate is {national['cet']}).")
+                if line['rate'] and rate_pct(line['rate']) is not None and line['rate'] != national['rate']:
+                    rate_text = higher_rate(line['rate'], national['rate'])
+                    result.warnings.append(f"CONFLICT IN THE FILE: the schedule gives this line {line['rate']} (page {line['page']}) but List {national['list']} gives Saint Lucia {national['rate']}. The HIGHER rate ({rate_text}) is used; check which one Saint Lucia Customs collects.")
+                result.notes.append(f"Saint Lucia applies {national['rate']} to this line (List {national['list']} of the CET; the CET rate is {national['cet']}). Rate used: {rate_text}.")
             else:
                 result.complete = False
                 result.warnings.append(f"Saint Lucia applies a specific rate to this line in List {national['list']} ({national['rate']}); this calculator does not read it, so the CET rate is shown and the total may be wrong.")

@@ -23,6 +23,13 @@ Majestic's `.venv` when launched from here, and that environment lacks `requests
 Wait ~8 s, re-check both endpoints, and tell the user whether it was already running or you started it. Do not edit that app's
 `api_server.py` or `AGENTS.md` (owned by Codex).
 
+## Tax calculators — conflicting rates (standing rule from the user)
+
+When two parts of a customs document give different rates for the same tariff line (the schedule vs a List, a Specific Order vs the CET …), the calculator uses the
+**higher** tariff or tax and **still shows the "CONFLICT IN THE FILE" warning** (say which rate was used). The shared helper is `higher_rate()` in
+`backend/tax_calc/base.py`; apply it to every new country adapter. A side that is not a percentage (a specific amount, unreadable text) is ignored by the helper;
+if the two charges are of different kinds (e.g. a per-gallon Order vs an ad valorem rate) compute both when the inputs allow and use the higher amount.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

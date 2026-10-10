@@ -249,6 +249,160 @@ class GrenadaTests(unittest.TestCase):
         self.assertTrue(any('Import Duty on Rum' in warning for warning in result['warnings']))
 
 
+class BarbadosTests(unittest.TestCase):
+    def setUp(self):
+        self.calculator = tax_calc.get('Barbados')
+        self.calculator.refresh()
+        if not self.calculator.info()['ready']:
+            self.skipTest('Barbados tariff data not present (use "Update tariff data")')
+
+    def test_the_schedule_sections_were_read(self):
+        info = self.calculator.info()
+        self.assertGreater(info['lines'], 6500)
+        self.assertGreaterEqual(info['section_b_entries'], 80)
+        self.assertGreaterEqual(info['section_c_entries'], 80)
+        self.assertEqual(self.calculator.by_code['0702.00.00.100']['path'], 'Tomatoes, fresh or chilled. > Cherry tomatoes')  # not under the previous heading (potatoes)
+
+    def test_fresh_tomatoes_199_percent_on_cif_and_vat_zero_rated_as_printed(self):
+        result = self.calculator.calculate('0702.00.00.100', Inputs(goods_value_usd=1000, freight_usd=100, quantity_kg=1000, origin='Colombia')).to_dict()
+        self.assertAlmostEqual(_by_name(result)['Customs duty'], 1100 * 1.99)
+        vat = next(tax for tax in result['taxes'] if tax['name'].startswith('Value added'))
+        self.assertEqual((vat['amount'], vat['recoverable']), (0.0, True))  # the tariff line prints 0.0%
+
+    def test_vat_rate_is_the_one_printed_on_the_line(self):
+        result = self.calculator.calculate('0201.10.00.000', Inputs(goods_value_usd=1000, origin='United States')).to_dict()
+        self.assertAlmostEqual(_by_name(result)['Customs duty'], 300.0)  # beef 30%
+        self.assertAlmostEqual(_by_name(result)['Value added tax (VAT)'], 1300 * 0.175)
+
+    def test_caricom_origin_is_duty_free(self):
+        self.assertEqual(self.calculator.calculate('0702.00.00.100', Inputs(goods_value_usd=1000, quantity_kg=1000, origin='Jamaica')).to_dict()['total_tax_usd'], 0.0)
+
+    def test_section_b_goods_pay_60_percent_whatever_section_a_says(self):
+        line = next(line for line in self.calculator.lines if line['code'].startswith('6112.49'))
+        result = self.calculator.calculate(line['code'], Inputs(goods_value_usd=1000, origin='China')).to_dict()
+        self.assertAlmostEqual(_by_name(result)['Customs duty'], 600.0)
+        self.assertTrue(any('Section B' in note for note in result['notes']))
+
+    def test_special_safeguard_formula(self):
+        from backend.tax_calc.barbados import safeguard_additional_duty
+
+        self.assertEqual(safeguard_additional_duty(2.86, 2.86 * 0.95), 0.0)  # within 10% of the trigger
+        self.assertAlmostEqual(safeguard_additional_duty(2.86, 2.0), 2.86 * 0.3 * ((2.86 - 2.0) / 2.86 - 0.10), places=6)  # a 30.07% drop
+        self.assertAlmostEqual(safeguard_additional_duty(2.86, 2.86 * 0.5), 2.86 * (0.3 * 0.30 + 0.5 * 0.10), places=6)
+        self.assertAlmostEqual(safeguard_additional_duty(2.86, 2.86 * 0.2), 2.86 * (0.09 + 0.10 + 0.105 + 0.045), places=6)
+
+    def test_chicken_wings_pay_the_safeguard_only_when_the_price_is_below_the_trigger(self):
+        cheap = self.calculator.calculate('0207.14.20.000', Inputs(goods_value_usd=1000, quantity_kg=1000, origin='United States')).to_dict()
+        extra = _by_name(cheap)['Special safeguard additional duty']
+        self.assertAlmostEqual(extra, 2.86 * 0.3 * ((2.86 - 2.0) / 2.86 - 0.10) * 1000 / 2.0, places=2)  # BBD 2.00/kg against a BBD 2.86 trigger
+        dear = self.calculator.calculate('0207.14.20.000', Inputs(goods_value_usd=2000, quantity_kg=1000, origin='United States')).to_dict()
+        self.assertNotIn('Special safeguard additional duty', _by_name(dear))
+        self.assertFalse(self.calculator.calculate('0207.14.20.000', Inputs(goods_value_usd=1000, origin='United States')).complete)  # no quantity: not computable
+
+    def test_countervailing_duty_applies_only_to_goods_from_trinidad_and_tobago(self):
+        from_tt = self.calculator.calculate('0403.10.00.000', Inputs(goods_value_usd=1000, quantity_units=1000, origin='Trinidad and Tobago')).to_dict()
+        self.assertAlmostEqual(next(t['amount'] for t in from_tt['taxes'] if t['name'].startswith('Countervailing')), 1000 * 0.33 / 2.0)  # BBD 0.33 per litre
+        self.assertEqual(_by_name(from_tt)['Customs duty'], 0.0)  # CARICOM origin: the CET is waived, the countervailing duty is not
+        other = self.calculator.calculate('0403.10.00.000', Inputs(goods_value_usd=1000, quantity_units=1000, origin='Canada')).to_dict()
+        self.assertFalse(any(t['name'].startswith('Countervailing') for t in other['taxes']))
+
+    def test_excise_percentage_is_charged_on_cif_plus_duty(self):
+        result = self.calculator.calculate('2009.11.10.200', Inputs(goods_value_usd=1000, quantity_kg=1000, origin='Canada')).to_dict()
+        self.assertAlmostEqual(_by_name(result)['Excise tax'], (1000 + 400) * 0.10)  # duty 40%, excise 10%
+
+    def test_inspection_fee_per_head_needs_the_number_of_head(self):
+        with_units = self.calculator.calculate('0102.90.00.000', Inputs(goods_value_usd=5000, quantity_units=10, origin='Canada')).to_dict()
+        self.assertAlmostEqual(_by_name(with_units)['Inspection fee'], 10 * 10.0 / 2.0)  # BBD 10 each
+        self.assertFalse(self.calculator.calculate('0102.90.00.000', Inputs(goods_value_usd=5000, origin='Canada')).complete)
+
+    def test_a_specific_duty_is_reported_not_guessed(self):
+        line = next((line for line in self.calculator.lines if line['duty'] is None), None)
+        if line is None:
+            self.skipTest('every duty was readable')
+        self.assertFalse(self.calculator.calculate(line['code'], Inputs(goods_value_usd=100)).complete)
+
+    def test_schedule_and_list_conflicts_are_reported(self):
+        result = self.calculator.calculate('0207.14.20.000', Inputs(goods_value_usd=2000, quantity_kg=1000, origin='United States')).to_dict()
+        self.assertTrue(any('CONFLICT IN THE FILE' in warning for warning in result['warnings']))  # schedule 184%, List A gives Barbados Free
+
+    def test_eu_origin_gets_the_epa_warning(self):
+        result = self.calculator.calculate('0201.10.00.000', Inputs(goods_value_usd=1000, origin='Germany')).to_dict()
+        self.assertTrue(any('EPA' in warning for warning in result['warnings']))
+
+
+class HigherRateRuleTests(unittest.TestCase):
+    """STANDING RULE: when two parts of a document disagree on a line's rate, the HIGHER rate is used and the conflict is still reported."""
+
+    def test_the_helper(self):
+        from backend.tax_calc.base import higher_rate, rate_pct
+
+        self.assertEqual((rate_pct('Free'), rate_pct('40%'), rate_pct('$2.64'), rate_pct(None)), (0.0, 40.0, None, None))
+        self.assertEqual(higher_rate('184%', 'Free'), '184%')
+        self.assertEqual(higher_rate('5%', '10%'), '10%')
+        self.assertEqual(higher_rate('Free', '15%'), '15%')
+        self.assertEqual(higher_rate('20%', '20%'), '20%')
+        self.assertEqual(higher_rate('$2.64', '15%'), '15%')  # a side that is not a percentage is ignored
+        self.assertEqual(higher_rate('15%', None), '15%')
+
+    def test_barbados_uses_the_higher_of_schedule_and_list(self):
+        calculator = tax_calc.get('Barbados')
+        calculator.refresh()
+        if not calculator.info()['ready']:
+            self.skipTest('Barbados data not present')
+        from backend.tax_calc.base import rate_pct
+
+        lower_in_schedule = next((line for line in calculator.lines if line['duty'] and calculator._list_value(line) and (rate_pct(calculator._list_value(line)['rate']) or 0) > (rate_pct(line['duty']) or 0)), None)
+        if lower_in_schedule is not None:  # the list is higher: its rate is used
+            listed = calculator._list_value(lower_in_schedule)['rate']
+            result = calculator.calculate(lower_in_schedule['code'], Inputs(goods_value_usd=1000, origin='Canada')).to_dict()
+            self.assertAlmostEqual(_by_name(result)['Customs duty'], 1000 * rate_pct(listed) / 100)
+            self.assertTrue(any('CONFLICT IN THE FILE' in warning and 'HIGHER' in warning for warning in result['warnings']))
+        pork = calculator.calculate('0203.11.00.000', Inputs(goods_value_usd=1000, quantity_kg=1000, origin='Canada')).to_dict()  # schedule 184%, List Free
+        self.assertAlmostEqual(_by_name(pork)['Customs duty'], 1840.0)
+        self.assertTrue(any('CONFLICT IN THE FILE' in warning for warning in pork['warnings']))
+
+    def test_grenada_uses_the_higher_of_schedule_and_list(self):
+        calculator = tax_calc.get('Grenada')
+        calculator.refresh()
+        if not calculator.info()['ready']:
+            self.skipTest('Grenada data not present')
+        maize = calculator.calculate('1005.90.00', Inputs(goods_value_usd=1000, origin='Brazil')).to_dict()  # schedule 25%, List A Free -> 25%
+        self.assertAlmostEqual(_by_name(maize)['Customs duty'], 250.0)
+        jewellery = calculator.calculate('7113.20.00', Inputs(goods_value_usd=1000, origin='Brazil')).to_dict()  # schedule 30%, List C 35% -> 35%
+        self.assertAlmostEqual(_by_name(jewellery)['Customs duty'], 350.0)
+        for result in (maize, jewellery):
+            self.assertTrue(any('CONFLICT IN THE FILE' in warning and 'HIGHER' in warning for warning in result['warnings']))
+
+    def test_grenada_rum_order_is_used_when_it_is_higher_than_the_cet_rate(self):
+        calculator = tax_calc.get('Grenada')
+        calculator.refresh()
+        if not calculator.info()['ready']:
+            self.skipTest('Grenada data not present')
+        small = calculator.calculate('2208.40.10', Inputs(goods_value_usd=1000, quantity_units=100, origin='Colombia')).to_dict()  # Order 936 EC$ = 346.67 USD < 35% of 1,000
+        self.assertAlmostEqual(small['total_tax_usd'], 350.0)
+        large = calculator.calculate('2208.40.10', Inputs(goods_value_usd=1000, quantity_units=200, origin='Colombia')).to_dict()  # Order 1,872 EC$ = 693.33 USD > 350
+        self.assertAlmostEqual(large['total_tax_usd'], 200 * 9.36 / 2.7, places=2)
+        self.assertTrue(any('HIGHER duty is used' in warning for warning in large['warnings']))
+
+    def test_saint_lucia_uses_the_higher_of_schedule_and_list(self):
+        calculator = tax_calc.get('Saint Lucia')
+        calculator.refresh()
+        if not calculator.info()['ready']:
+            self.skipTest('Saint Lucia data not present')
+        line = calculator.by_code['0702.00.00']
+        saved = line['national_rate']
+        try:
+            line['national_rate'] = {'rate': '60%', 'list': 'A', 'cet': '40%'}  # a list rate above the schedule's 40%
+            result = calculator.calculate('0702.00.00', Inputs(goods_value_usd=1000, origin='Colombia')).to_dict()
+            self.assertAlmostEqual(_by_name(result)['Customs duty'], 600.0)
+            self.assertTrue(any('CONFLICT IN THE FILE' in warning for warning in result['warnings']))
+            line['national_rate'] = {'rate': 'Free', 'list': 'A', 'cet': '40%'}  # a list rate below the schedule's: the schedule's 40% stays
+            result = calculator.calculate('0702.00.00', Inputs(goods_value_usd=1000, origin='Colombia')).to_dict()
+            self.assertAlmostEqual(_by_name(result)['Customs duty'], 400.0)
+        finally:
+            line['national_rate'] = saved
+
+
 class UsaMultiplierTests(unittest.TestCase):
     def test_specific_duty_without_a_price_needs_the_price(self):
         usa = tax_calc.get('United States')
