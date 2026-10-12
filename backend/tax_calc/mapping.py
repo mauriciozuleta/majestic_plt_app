@@ -31,6 +31,8 @@ def lines_for_hs(calculator: Calculator, hs_code: str | None) -> list[dict]:
         return []
     calculator.info()  # makes sure the data is loaded
     lines = calculator.lines  # type: ignore[attr-defined]
+    if getattr(calculator, 'uniform', False):  # one duty for every tariff line (Sint Maarten: zero): any HS code maps to it
+        return list(lines)
     cached = _INDEX.get(id(calculator))
     if cached is None or cached[0] != len(lines):
         index: dict[str, list[dict]] = {}

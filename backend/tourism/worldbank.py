@@ -56,17 +56,23 @@ def fetch_indicator(iso3_codes: list[str], indicator_id: str, *, date_from: int 
     return rows, edition
 
 
+def _fetch_one_indicator(iso3_codes: list[str], indicator_id: str) -> tuple[list[dict], str | None]:
+    rows: list[dict] = []
+    edition = None
+    for start in range(0, len(iso3_codes), BATCH):
+        batch_rows, edition = fetch_indicator(iso3_codes[start:start + BATCH], indicator_id)
+        rows.extend(batch_rows)
+    return rows, edition
+
+
 def fetch_all(iso3_codes: list[str]) -> dict[str, tuple[list[dict], str | None]]:
-    """{module indicator code: (rows, edition)} for receipts, GDP and population, in batches of BATCH countries."""
-    out: dict[str, tuple[list[dict], str | None]] = {}
-    for indicator_code, indicator_id in WORLD_BANK_INDICATORS.items():
-        rows: list[dict] = []
-        edition = None
-        for start in range(0, len(iso3_codes), BATCH):
-            batch_rows, edition = fetch_indicator(iso3_codes[start:start + BATCH], indicator_id)
-            rows.extend(batch_rows)
-        out[indicator_code] = (rows, edition)
-    return out
+    """{module indicator code: (rows, edition)} for receipts, GDP and population, in batches of BATCH countries. The three indicators are requested at the same
+    time (the API answers slowly at times: one wait instead of three). The first failure is raised after all requests ended."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=len(WORLD_BANK_INDICATORS)) as pool:
+        futures = {code: pool.submit(_fetch_one_indicator, iso3_codes, indicator_id) for code, indicator_id in WORLD_BANK_INDICATORS.items()}
+        return {code: future.result() for code, future in futures.items()}
 
 
 def unit_of(indicator_code: str) -> str:

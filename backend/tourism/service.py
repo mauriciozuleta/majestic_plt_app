@@ -9,6 +9,7 @@ Rules that matter (see README.md):
 
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -373,6 +374,36 @@ def compare(db: Session, codes: list[str], year: int | None, *, refresh: bool = 
     if unknown:
         warnings.append('Unknown country code(s) ignored: ' + ', '.join(unknown))
     return {'year': year if year is not None else 'latest', 'rows': rows, 'warnings': warnings, 'unknown': unknown}
+
+
+def stored_rows(db: Session, codes: list[str], year: int | None) -> dict:
+    """The comparison rows built ONLY from what is already stored in the database: no provider is called, nothing is written. Used by screens that must
+    load instantly (Market Analysis); `refresh_rows` is the explicit way to update the stored values. `last_updated` is the newest retrieval time among the
+    stored observations of these countries (None when nothing is stored yet) and `without_data` lists the countries that have no stored observation at all."""
+    found, unknown = registry.resolve_codes(db, codes)
+    rows = []
+    for country in found:
+        row = build_row(db, country, year)
+        for cell in row['indicators'].values():
+            if cell['value'] is None and cell['reason'] is None:
+                cell['reason'] = 'Missing.'
+        rows.append(row)
+    ids = [country.country_id for country in found]
+    last = None
+    without = []
+    if ids:
+        last = db.query(func.max(models.TourismObservation.data_retrieved_at)).filter(models.TourismObservation.country_id.in_(ids)).scalar()
+        have = {row[0] for row in db.query(models.TourismObservation.country_id).filter(models.TourismObservation.country_id.in_(ids)).distinct().all()}
+        without = [country.iso_alpha2 for country in found if country.country_id not in have]
+    return {'year': year if year is not None else 'latest', 'rows': rows, 'warnings': [], 'unknown': unknown, 'last_updated': last, 'without_data': without}
+
+
+def refresh_rows(db: Session, codes: list[str], year: int | None) -> dict:
+    """User-requested update: forces the providers (World Bank per country, the UN SDG API) to be called again, stores the new values and returns the stored rows."""
+    outcome = compare(db, codes, year, refresh=True)
+    stored = stored_rows(db, codes, year)
+    stored['warnings'] = outcome['warnings']
+    return stored
 
 
 def history(db: Session, code: str, year_from: int | None, year_to: int | None, *, refresh: bool = False) -> dict:

@@ -7,9 +7,11 @@ from .grenada import GrenadaCalculator
 from .jamaica import JamaicaCalculator
 from .trinidad import TrinidadCalculator
 from .saint_lucia import SaintLuciaCalculator
+from .sint_maarten import SintMaartenCalculator
+from .turks_caicos import TurksCaicosCalculator
 from .usa import UsaCalculator
 
-CALCULATORS: dict[str, Calculator] = {calculator.name: calculator for calculator in (JamaicaCalculator(), UsaCalculator(), TrinidadCalculator(), BahamasCalculator(), SaintLuciaCalculator(), GrenadaCalculator(), BarbadosCalculator())}
+CALCULATORS: dict[str, Calculator] = {calculator.name: calculator for calculator in (JamaicaCalculator(), UsaCalculator(), TrinidadCalculator(), BahamasCalculator(), SaintLuciaCalculator(), GrenadaCalculator(), BarbadosCalculator(), TurksCaicosCalculator(), SintMaartenCalculator())}
 
 
 def get(country: str) -> Calculator | None:

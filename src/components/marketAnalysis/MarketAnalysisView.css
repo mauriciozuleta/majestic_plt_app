@@ -1598,3 +1598,39 @@
 .market-analysis__add-structure:hover {
   background: rgba(45, 212, 191, 0.14);
 }
+
+
+/* Tourism & Economy: where the values come from, and the button that refreshes them. */
+.market-analysis__tourism-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.market-analysis__tourism-update {
+  background: transparent;
+  color: #f9a8d4;
+  border: 1px solid #ec4899;
+  border-radius: 999px;
+  padding: 0.25rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.market-analysis__tourism-update:hover:not(:disabled) {
+  background: rgba(236, 72, 153, 0.14);
+}
+
+.market-analysis__tourism-update:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.market-analysis__tourism-message {
+  color: #fbbf24;
+}

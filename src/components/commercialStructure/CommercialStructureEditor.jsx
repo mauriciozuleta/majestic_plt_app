@@ -47,6 +47,28 @@ const fallbackRegions = [
   'Western Europe',
 ]
 
+// The selection (region, country, branch) is remembered per company in this browser, so leaving the page and coming back, or reloading it, puts the
+// user back where they were. Wrapped in try/catch: storage can be unavailable (private window) and the page must work without it.
+const SELECTION_KEY = 'commercial-structure:selection'
+
+function readSavedSelection(companyId) {
+  try {
+    return JSON.parse(window.localStorage.getItem(SELECTION_KEY) || '{}')[companyId] ?? null
+  } catch {
+    return null
+  }
+}
+
+function writeSavedSelection(companyId, value) {
+  try {
+    const all = JSON.parse(window.localStorage.getItem(SELECTION_KEY) || '{}')
+    all[companyId] = value
+    window.localStorage.setItem(SELECTION_KEY, JSON.stringify(all))
+  } catch {
+    // storage unavailable: the selection simply is not remembered
+  }
+}
+
 // The regions/countries/branches editor + org chart, extracted out of the
 // per-company Operations tab so it can be driven by whichever company a
 // portfolio-level page picks (see CommercialStructureView), instead of
@@ -76,6 +98,7 @@ function CommercialStructureEditor({ companyId, companyName, prefill = null }) {
   const formRef = useRef(null)
   // From Market Analysis: { countryName, countryCode, regionName } to select once the structure and the reference countries have loaded.
   const pendingPrefill = useRef(prefill)
+  const restoredRef = useRef('') // id of the company whose the saved selection of this company has been applied: from now on changes are saved
 
   const loadStructure = async () => {
     if (!companyId) return
@@ -90,10 +113,17 @@ function CommercialStructureEditor({ companyId, companyName, prefill = null }) {
     setCountries(nextCountries)
     setBranches(nextBranches)
 
-    if (!selectedRegionName && nextRegions[0]) {
-      setSelectedRegionName(nextRegions[0].name)
+    if (nextRegions[0]) {
+      setSelectedRegionName((current) => current || nextRegions[0].name)
     }
+    return { regions: nextRegions, countries: nextCountries, branches: nextBranches }
   }
+
+  // Save the selection whenever it changes (not while the saved one is still being restored, which would overwrite it with blanks).
+  useEffect(() => {
+    if (!companyId || restoredRef.current !== companyId || pendingPrefill.current) return
+    writeSavedSelection(companyId, { regionName: selectedRegionName, countryCode: selectedCountryCode, branchId: selectedBranchId })
+  }, [companyId, selectedRegionName, selectedCountryCode, selectedBranchId])
 
   const loadRegionAssignments = () => fetchRegionAssignments().then(setRegionAssignments).catch(() => undefined)
 
@@ -109,12 +139,22 @@ function CommercialStructureEditor({ companyId, companyName, prefill = null }) {
   }
 
   useEffect(() => {
+    restoredRef.current = ''
     setSelectedRegionName('')
     setSelectedCountryCode('')
     setSelectedBranchId('')
     loadStructure()
-      .then(() => {
-        if (pendingPrefill.current?.regionName) setSelectedRegionName(pendingPrefill.current.regionName)
+      .then((loaded) => {
+        if (pendingPrefill.current?.regionName) {
+          setSelectedRegionName(pendingPrefill.current.regionName) // coming from Market Analysis ("Add to Commercial Structure"): that wins over the saved selection
+        } else if (loaded) {
+          const saved = readSavedSelection(companyId)
+          if (saved?.regionName && loaded.regions.some((region) => region.name === saved.regionName)) {
+            setSelectedRegionName(saved.regionName)
+            if (saved.countryCode) pendingPrefill.current = { countryCode: saved.countryCode, regionName: saved.regionName, branchId: saved.branchId || '', restore: true }
+          }
+        }
+        restoredRef.current = companyId
       })
       .catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,8 +167,8 @@ function CommercialStructureEditor({ companyId, companyName, prefill = null }) {
           .map((row) => (typeof row === 'string' ? row : row?.region))
           .filter(Boolean)
         setReferenceRegions(normalized.length > 0 ? normalized : fallbackRegions)
-        if (!selectedRegionName && normalized[0]) {
-          setSelectedRegionName(normalized[0])
+        if (normalized[0]) {
+          setSelectedRegionName((current) => current || normalized[0])
         }
       })
       .catch(() => setReferenceRegions(fallbackRegions))
@@ -277,8 +317,9 @@ function CommercialStructureEditor({ companyId, companyName, prefill = null }) {
         const wanted = pendingPrefill.current
         if (wanted?.countryCode && wanted.regionName === selectedRegionName) {
           setSelectedCountryCode(wanted.countryCode)
+          if (wanted.branchId) setSelectedBranchId(wanted.branchId)
           pendingPrefill.current = null
-          formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          if (!wanted.restore) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }
       })
       .catch(() => setAllReferenceCountries([]))

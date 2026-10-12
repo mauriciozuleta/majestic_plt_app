@@ -9,6 +9,9 @@ import './CommercialStructureView.css'
 // structure from one place in the sidebar instead of burying it inside a
 // single company's Operations tab, with a switcher to pick which company's
 // structure to view/edit.
+// the company last looked at is remembered in this browser (the region/country/branch selection is saved per company by the editor)
+const COMPANY_KEY = 'commercial-structure:company'
+
 function CommercialStructureView() {
   const companies = useAppStore((state) => state.companies)
   // ?add=Grenada&code=GD&region=Caribbean&company=<id> (from Market Analysis ▸ "Add to Commercial Structure"): open that company and
@@ -16,15 +19,28 @@ function CommercialStructureView() {
   const [searchParams] = useSearchParams()
   const addCountry = searchParams.get('add')
   const prefill = addCountry ? { countryName: addCountry, countryCode: searchParams.get('code') || '', regionName: searchParams.get('region') || '' } : null
-  const [selectedCompanyId, setSelectedCompanyId] = useState(searchParams.get('company') || '')
+  const [selectedCompanyId, setSelectedCompanyId] = useState(() => {
+    if (searchParams.get('company')) return searchParams.get('company')
+    try {
+      return window.localStorage.getItem(COMPANY_KEY) || ''
+    } catch {
+      return ''
+    }
+  })
 
   useEffect(() => {
-    if (!companies.length) {
-      setSelectedCompanyId('')
-      return
-    }
+    if (!companies.length) return // still loading (or none): keep the remembered company instead of wiping it
     setSelectedCompanyId((current) => (companies.some((company) => company.id === current) ? current : companies[0].id))
   }, [companies])
+
+  useEffect(() => {
+    if (!selectedCompanyId) return
+    try {
+      window.localStorage.setItem(COMPANY_KEY, selectedCompanyId)
+    } catch {
+      // storage unavailable: not remembered
+    }
+  }, [selectedCompanyId])
 
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId) ?? null
 

@@ -45,7 +45,7 @@ not yet fully reported) · Historical (older than 5 years) · Missing · Require
 
 ## API
 `GET /tourism/countries?q=&region=&status=` (rows carry `un_m49`) · `POST /tourism/countries` · `GET /tourism/countries/{code}?year=` (row + all observations + warnings) ·
-`GET /tourism/compare?countries=JM,BB&year=latest|2019&refresh=` · `GET /tourism/history?country=&from=&to=` · `GET /tourism/providers/status?check=` ·
+`GET /tourism/stored?countries=&year=` (database only, no provider call; adds `last_updated`, `without_data` — what Market Analysis loads) · `POST /tourism/refresh {countries, year}` (user-requested update: forces the providers, stores, returns the stored rows) · `GET /tourism/compare?countries=JM,BB&year=latest|2019&refresh=` · `GET /tourism/history?country=&from=&to=` · `GET /tourism/providers/status?check=` ·
 `PUT /tourism/providers/{id}` · `POST /tourism/providers/{id}/sync` (IDB, STATISTA, UNSD) · `POST /tourism/import` · `GET /tourism/imports` ·
 `GET /tourism/export?countries=&year=&format=csv|xlsx|json&layout=wide|long`. Errors: `{"detail": {"code": "...", "message": "..."}}`.
 

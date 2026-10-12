@@ -403,6 +403,85 @@ class HigherRateRuleTests(unittest.TestCase):
             line['national_rate'] = saved
 
 
+class TurksCaicosTests(unittest.TestCase):
+    def setUp(self):
+        self.calculator = tax_calc.get('Turks and Caicos Islands')
+        self.calculator.refresh()
+        if not self.calculator.info()['ready']:
+            self.skipTest('Turks and Caicos tariff data not present (use "Update tariff data")')
+
+    def test_the_whole_table_was_read(self):
+        info = self.calculator.info()
+        self.assertGreaterEqual(info['lines'], 5300)
+        self.assertGreaterEqual(info['specific_rate_lines'], 30)
+        self.assertGreaterEqual(info['landed_cost_lines'], 40)
+        self.assertEqual(self.calculator.by_code['0702.000']['description'], 'Tomatoes, fresh or chilled.')  # heading and code share one line in the file
+
+    def test_duty_free_food_still_pays_the_7_5_percent_processing_fee(self):
+        result = self.calculator.calculate('0207.142', Inputs(goods_value_usd=1000, quantity_kg=1000, origin='United States')).to_dict()
+        self.assertEqual(_by_name(result)['Customs duty'], 0.0)
+        self.assertAlmostEqual(_by_name(result)['Customs processing fee'], 75.0)
+
+    def test_freight_and_insurance_charge_and_the_duty_base(self):
+        result = self.calculator.calculate('0207.142', Inputs(goods_value_usd=1000, freight_usd=200, insurance_usd=20, origin='United States')).to_dict()
+        self.assertAlmostEqual(_by_name(result)['Charge on insurance and freight'], 220 * 0.075)
+        self.assertAlmostEqual(_by_name(result)['Customs processing fee'], 75.0)  # on the goods, not on freight
+        paint = next(line for line in self.calculator.lines if line['rate'] == '30%' and not line['landed_cost'])
+        duty = self.calculator.calculate(paint['code'], Inputs(goods_value_usd=1000, freight_usd=200, insurance_usd=20)).to_dict()
+        self.assertAlmostEqual(_by_name(duty)['Customs duty'], 300.0)  # duty on the value of the goods, freight and insurance excluded
+
+    def test_building_materials_pay_5_percent_on_freight_and_insurance(self):
+        result = self.calculator.calculate('2505.100', Inputs(goods_value_usd=1000, freight_usd=100)).to_dict()
+        self.assertAlmostEqual(_by_name(result)['Charge on insurance and freight'], 5.0)
+
+    def test_specific_duties_per_gallon_and_per_thousand(self):
+        beer = self.calculator.calculate('2203.010', Inputs(goods_value_usd=1000, quantity_units=100)).to_dict()
+        self.assertAlmostEqual(_by_name(beer)['Customs duty (specific)'], 1191.0)  # $11.91 per imperial gallon
+        cigarettes = self.calculator.calculate('2402.200', Inputs(goods_value_usd=1000, quantity_units=100000)).to_dict()
+        self.assertAlmostEqual(_by_name(cigarettes)['Customs duty (specific)'], 9052.0)  # $90.52 per 1,000
+        self.assertFalse(self.calculator.calculate('2203.010', Inputs(goods_value_usd=1000)).complete)  # no quantity: not computable
+
+    def test_fuel_pays_the_tariff_duty_plus_85_cents_a_gallon(self):
+        result = self.calculator.calculate('2710.196', Inputs(goods_value_usd=1000, quantity_units=500)).to_dict()  # motor spirit $0.44/gal
+        self.assertAlmostEqual(_by_name(result)['Customs duty (specific)'], 220.0)
+        self.assertAlmostEqual(_by_name(result)['Additional import duty on fuel'], 425.0)
+
+    def test_vehicles_pay_on_the_landed_cost(self):
+        result = self.calculator.calculate('8702.101', Inputs(goods_value_usd=20000, freight_usd=1500, insurance_usd=100)).to_dict()
+        self.assertAlmostEqual(_by_name(result)['Customs duty'], 21600 * 0.35)
+        self.assertNotIn('Charge on insurance and freight', _by_name(result))  # not charged on motor vehicles
+
+    def test_a_line_without_a_printed_rate_is_incomplete(self):
+        result = self.calculator.calculate('0204.430', Inputs(goods_value_usd=1000)).to_dict()
+        self.assertFalse(result['complete'])
+
+    def test_no_caricom_waiver(self):
+        self.assertEqual(self.calculator.calculate('2203.010', Inputs(goods_value_usd=1000, quantity_units=100, origin='Jamaica')).to_dict()['total_tax_usd'], 1191.0 + 75.0)
+
+
+class SintMaartenTests(unittest.TestCase):
+    def setUp(self):
+        self.calculator = tax_calc.get('Sint Maarten (Dutch part)')
+
+    def test_registered_and_ready_without_any_data_file(self):
+        self.assertIsNotNone(self.calculator)
+        self.assertTrue(self.calculator.info()['ready'])
+
+    def test_every_good_pays_zero_duty(self):
+        result = self.calculator.calculate('0000.00', Inputs(goods_value_usd=5000, quantity_kg=100, freight_usd=300, origin='Colombia')).to_dict()
+        self.assertEqual(result['total_tax_usd'], 0)
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['landed_cost_usd'], 5300)
+        self.assertTrue(any('gasoline' in warning for warning in result['warnings']))
+
+    def test_any_hs_code_maps_to_the_uniform_line_with_a_zero_multiplier(self):
+        self.assertEqual(len(mapping.lines_for_hs(self.calculator, '070200')), 1)
+        computed = mapping.multiplier_for(self.calculator, {'name': 'Tomato', 'hs_code': '070200', 'price_usd_kg': 2.0}, 'China')
+        self.assertEqual(computed['status'], 'ok')
+        self.assertEqual(computed['tax_multiplier'], 0)
+        self.assertEqual(computed['landed_multiplier'], 1)
+
+
 class UsaMultiplierTests(unittest.TestCase):
     def test_specific_duty_without_a_price_needs_the_price(self):
         usa = tax_calc.get('United States')

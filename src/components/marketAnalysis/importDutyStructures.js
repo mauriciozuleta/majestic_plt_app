@@ -9,6 +9,8 @@ export const IMPORT_DUTY_STRUCTURES = {
   'saint lucia': 'CARICOM CET (2012 edition) on the CIF value with Saint Lucia\'s own rates from Lists A and C; EPA phase-down for EU origin; CARICOM origin pays no duty. VAT 12.5% shown, not counted.',
   grenada: 'CARICOM CET (HS 2007) on the CIF value using the Grenadian own rates from Lists A and C (they replace the CET rate); CARICOM origin pays no duty; rum and whisky also have 1961 Orders that conflict with the CET. VAT 15% shown, not counted.',
   barbados: 'Barbados Customs Tariff (S.I. 2019 No. 57): duty on the CIF value, 60% on Part 1 Section B goods, a Special Safeguard additional duty on Section C goods when the price is below the trigger price, inspection fee / countervailing duty (T&T dairy) / excise where printed, and VAT at the rate printed on each line (17.5% or 0%). CARICOM origin pays no duty.',
+  'turks and caicos islands': 'Customs Tariff 2010 import duty (mostly 0%, 10%, 15% or 30%; specific $ per gallon/lb on alcohol, tobacco and fuel; vehicles on landed cost), plus a 7.5% customs processing fee on the value of ALL imports, a 7.5% charge on freight and insurance, and US$0.85/gal additional fuel duty. No VAT is mentioned in the files; no CARICOM preference applied.',
+  'sint maarten (dutch part)': 'Import duty is NAf 0 on all goods (National Ordinance Tariff of Import Duties, Art. 2(2)): no tariff line to choose, any origin. Not computed: excise on unleaded gasoline (the only charge Customs collects), exemptions and the flat-rate tariff for travellers/small consignments. The 5% turnover tax (BBO) is on sales, not on imports.',
   colombia: 'Gravamen arancelario and IVA read live from DIAN\'s tariff consultation for the product\'s HS code.',
 }
 

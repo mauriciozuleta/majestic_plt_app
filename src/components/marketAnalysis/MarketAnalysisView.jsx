@@ -4,7 +4,7 @@ import { IconCheck } from '@tabler/icons-react'
 import { fetchCountryProfile, fetchMarketAnalysisRegions, fetchReferenceCountries, fetchRegionAssignments } from '../../services/commercialStructure'
 import { fetchTradeCountries } from '../../services/globalTradeData'
 import { fetchTaxCountries } from '../../services/taxCalculator'
-import { fetchTourismCompare } from '../../services/tourism'
+import { fetchTourismStored, refreshTourism } from '../../services/tourism'
 import { TOURISM_INDICATORS, cellTooltip, formatTourismValue } from '../tourism/tourismFormat'
 import { useTaxCalcStore } from '../../store/useTaxCalcStore'
 import { COLOMBIA_CALCULATOR, IMPORT_DUTY_STRUCTURES } from './importDutyStructures'
@@ -48,6 +48,7 @@ const MARKET_SIZE_TABS = [
 // Product Portfolio" now, no second pill layer) jumps to when a country
 // hasn't got this one yet, so the table doubles as a way to go build it,
 // not just a report of what already exists.
+const HIDDEN_TOURISM_COLUMNS = ['TOURISM_GDP_TOTAL_PCT', 'TOURISM_EMPLOYMENT']
 const COLUMNS = [
   { key: 'profile', label: 'Commercial Profile', group: 'Overview', tabKey: 'overview' },
   { key: 'product', label: 'Country Product Portfolio', group: 'Country Product Portfolio', tabKey: 'products' },
@@ -60,9 +61,10 @@ const COLUMNS = [
   { key: 'comtradeExport', label: 'Export', group: 'Global Trade Data', flow: 'X' },
   // Countries we have built an import-tax calculator for (Tools ▸ Tax Calculator): the pill opens it with this country as the import country.
   { key: 'duties', label: 'Import duties structure', group: 'Import duties', calculator: true },
-  // Tourism & Economic Dependency (Tools ▸ Tourism & Economic Dependency): latest available value per country, each with its own year. N/A when
-  // no provider has a compatible observation (e.g. WTTC values until a licensed file is imported).
-  ...TOURISM_INDICATORS.map((indicator) => ({ key: indicator.code, label: indicator.label, group: 'Tourism & Economy', tourism: indicator })),
+  // Tourism & Economy (Tools ▸ Tourism & Economic Dependency): the latest stored value per country, each with its own year, read from the database (no
+  // provider call on load; the "Update tourism data" button refreshes it). The WTTC-based total GDP and employment columns are left out: they have no data
+  // until a licensed WTTC file is imported (they stay in the Tools page).
+  ...TOURISM_INDICATORS.filter((indicator) => !HIDDEN_TOURISM_COLUMNS.includes(indicator.code)).map((indicator) => ({ key: indicator.code, label: indicator.label, group: 'Tourism & Economy', tourism: indicator })),
 ]
 // Consecutive columns sharing a group get one merged header cell — computed
 // once since COLUMNS is static.
@@ -84,9 +86,7 @@ const COLUMN_COLOR = {
   comtradeImport: 'comtrade-import',
   comtradeExport: 'comtrade-export',
   duties: 'duties',
-  TOURISM_GDP_TOTAL_PCT: 'tourism',
   TOURISM_GDP_DIRECT_PCT: 'tourism',
-  TOURISM_EMPLOYMENT: 'tourism',
   TOURISM_RECEIPTS: 'tourism',
   TOURISM_DEPENDENCY: 'tourism',
   POPULATION: 'tourism',
@@ -180,9 +180,13 @@ function MarketAnalysisView() {
   // Reference catalog (name -> region / ISO code) and which company owns each region: used to list a country that has an import-tax
   // calculator but is not in Commercial Structure yet, as a "pending" row with an "Add to Commercial Structure" button.
   const [referenceCountries, setReferenceCountries] = useState([])
-  // ISO alpha-2 -> { indicators } from GET /tourism/compare (latest available), for the Tourism & Economy columns.
+  // ISO alpha-2 -> { indicators } from GET /tourism/stored (the database only), for the Tourism & Economy columns.
   const [tourismByIso, setTourismByIso] = useState({})
   const [tourismState, setTourismState] = useState('idle')
+  const [tourismUpdated, setTourismUpdated] = useState(null) // newest retrieval time among the stored values
+  const [tourismMissing, setTourismMissing] = useState([]) // countries with nothing stored yet
+  const [tourismUpdating, setTourismUpdating] = useState(false)
+  const [tourismMessage, setTourismMessage] = useState('')
   const [regionOwners, setRegionOwners] = useState({})
   const detailRef = useRef(null)
 
@@ -213,6 +217,7 @@ function MarketAnalysisView() {
         const byName = {}
         data.countries.forEach((item) => {
           byName[item.name.trim().toLowerCase()] = item.reporter_code
+          if (item.iso2) byName[`iso:${item.iso2.toUpperCase()}`] = item.reporter_code // names differ between the catalog and Comtrade (Sint Maarten (Dutch part) / Saint Maarten)
         })
         setTradeCountryCodes(byName)
       })
@@ -270,21 +275,37 @@ function MarketAnalysisView() {
 
   // Tourism & Economy columns: one batched request for every country in the table (pending ones included), latest available data.
   const tourismKey = [...new Set(displayRegions.flatMap((region) => region.countries.map((country) => (country.country_code || '').toUpperCase())).filter(Boolean))].sort().join(',')
+  const applyTourism = (data) => {
+    setTourismByIso(Object.fromEntries(data.rows.map((row) => [row.iso_alpha2, row.indicators])))
+    setTourismUpdated(data.last_updated || null)
+    setTourismMissing(data.without_data || [])
+    setTourismState('ready')
+  }
   useEffect(() => {
     if (!tourismKey) return undefined
     let cancelled = false
     setTourismState('loading')
-    fetchTourismCompare(tourismKey.split(','), 'latest')
-      .then((data) => {
-        if (cancelled) return
-        setTourismByIso(Object.fromEntries(data.rows.map((row) => [row.iso_alpha2, row.indicators])))
-        setTourismState('ready')
-      })
+    fetchTourismStored(tourismKey.split(','), 'latest')
+      .then((data) => !cancelled && applyTourism(data))
       .catch(() => !cancelled && setTourismState('error'))
     return () => {
       cancelled = true
     }
   }, [tourismKey])
+
+  // The user asks for fresh values: the providers are called once, the database is updated, and the table shows the stored result.
+  const updateTourism = () => {
+    if (!tourismKey || tourismUpdating) return
+    setTourismUpdating(true)
+    setTourismMessage('')
+    refreshTourism(tourismKey.split(','), 'latest')
+      .then((data) => {
+        applyTourism(data)
+        setTourismMessage(data.warnings?.length ? data.warnings.join(' ') : 'Updated.')
+      })
+      .catch((error) => setTourismMessage(error.message || 'The update failed.'))
+      .finally(() => setTourismUpdating(false))
+  }
 
   const loadRegions = useCallback(() => {
     setLoadStatus('loading')
@@ -454,6 +475,18 @@ function MarketAnalysisView() {
           // same table, so its columns line up with every other region's —
           // a fixed table layout (see the CSS) is what keeps every "View"/"—"
           // column the same width regardless of what's in it.
+          <>
+          <div className="market-analysis__tourism-bar">
+            <span>
+              Tourism &amp; Economy values come from the database
+              {tourismUpdated ? ` · last updated ${new Date(tourismUpdated).toLocaleString()}` : tourismState === 'ready' ? ' · nothing stored yet — press Update' : ''}
+              {tourismMissing.length > 0 && tourismUpdated ? ` · no data stored for ${tourismMissing.length} ${tourismMissing.length === 1 ? 'country' : 'countries'}` : ''}
+            </span>
+            <button type="button" className="market-analysis__tourism-update" onClick={updateTourism} disabled={tourismUpdating || !tourismKey}>
+              {tourismUpdating ? 'Updating… (up to a minute)' : 'Update tourism data'}
+            </button>
+            {tourismMessage && <span className="market-analysis__tourism-message">{tourismMessage}</span>}
+          </div>
           <div className="market-analysis__table-wrap">
             <table className="market-analysis__table">
               <colgroup>
@@ -570,7 +603,7 @@ function MarketAnalysisView() {
                                 )
                               }
                               if (column.flow) {
-                                const reporterCode = tradeCountryCodes[country.name.trim().toLowerCase()]
+                                const reporterCode = tradeCountryCodes[country.name.trim().toLowerCase()] ?? tradeCountryCodes[`iso:${(country.country_code || '').toUpperCase()}`]
                                 return (
                                   <td key={column.key} className="market-analysis__pill-cell">
                                     <DocCell
@@ -622,6 +655,7 @@ function MarketAnalysisView() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {selected && (

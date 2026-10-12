@@ -146,6 +146,9 @@ Both are off until configured, because their dataset identifiers and endpoints d
 * Hovering over a cell in Market Analysis, or opening a country in the tool, shows the source, dataset, edition, status, methodology note and, in the tool, every stored observation with its retrieval date.
 * **Export** (CSV, XLSX, JSON; one row per country or one row per country-year-indicator) includes units, years, sources, editions, retrieval dates and quality flags.
 
+### Where the Market Analysis table gets its values
+The Tourism & Economy columns of Market Analysis ▸ Country Information (Tourism GDP % direct, Receipts USD, Dependency %, Population) are read **from the database only** — opening the page calls no provider and takes milliseconds. A line above the table shows when the stored values were last updated. The **Update tourism data** button calls the providers once for the countries in the table (World Bank in parallel, the UN SDG API), stores the new values and redraws the table; it can take from a few seconds to about a minute when the World Bank is slow. The WTTC-based *total GDP* and *employment* columns are not shown there (they have no data until a licensed file is imported); they remain in Tools ▸ Tourism & Economic Dependency.
+
 ## 9. Checking and refreshing
 
 | To… | Do |

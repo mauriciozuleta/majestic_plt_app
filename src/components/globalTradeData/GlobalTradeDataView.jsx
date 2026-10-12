@@ -480,6 +480,7 @@ function GlobalTradeDataView() {
                       style={isActive ? { color: '#35d399', fontWeight: 700 } : undefined}
                     >
                       {item.name}
+                      {item.own_reporter === false ? ' (territory)' : ''}
                     </option>
                   )
                 })}
@@ -539,6 +540,13 @@ function GlobalTradeDataView() {
               )}
             </div>
           </div>
+          {currentCountryData?.own_reporter === false && (
+            <p className="global-trade__territory-note" role="note">
+              <strong>{currentCountryData.name}</strong> is a territory without a UN Comtrade reporter of its own: Comtrade has no statistics filed by it, only other
+              countries&apos; statistics about trading with it. It is listed so it can be selected and checked for a fallback source (Re-check); figures appear only
+              if one is found.
+            </p>
+          )}
           <p className="global-trade__region-hint">
             <strong>Green</strong> countries are already set up in Commercial Structure — every other country in the region can
             still be selected and queried the same way.
@@ -546,7 +554,12 @@ function GlobalTradeDataView() {
 
           <div className="global-trade__source-row">
             <span className="global-trade__source-label">
-              Data source: <strong>{tradeSourceLabel(currentCountryData?.trade_data_source)}</strong>
+              Data source:{' '}
+              <strong>
+                {currentCountryData?.own_reporter === false && [undefined, null, 'comtrade'].includes(currentCountryData?.trade_data_source)
+                  ? 'none found yet'
+                  : tradeSourceLabel(currentCountryData?.trade_data_source)}
+              </strong>
               {currentCountryData?.discovering && ' — checking…'}
             </span>
             <button

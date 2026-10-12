@@ -30,6 +30,12 @@ export const addTourismCountry = (payload) => request('/tourism/countries', json
 export const fetchTourismCompare = (codes, year, refresh = false) =>
   request(`/tourism/compare?countries=${encodeURIComponent(codes.join(','))}&year=${yearParam(year)}${refresh ? '&refresh=true' : ''}`)
 
+// Stored values only (no provider call) -> { year, rows, warnings, unknown, last_updated, without_data }. This is what Market Analysis loads.
+export const fetchTourismStored = (codes, year = 'latest') => request(`/tourism/stored?countries=${encodeURIComponent(codes.join(','))}&year=${yearParam(year)}`)
+
+// User-requested update: calls the providers again, stores the new values, returns the stored rows (same shape as fetchTourismStored).
+export const refreshTourism = (codes, year = 'latest') => request('/tourism/refresh', json('POST', { countries: codes, year: yearParam(year) }))
+
 // -> { row, warnings, observations: [...] }
 export const fetchTourismCountry = (code, year) => request(`/tourism/countries/${encodeURIComponent(code)}?year=${yearParam(year)}`)
 

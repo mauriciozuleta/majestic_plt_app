@@ -59,6 +59,22 @@ def _fetch() -> list[dict] | None:
         return None
 
 
+# Countries and territories WITHOUT a reporterCode of their own (Sint Maarten, Saint Martin, Anguilla ...): Comtrade has no statistics filed by them, only
+# other countries' statistics about trading with them. The Global Trade Data page still lists them (so they can be selected, grouped by region and given a
+# fallback source such as the US Census/FRED series), under a SYNTHETIC code that can never collide with a real reporterCode: the negative of their ISO
+# alpha-2 letters read as two numbers (SX -> -(83*100 + 88) = -8388). It is never sent to Comtrade (see trade_sources/fetch.py).
+def territory_code(iso2: str) -> int:
+    iso2 = (iso2 or '').upper()
+    return -(ord(iso2[0]) * 100 + ord(iso2[1]))
+
+
+def iso2_for_territory_code(code: int) -> str | None:
+    if code >= 0:
+        return None
+    first, second = divmod(-code, 100)
+    return chr(first) + chr(second) if 65 <= first <= 90 and 65 <= second <= 90 else None
+
+
 def list_tracked_countries() -> list[dict]:
     """{name, reporter_code, iso2, iso3} for every country Comtrade currently
     accepts a reporterCode for. Refetches at most once per process per week;

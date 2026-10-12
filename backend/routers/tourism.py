@@ -104,6 +104,23 @@ def compare(countries: str, year: str | None = None, refresh: bool = False, db: 
     return service.compare(db, _codes(countries), _year(year), refresh=refresh)
 
 
+@router.get('/stored')
+def stored(countries: str, year: str | None = None, db: Session = Depends(get_db)):
+    """Rows built only from the database (no provider call): what the Market Analysis table shows on load."""
+    return service.stored_rows(db, _codes(countries), _year(year))
+
+
+class RefreshIn(BaseModel):
+    countries: list[str] = Field(min_length=1, max_length=MAX_COUNTRIES)
+    year: str | None = None
+
+
+@router.post('/refresh')
+def refresh(payload: RefreshIn, db: Session = Depends(get_db)):
+    """User-requested update of the stored values for these countries (calls the providers), then returns the stored rows."""
+    return service.refresh_rows(db, _codes(','.join(payload.countries)), _year(payload.year))
+
+
 @router.get('/history')
 def history(country: str, year_from: int | None = Query(default=None, alias='from', ge=1960, le=2100), year_to: int | None = Query(default=None, alias='to', ge=1960, le=2100), db: Session = Depends(get_db)):
     if year_from and year_to and year_from > year_to:

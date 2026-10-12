@@ -17,6 +17,12 @@ _FRED_CATEGORY_ROW = {
 }
 
 
+def _has_no_reporter(reporter_code: int, source) -> bool:
+    """A country/territory listed under a synthetic NEGATIVE code (comtrade/countries.py territory_code) has no Comtrade reporter: with no fallback source
+    discovered there is nothing to serve, and the code must never be sent to Comtrade."""
+    return reporter_code < 0 and source in (None, 'comtrade')
+
+
 def _fred_categories(db, catalog_row, year: int, flow: str) -> list[dict]:
     series = fred_client.find_series_ids(catalog_row.country_code, catalog_row.name)
     if not series:
@@ -29,6 +35,8 @@ def _fred_categories(db, catalog_row, year: int, flow: str) -> list[dict]:
 
 def fetch_categories(db, catalog_row, reporter_code: int, year: int, flow: str) -> list[dict]:
     source = catalog_row.trade_data_source if catalog_row else None
+    if _has_no_reporter(reporter_code, source):
+        return []
     if source in (None, 'comtrade'):
         return comtrade_client.fetch_categories(db, reporter_code, year, flow)
     if source == 'us_census_fred':
@@ -40,6 +48,8 @@ def fetch_categories(db, catalog_row, reporter_code: int, year: int, flow: str) 
 
 def fetch_products(db, catalog_row, reporter_code: int, year: int, flow: str, chapter: str) -> list[dict]:
     source = catalog_row.trade_data_source if catalog_row else None
+    if _has_no_reporter(reporter_code, source):
+        return []
     if source in (None, 'comtrade'):
         return comtrade_client.fetch_products(db, reporter_code, year, flow, chapter)
     # Every fallback tier built so far offers only an aggregate total, no
@@ -49,6 +59,8 @@ def fetch_products(db, catalog_row, reporter_code: int, year: int, flow: str, ch
 
 def fetch_subheadings(db, catalog_row, reporter_code: int, year: int, flow: str, heading: str) -> list[dict]:
     source = catalog_row.trade_data_source if catalog_row else None
+    if _has_no_reporter(reporter_code, source):
+        return []
     if source in (None, 'comtrade'):
         return comtrade_client.fetch_subheadings(db, reporter_code, year, flow, heading)
     return []
@@ -56,6 +68,8 @@ def fetch_subheadings(db, catalog_row, reporter_code: int, year: int, flow: str,
 
 def fetch_all_subheadings(db, catalog_row, reporter_code: int, year: int, flow: str) -> dict[str, float]:
     source = catalog_row.trade_data_source if catalog_row else None
+    if _has_no_reporter(reporter_code, source):
+        return {}
     if source in (None, 'comtrade'):
         return comtrade_client.fetch_all_subheadings(db, reporter_code, year, flow)
     return {}

@@ -511,6 +511,27 @@ def _ensure_schema_migrations():
                     },
                 )
 
+            # Countries and territories UN Comtrade has a reporter for but the external catalog above does not list (it predates the 2010 dissolution
+            # of the Netherlands Antilles and South Sudan): without a catalog row they have no region, so Global Trade Data cannot place them under a
+            # region filter and Commercial Structure cannot offer them. Added only if missing, never overwriting a row.
+            for name, country_code, currency, currency_code, region in (
+                ('Sint Maarten (Dutch part)', 'SX', 'Caribbean Guilder', 'XCG', 'Caribbean'),
+                ('Curaçao', 'CW', 'Caribbean Guilder', 'XCG', 'Caribbean'),
+                ('Bonaire, Sint Eustatius and Saba', 'BQ', 'US Dollar', 'USD', 'Caribbean'),
+                ('South Sudan', 'SS', 'South Sudanese Pound', 'SSP', 'Africa'),
+                ('Timor-Leste', 'TL', 'US Dollar', 'USD', 'Asia-Pacific'),
+            ):
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO country_reference_catalog (id, name, country_code, currency, currency_code, region)
+                        VALUES (:id, :name, :country_code, :currency, :currency_code, :region)
+                        ON CONFLICT(country_code) DO NOTHING
+                        """
+                    ),
+                    {'id': str(uuid.uuid4()), 'name': name, 'country_code': country_code, 'currency': currency, 'currency_code': currency_code, 'region': region},
+                )
+
         # Market Opportunities' count-vs-weight conversion (see
         # countWeightConversion.js) added conversion_note after this table
         # already existed in real databases — Base.metadata.create_all only

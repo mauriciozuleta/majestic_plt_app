@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from .. import market_size_store, models
 from ..comtrade import client
 from ..comtrade.classification import list_searchable_hs_codes
-from ..comtrade.countries import list_tracked_countries
+from ..comtrade.countries import iso2_for_territory_code, list_tracked_countries, territory_code
 from ..database import get_db
 from ..estimation import regression
 from ..trade_sources import discovery, worldbank
@@ -28,6 +28,9 @@ from ..trade_sources.fetch import fetch_all_subheadings, fetch_categories, fetch
 from .commercial_structure import get_market_analysis_regions
 
 router = APIRouter()
+
+# ISO codes of entities that no longer exist (Netherlands Antilles, East Timor's old code, Yugoslavia ...): never listed as a territory
+OBSOLETE_ISO2 = {'AN', 'TP', 'YU', 'CS', 'SU', 'ZR', 'DD', 'NT'}
 
 FLOWS = {'M', 'X'}
 # The most recent year worth TRYING first — not a guarantee it has data.
@@ -79,6 +82,7 @@ def list_trade_countries(db: Session = Depends(get_db)):
         row.country_code: row
         for row in db.query(
             models.CountryReferenceCatalog.country_code,
+            models.CountryReferenceCatalog.name,
             models.CountryReferenceCatalog.region,
             models.CountryReferenceCatalog.trade_data_source,
             models.CountryReferenceCatalog.trade_data_coverage,
@@ -99,6 +103,28 @@ def list_trade_countries(db: Session = Depends(get_db)):
                 'trade_data_coverage_note': catalog_row.trade_data_coverage_note if catalog_row else None,
                 'trade_data_source_checked_at': catalog_row.trade_data_source_checked_at if catalog_row else None,
                 'discovering': discovery.is_discovering(country['iso2']) if country.get('iso2') else False,
+                'own_reporter': True,
+            }
+        )
+    # countries and territories of the reference catalog that Comtrade has no reporter for (Sint Maarten, Saint Martin, Anguilla ...): listed under a
+    # synthetic code so they can be selected; they only ever have data if the discovery chain found a fallback source for them
+    reporter_iso2 = {(country.get('iso2') or '').upper() for country in countries}
+    for iso2, row in sorted(catalog_by_iso2.items(), key=lambda item: item[1].name):
+        if len(iso2) != 2 or iso2.upper() in reporter_iso2 or iso2.upper() in OBSOLETE_ISO2:
+            continue
+        tagged.append(
+            {
+                'name': row.name,
+                'reporter_code': territory_code(iso2),
+                'iso2': iso2,
+                'iso3': None,
+                'region': row.region,
+                'trade_data_source': row.trade_data_source,
+                'trade_data_coverage': row.trade_data_coverage,
+                'trade_data_coverage_note': row.trade_data_coverage_note,
+                'trade_data_source_checked_at': row.trade_data_source_checked_at,
+                'discovering': discovery.is_discovering(iso2),
+                'own_reporter': False,
             }
         )
     return {'countries': tagged, 'default_year': datetime.now(timezone.utc).year - DEFAULT_YEAR_LAG}
@@ -111,6 +137,9 @@ def _catalog_row_for_reporter(db: Session, reporter_code: int) -> models.Country
     reasoning for why iso2 is the only safe bridge between the two code
     spaces). None for a reporter with no iso2, or no matching catalog row
     — treated identically to an undiscovered country downstream."""
+    if reporter_code < 0:  # a country/territory without a reporter of its own: the synthetic code leads back to its ISO alpha-2
+        iso2 = iso2_for_territory_code(reporter_code)
+        return db.query(models.CountryReferenceCatalog).filter_by(country_code=iso2).first() if iso2 else None
     for row in list_tracked_countries():
         if row.get('reporter_code') == reporter_code:
             if not row.get('iso2'):

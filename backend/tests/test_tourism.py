@@ -481,6 +481,82 @@ class UnsdTests(DatabaseCase):
         self.assertEqual(jamaica.country_id, 'JM')
 
 
+class StoredAndRefreshTests(DatabaseCase):
+    """Market Analysis reads the stored values (no provider call) and the user refreshes them explicitly."""
+
+    def test_stored_rows_never_call_a_provider(self):
+        service.compare(self.db, ['JM', 'BB'], None)  # an earlier update stored the values
+        with mock.patch.object(http, 'get_json', side_effect=AssertionError('a provider was called')):
+            data = service.stored_rows(self.db, ['JM', 'BB', 'AW'], None)
+        rows = {row['iso_alpha2']: row['indicators'] for row in data['rows']}
+        self.assertEqual(rows['JM'][c.TOURISM_DEPENDENCY]['value'], 20.0)
+        self.assertEqual(rows['JM'][c.POPULATION]['value'], 2_950_000.0)
+        self.assertEqual(data['without_data'], ['AW'])  # nothing stored for Aruba (no provider has it in this fixture): N/A, not fetched
+        self.assertIsNone(rows['AW'][c.TOURISM_RECEIPTS]['value'])
+        self.assertTrue(data['last_updated'])
+
+    def test_stored_rows_on_an_empty_database_are_empty_not_fetched(self):
+        with mock.patch.object(http, 'get_json', side_effect=AssertionError('a provider was called')):
+            data = service.stored_rows(self.db, ['JM'], None)
+        self.assertEqual((data['last_updated'], data['without_data']), (None, ['JM']))
+        self.assertEqual(self.db.query(models.TourismObservation).count(), 0)
+
+    def test_refresh_calls_the_providers_stores_and_returns_the_stored_rows(self):
+        calls = []
+
+        def spy(url, params=None, **kwargs):
+            calls.append(url)
+            return fake_get_json(url, params, **kwargs)
+
+        with mock.patch.object(http, 'get_json', spy):
+            data = service.refresh_rows(self.db, ['JM', 'BS'], None)
+        self.assertTrue(any('api.worldbank.org' in url for url in calls) and any('unstats.un.org' in url for url in calls))
+        self.assertEqual(data['without_data'], [])
+        self.assertTrue(data['last_updated'])
+        self.assertGreater(self.db.query(models.TourismObservation).count(), 0)
+        with mock.patch.object(http, 'get_json', side_effect=AssertionError('a provider was called')):  # and the next load is database-only
+            again = service.stored_rows(self.db, ['JM', 'BS'], None)
+        self.assertEqual([row['indicators'][c.POPULATION]['value'] for row in again['rows']], [row['indicators'][c.POPULATION]['value'] for row in data['rows']])
+
+    def test_a_forced_refresh_ignores_the_24_hour_freshness(self):
+        service.compare(self.db, ['JM'], None)
+        calls = []
+
+        def spy(url, params=None, **kwargs):
+            calls.append(url)
+            return fake_get_json(url, params, **kwargs)
+
+        with mock.patch.object(http, 'get_json', spy):
+            service.compare(self.db, ['JM'], None)  # fresh: no call
+            quiet = len(calls)
+            service.refresh_rows(self.db, ['JM'], None)
+        self.assertEqual(quiet, 0)
+        self.assertGreater(len(calls), 0)
+
+    def test_a_failed_refresh_keeps_the_stored_values_and_reports_it(self):
+        service.compare(self.db, ['JM'], None)
+
+        def boom(*args, **kwargs):
+            raise http.ProviderError('down')
+
+        with mock.patch.object(http, 'get_json', boom):
+            data = service.refresh_rows(self.db, ['JM'], None)
+        self.assertTrue(data['warnings'])
+        self.assertEqual(data['rows'][0]['indicators'][c.POPULATION]['value'], 2_950_000.0)
+
+    def test_api_endpoints(self):
+        app = FastAPI()
+        app.include_router(tourism_router.router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        client = TestClient(app)
+        empty = client.get('/tourism/stored', params={'countries': 'JM,BB'}).json()
+        self.assertEqual((empty['last_updated'], sorted(empty['without_data'])), (None, ['BB', 'JM']))
+        refreshed = client.post('/tourism/refresh', json={'countries': ['JM', 'BB'], 'year': 'latest'}).json()
+        self.assertEqual(refreshed['without_data'], [])
+        self.assertEqual(client.get('/tourism/stored', params={'countries': 'JM', 'year': '19'}).json()['detail']['code'], 'invalid_year')
+        self.assertEqual(client.post('/tourism/refresh', json={'countries': []}).status_code, 422)
+
+
 class ExportAndApiTests(DatabaseCase):
     def test_exports_hold_all_five_indicators_with_provenance(self):
         data = service.compare(self.db, ['JM', 'BB'], 2019)
