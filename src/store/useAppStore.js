@@ -153,7 +153,7 @@ export const useAppStore = create((set, get) => ({
   // Every message is saved server-side as it's added, so the log survives a
   // reload and is sent back to Claude as context (see useChatbox).
   appendAssistantMessage: (message) => {
-    const stored = { ...message, id: crypto.randomUUID() }
+    const stored = { sources: [], ...message, id: crypto.randomUUID() } // sources always an array: the chat panel reads it for every message
     set((state) => ({ assistantMessages: [...state.assistantMessages, stored] }))
     saveChatMessage(stored).catch(() => {})
     return stored

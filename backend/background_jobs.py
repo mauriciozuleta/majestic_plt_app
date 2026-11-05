@@ -8,8 +8,21 @@ survives a backend restart mid-job (the job itself would still be lost, but
 at least GET won't report a phantom "building" state forever)."""
 
 
+import time
+
+_SERVER_STARTED = time.time()
+
+
 def is_building(base_path):
-    return base_path.with_suffix(base_path.suffix + '.building').exists()
+    """A marker written before this server process started belongs to a job that died with the previous process (a restart kills BackgroundTasks), so it is
+    removed instead of reporting a phantom "building" state forever."""
+    marker = base_path.with_suffix(base_path.suffix + '.building')
+    if not marker.exists():
+        return False
+    if marker.stat().st_mtime < _SERVER_STARTED:
+        marker.unlink(missing_ok=True)
+        return False
+    return True
 
 
 def mark_building(base_path):

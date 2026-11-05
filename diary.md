@@ -107,6 +107,18 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 
 ## Entries
 
+### 2026-10-12 — Bahamas and Barbados product portfolios built
+
+**Prompt:** "bahamas, barbados, grenada doesn't have a product portfolio, but i am sure i already built it, can you check if the info is hidden or not added" / "do it, and i will fond the source for grenada"
+
+Not hidden: never loaded (no `product_sources` rows for them in any committed DB version; only validation runs existed in Supermarket_data_fetch). Built through Majestic's `/supermarket-catalog/*` API: Bahamas = Instagopher (1,304 products, food categories only; its "Frozen Meat" category failed to configure), Barbados = Massy Stores Barbados (2,306 products, food categories only, no appliances/pharmacy/liquor). Grenada: no store in the catalog service yet — waiting for the user's source URL (then: prepare -> download with country "Grenada"). Same session: country-profile token budgets raised (`claude_client.py`), Chatbox crash on sources-less messages fixed, stale `.building` markers self-clear.
+
+### 2026-10-12 — Stuck country profile fixed; Sint Maarten entries merged
+
+**Prompts:** "the country profile for turks and caicos is stuck for a long time check it"; "merge the 3 sint martin branches"; "lets keep only the dutch part, is almost the same for my purposes"
+
+`backend/background_jobs.py`: a `.building` marker older than the running server process is stale (the restart killed the job) and is removed, so profiles no longer show "building" forever. Commercial Structure data (`majestic_plt.db`, FRESH24-Caribbean): the duplicate Sint Maarten (Dutch part) entry deleted, the SXM airport branch kept under Sint Maarten, Saint Martin (French part) deleted (its already-built profile file in `backend/country_profiles/` is now orphaned).
+
 ### 2026-10-12 — Territories in Global Trade Data, Commercial Structure persistence, Sint Maarten (Dutch part) calculator
 
 **Prompt:** "the global trade data country list should also include territories like sin marteen and others. add also persistency t the selection in the commercial structure page, 2. this is a complex one, i need you to build the sint marteen (dutch part) tax calculator using the content of this website: https://lokaleregelgeving.overheid.nl/CVDR142349 the site is in dutch and i havent been able to find a pdf to convert or even to translate, build the calculator and add the content ad .md in english to the documentation"

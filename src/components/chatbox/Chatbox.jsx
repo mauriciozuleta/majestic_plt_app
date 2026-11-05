@@ -105,7 +105,7 @@ function Chatbox() {
             const local = isLocalMessage(message)
             const tag = local ? message.sources[0].slice(LOCAL_TAG.length) : null
             const pdfFile = local ? message.sources.find((source) => source.startsWith(PDF_PREFIX))?.slice(PDF_PREFIX.length) : null
-            const sources = (local ? message.sources.slice(1) : message.sources).filter((source) => !source.startsWith(PDF_PREFIX))
+            const sources = (local ? message.sources.slice(1) : message.sources ?? []).filter((source) => !source.startsWith(PDF_PREFIX))
             // a finished report (not an error or a stop notice) can be opened, copied and saved
             const [reportModel, reportCountry] = tag ? tag.split(' · ') : []
             const canOpen = local && message.sender === 'bot' && sources.length > 0 && !pdfFile

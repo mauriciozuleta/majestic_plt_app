@@ -28,12 +28,12 @@ MODEL = 'claude-sonnet-5'
 # profile built under it was cut off mid-document with no Sources section
 # at all, since Sources is the last section requested and never got
 # reached once the budget ran out.
-MAX_TOKENS = 16000
+MAX_TOKENS = 24000
 # A guide-based profile is longer (Opportunities for Our Products, a fuller
 # Import Rules section) — 16000 cut the first one off before its Sources.
-MAX_TOKENS_WITH_GUIDE = 32000
+MAX_TOKENS_WITH_GUIDE = 48000 # 32000 was cut off again for Grenada and Sint Maarten (2026-10-12)
 # Seconds: a 32k-token document takes well over the old 300 to write.
-REQUEST_TIMEOUT = 600
+REQUEST_TIMEOUT = 1200
 MAX_SEARCHES = 10
 
 
