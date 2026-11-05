@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Majestic agent — summary</title>
+<style>
+  @page { size: A4; margin: 12mm 13mm; }
+  * { box-sizing: border-box; }
+  body { font: 9.3pt/1.3 'Segoe UI', Arial, sans-serif; color: #111; margin: 0; }
+  h1 { font-size: 20pt; margin: 0 0 2pt; }
+  .sub { color: #555; margin-bottom: 10pt; }
+  h2 { font-size: 11.5pt; margin: 9pt 0 3pt; padding-bottom: 2pt; border-bottom: 1.5px solid #333; }
+  p { margin: 3pt 0 5pt; }
+  ul, ol { margin: 3pt 0 5pt; padding-left: 17pt; }
+  li { margin-bottom: 2pt; }
+  table { width: 100%; border-collapse: collapse; margin: 3pt 0 5pt; font-size: 8.8pt; }
+  th, td { border: 1px solid #999; padding: 3pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #e8e8e8; }
+  .lane-l { background: #e3f5ec; } .lane-a { background: #e1f0fa; } .lane-b { background: #fbf0d9; }
+  img { width: 62%; display: block; margin-left: auto; margin-right: auto; border: 1px solid #bbb; margin: 4pt 0; }
+  .cap { font-size: 8.5pt; color: #666; margin-top: -2pt; }
+  .box { border: 1px solid #999; border-left: 4px solid #333; padding: 4pt 8pt; margin: 6pt 0; background: #f6f6f6; }
+  .pb { break-before: page; }
+  .nobreak { break-inside: avoid; }
+  code { font-family: Consolas, monospace; font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<h1>The Majestic agent — summary</h1>
+<div class="sub">Plan of 2026-10-07 · full detail in <code>agent_development.md</code> · documentation only, no agent code exists yet</div>
+
+<h2>1. What it is and why</h2>
+<p>An in-app agent that can <b>explain</b> any number in the app, <b>run simulations</b> (e.g. “cap wholesalers at 1,200 kg and make the return compensated — what happens to the Medellín → Kingston profit?”) and, when you approve, <b>update values</b> in the modules: route settings, Market Opportunity settings and priority lists, saved tax multipliers, source refreshes. It reuses the Claude tool-use loop that the sidebar Assistant already has and adds what is missing: more tools, a safety guard, simulations and a way to undo.</p>
+<div class="box"><b>Core promise:</b> the agent never changes live data on its own. Reading and simulating are free; every write is a <b>proposal</b> you approve, applied with a snapshot so it can be <b>undone</b>.</div>
+
+<h2>2. Six design decisions</h2>
+<ol>
+  <li><b>Tools, not free text.</b> One typed function per capability, grouped in four tiers: <b>R</b> read · <b>S</b> simulate (no live change) · <b>W</b> reversible write · <b>X</b> sensitive (money, ledger, deletes; off by default).</li>
+  <li><b>Guard in code.</b> Tier limits, budgets, per-company scope and rate limits are enforced by the backend, not by the prompt.</li>
+  <li><b>Writes are change sets.</b> Before / after, reason and risk are stored as data; they are applied atomically with a snapshot, and Undo restores it.</li>
+  <li><b>Port the browser-only maths.</b> Much of the money logic (route metrics, shipment builder, DDP / market level / sell price) exists only in JavaScript. A Python copy is parity-tested against the JavaScript with shared fixtures, so the screen and the agent cannot disagree.</li>
+  <li><b>Simulations are branches.</b> See section 3.</li>
+  <li><b>Three model lanes.</b> See section 4.</li>
+</ol>
+
+<h2>3. Simulations: <code>main</code> and branches</h2>
+<p>Borrowed from Git. The <b>baseline is <code>main</code></b>: a pinned snapshot of the database. Every simulation opens a <b>branch</b> — a copy of that file — and the agent plays with the values in the branch only.</p>
+<table>
+  <tr><th style="width:24%">Step</th><th>What happens</th></tr>
+  <tr><td>Create</td><td>Copy of <code>main</code> (a fraction of a second). Edits go through the same validated functions the screens use, and each one is logged (table, row, before, after, reason).</td></tr>
+  <tr><td>View</td><td>Choose “Viewing: branch” — every screen then shows the branch’s data, because requests carry an <code>X-Agent-Branch</code> header. A coloured banner stays on screen so a branch is never mistaken for live data.</td></tr>
+  <tr><td>Measure &amp; compare</td><td>The app’s own modules run on the copy; results are compared with <code>main</code> and with other branches in one table.</td></tr>
+  <tr><td>Merge</td><td>Never a file copy. A three-way check (baseline / branch / live now) produces a normal change set; conflicts are listed and never auto-resolved.</td></tr>
+  <tr><td>Rebase / discard</td><td>When <code>main</code> is refreshed a branch is flagged “main moved” and can be replayed on the new baseline, or thrown away.</td></tr>
+</table>
+<p><b>Safety inside a branch:</b> network tools (DIAN, Comtrade, web, Claude calls by modules) and scheduled jobs are blocked; the agent’s own tables always live in the live database; branches expire (default 30 days) and are capped (default 20). Data stored outside the database (RAG files, tariff files) is read from live, read-only.</p>
+
+<img src="images/mockup_branches.png" alt="Branches mockup" />
+<div class="cap">Mockup — branch banner, history, diff against main, measurements and merge panel (illustrative numbers).</div>
+
+<h2>4. Who does what: local model, API, or both</h2>
+<p><b>Rule:</b> a task goes to the local model (Ollama, on this PC) only if its data is inside the app’s DB, its answer can be checked by code, and a mistake is cheap to catch. Everything open-ended, outside the DB or untrusted goes to Claude. The guard and the tiers apply whichever model runs.</p>
+<table>
+  <tr><th class="lane-l" style="width:19%">Local only (free, offline)</th><th class="lane-a" style="width:19%">API only (Claude)</th><th class="lane-b">Local drafts, API checks</th></tr>
+  <tr>
+    <td class="lane-l">Shipment instruction → typed parameters (the builder then runs in code)<br>Value edits inside a branch<br>Wording a finished result<br>Shrinking big tool output<br>Routing read / simulate / write<br>RAG reports, titles; daily summary</td>
+    <td class="lane-a">Planning and choosing tools<br>Web search; DIAN / Comtrade / Trade.gov orchestration; source refresh<br>Anything that reads documents or web pages<br>Ambiguous requests and trade-offs<br>Merge conflicts and change-set wording<br>Final updates to live data; sensitive actions</td>
+    <td class="lane-b">Shipment / route edits proposed to live data<br>Batch edits (10+ values) before merge<br>Product → HS / tariff suggestions in review cases<br>Values extracted from a document (each with its quote)<br>The weekly report you read (sampled)</td>
+  </tr>
+</table>
+<p><b>The check protocol:</b> the local model drafts a typed object (JSON schema) → code validates it and runs the engine to produce a preview → <b>one short Claude call</b> confirms (approve / reject + reason) → you Apply or Discard. Validation fails → Claude does the task itself. Claude rejects → Claude redoes it and the disagreement is logged. Still unclear → the agent asks you. For branch-only work the check may drop to a 1-in-5 sample once agreement stays at 98%; <b>anything headed for live data is always checked.</b></p>
+<p><b>Entry gate for a local task:</b> about 30 labelled real instructions, ≥ 95% exact match, p95 ≤ 20 s, and no wrong draft passing both validator and API check in a red-team set. Below that the task stays on Claude. Reason for the caution: earlier tests showed local models misread tariff tables (0–1 of 4), so they are never the planner.</p>
+
+<img src="images/mockup_model_lanes.png" alt="Model lanes mockup" />
+<div class="cap">Mockup — the three lanes and the “local drafts, API checks” protocol.</div>
+
+<h2>5. What the user sees</h2>
+<ul>
+  <li><b>Tools ▸ Agent</b> workspace: conversation, a live step trace (each step tagged <i>local</i> / <i>API</i> / <i>API · checked</i>), and tabs <b>Proposal · Scenarios · Activity</b>.</li>
+  <li><b>Inline “✦ Ask the agent”</b> on a route row, a Market Opportunities row or a Settings card — opens the agent already knowing that context.</li>
+  <li><b>Branch switcher</b> and banner across the app; <b>Modes</b>: Ask (default, every write needs approval), Plan-only, and later auto-apply for reversible tiers.</li>
+  <li>The sidebar Assistant stays as the quick chat, with an “Agent” toggle.</li>
+</ul>
+
+<h2>6. Delivery</h2>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:30%">Phase</th><th>Done when</th><th style="width:12%">Weeks</th></tr>
+  <tr><td>0–1</td><td>Foundations: tool registry, guard, run loop, read tools, workspace UI</td><td>Agent explains any number with cited tool results</td><td>—</td></tr>
+  <tr><td>2</td><td>Branches &amp; simulations (Python engine ports + parity fixtures)</td><td>Live DB checksum unchanged after every branch operation; example in §1 matches the screens to the cent. <b>First useful release.</b></td><td>2.5</td></tr>
+  <tr><td>3</td><td>Proposals, merge &amp; writes (change sets, snapshots, undo, three-way merge)</td><td>Apply→Undo restores rows byte-for-byte; planted conflict stops the merge</td><td>2</td></tr>
+  <tr><td>4</td><td>Web/DIAN/Comtrade orchestration, inline entry points</td><td>Refresh flows run through the guard with rate limits</td><td>—</td></tr>
+  <tr><td>5</td><td>Hardening &amp; local lane</td><td>Golden set ≥ 90%; each local task passes its gate or stays on Claude; zero unauthorised writes in the adversarial set</td><td>1.5</td></tr>
+</table>
+<p><b>Total ≈ 9 weeks for one human developer</b>; about 5–7 working days of active coding for me, longer on the calendar because of your reviews. The first release runs every language task on Claude (simpler and already safe); the cheap local lane is earned in phase 5, and is expected to cut API tokens per run by 30–50% (to be measured).</p>
+
+<h2>7. Main risks and decisions for you</h2>
+<table>
+  <tr><th style="width:36%">Risk</th><th>Mitigation</th></tr>
+  <tr><td>A branch mistaken for live data</td><td>Permanent banner and switcher; exports from a branch are watermarked</td></tr>
+  <tr><td>A screen forgets the branch header</td><td>Header added in one shared fetch helper; automated test walks the routers; checksum check</td></tr>
+  <tr><td>A wrong local draft reaches live data</td><td>Validator + API check on every live-bound draft; you approve every change set</td></tr>
+  <tr><td>JS and Python maths drift apart</td><td>Parity fixtures run in the test suite</td></tr>
+  <tr><td>Stale baseline</td><td>Baseline age shown; “main moved” status; rebase</td></tr>
+</table>
+<p><b>Decisions needed from you:</b> (1) when <code>main</code> is pinned and refreshed — manual only is recommended; branch cap and expiry; (2) merge always as an approved change set (recommended) or auto-merge of non-conflicting reversible edits later; (3) local-lane gates and who writes the ~30 labelled instructions — the shipment instruction is the recommended first local task; (4) whether company figures and document passages may go to the Claude API (the current Assistant already does this); plus the open items in §15 of the full plan.</p>
+
+</body>
+</html>
