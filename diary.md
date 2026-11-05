@@ -16,7 +16,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 
 
 
-## Handout — start here (written 2026-10-12, after the Sint Maarten calculator, territories and Commercial Structure persistence)
+## Handout — start here (written 2026-11-05, after commit f626785)
 
 > **How this works.** This block exists so a new or changed session can pick up in one read. When you start a session:
 > read it, do the work, add your entries under "Entries", then **delete this block**. As the very last step of the session
@@ -25,23 +25,17 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > first reply that you read them.)
 
 **State of the code**
-- **Last commit: `6b04f14`** (Barbados calculator + the "higher rate wins" rule). **Everything since is UNCOMMITTED** (ask the user before committing): the Turks and Caicos
-  calculator + its two knowledge-base documents + `TURKS_AND_CAICOS_RULES.md`; tourism values stored in the DB (`/tourism/stored`, `/tourism/refresh`, "Update tourism data"
-  button); Global Trade Data territories; Commercial Structure persistence; the Sint Maarten (Dutch part) calculator and its English translation.
-- **Tax calculators (9):** Jamaica, United States, Trinidad and Tobago, Bahamas, Saint Lucia, Grenada, Barbados, Turks and Caicos Islands, Sint Maarten (Dutch part)
-  (`backend/tax_calc/`; registered in `__init__.py`; blurbs in `src/components/marketAnalysis/importDutyStructures.js`). Tests: `python -m unittest backend.tests.test_tax_calc` (66) and
-  `backend.tests.test_tourism` (51).
-- **Sint Maarten:** `sint_maarten.py` is a *uniform* calculator (import duty NAf 0, Art. 2(2); the tariff annex is not published). `mapping.lines_for_hs` returns its single line for any
-  HS code when `calculator.uniform` is true. Gasoline excise and the 5% BBO (a sales tax) are not computed and are listed as warnings. The English translation of the law is
-  `docs/sint_maarten_import_duties_en.md` and is also in the knowledge base (uploaded through `POST /documents`).
-- **Territories in Global Trade Data:** `GET /api/trade/countries` appends catalog countries with no Comtrade reporter (e.g. Saint Martin (French part)) under negative synthetic codes
-  (`comtrade/countries.py: territory_code`), tagged `own_reporter: false`; `trade_sources/fetch.py` never sends them to Comtrade. `main.py` seeds Sint Maarten, Curaçao, Bonaire,
-  South Sudan and Timor-Leste into the reference catalog if missing.
-- **Commercial Structure persistence:** `CommercialStructureView.jsx` remembers the company (`commercial-structure:company`), `CommercialStructureEditor.jsx` remembers region/country/branch per
-  company (`commercial-structure:selection`); the "Add to Commercial Structure" URL prefill still wins. Verified headless (reload, leave and return, switch company).
-- **Services:** backend `uvicorn` on 8012 (restarted this session, no `--reload`), vite on 5173. Browser checks: puppeteer-core + Edge in `%LOCALAPPDATA%\Temp\pp`.
-- **Standing rules:** conflicting rates in a source -> use the higher one and keep the CONFLICT warning; never print `.env` values; do not edit Codex-owned supermarket files; do not commit unless asked.
-- **Open points:** the Sint Maarten tariff annex (list of goods) could not be obtained; if the user later supplies it, replace the uniform line with real lines. The flat-rate traveller tariff (Art. 2(4)) is set by decree and is not in the text.
+- **Last commit: `f626785`** (profile blank-page fix, higher profile token limits, stale `.building` markers self-clear, Bahamas/Barbados portfolios, Sint Maarten entries merged); before it `6afae6f`
+  (Sint Maarten + Turks and Caicos calculators, territories in Global Trade Data, Commercial Structure persistence, stored tourism data). Left uncommitted on purpose: `docs/agent_development/agent_summary.*`
+  (unrelated) and three app-generated files in `backend/documents/knowledge_base/` (`63af660d…`, `6d3a031c…`, `7750aeb6…`, origin not checked).
+- **Tax calculators (9):** Jamaica, United States, Trinidad and Tobago, Bahamas, Saint Lucia, Grenada, Barbados, Turks and Caicos Islands, Sint Maarten (Dutch part) — `backend/tax_calc/`.
+  Tests: `python -m unittest backend.tests.test_tax_calc` (66), `backend.tests.test_tourism` (51).
+- **Product portfolios (product sources):** Jamaica, Saint Lucia, Trinidad and Tobago, Sint Maarten (Dutch part), Bahamas (Instagopher, 1,304), Barbados (Massy, 2,306). **Grenada has none** — the supermarket
+  service has no Grenadian store; waiting for the user's source URL (flow: `/supermarket-catalog/prepare` -> pick food categories -> `/download`; poll `/supermarket-catalog/jobs/{id}`; imports itself).
+- **Country profiles:** token limits raised in `backend/country_profile/claude_client.py` (48,000 with a guide); the Grenada and Sint Maarten profiles failed before that and must be rebuilt by the user (Build Profile).
+- **Servers (started 2026-11-02):** supermarket service `C:\Python313\python.exe api_server.py` on 8020; `npm run dev` (frontend 5173 + backend 8012 with `--reload`). Do not kill all `uvicorn` processes blindly — it kills the user's dev backend.
+- **Standing rules:** conflicting rates -> use the higher and keep the CONFLICT warning; never print `.env` values; do not edit Codex-owned supermarket files; do not commit unless asked.
+- **Open points:** Grenada source; Sint Maarten tariff annex unavailable (calculator is a uniform NAf 0 line); graphify report was rebuilt after the last commit.
 
 ## At a glance
 
