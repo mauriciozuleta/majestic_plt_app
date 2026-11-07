@@ -53,6 +53,24 @@ export function documentDownloadUrl(documentId) {
   return `${API_BASE}/documents/${documentId}/download`
 }
 
+// Types the Documentation tab can show in place (the backend's /view serves them inline): text-like files and PDFs.
+export const VIEWABLE_EXTENSIONS = ['.md', '.txt', '.csv', '.json', '.pdf']
+
+export function isViewable(filename) {
+  const dot = filename.lastIndexOf('.')
+  return dot !== -1 && VIEWABLE_EXTENSIONS.includes(filename.slice(dot).toLowerCase())
+}
+
+export function documentViewUrl(documentId) {
+  return `${API_BASE}/documents/${documentId}/view`
+}
+
+export async function fetchDocumentText(documentId) {
+  const response = await fetch(documentViewUrl(documentId))
+  if (!response.ok) throw new Error(await readErrorDetail(response, 'Could not open the document'))
+  return response.text()
+}
+
 export async function addDocumentToKnowledgeBase(documentId) {
   const response = await fetch(`${API_BASE}/documents/${documentId}/add-to-knowledge-base`, { method: 'POST' })
   if (!response.ok) throw new Error(await readErrorDetail(response, 'Failed to add the document to the knowledge base'))

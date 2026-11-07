@@ -259,6 +259,21 @@ def download_document(document_id: str, db: Session = Depends(get_db)):
     return FileResponse(path, filename=document.original_filename)
 
 
+@router.get('/documents/{document_id}/view')
+def view_document(document_id: str, db: Session = Depends(get_db)):
+    """The stored file served inline (not as a download), so the Documentation tab can show it: text and Markdown are read by the page, a PDF is
+    embedded."""
+    document = _get_document(db, document_id)
+    path = _stored_path(document)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail='The stored file is missing.')
+    extension = path.suffix.lower()
+    media_type = {'.pdf': 'application/pdf', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.csv': 'text/plain; charset=utf-8', '.json': 'text/plain; charset=utf-8'}.get(extension)
+    if media_type is None:
+        raise HTTPException(status_code=400, detail='This file type cannot be viewed here — download it instead.')
+    return FileResponse(path, media_type=media_type, filename=document.original_filename, content_disposition_type='inline')
+
+
 @router.post('/documents/{document_id}/add-to-knowledge-base')
 def add_to_knowledge_base(document_id: str, db: Session = Depends(get_db)):
     document = _get_document(db, document_id)

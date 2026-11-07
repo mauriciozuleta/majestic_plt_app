@@ -101,6 +101,18 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 
 ## Entries
 
+### 2026-11-05 — Documentation: "View" button
+
+**Prompt:** "add to the documentation/knowledge base a "view" button so user can see the document without needing to download it"
+
+New `GET /documents/{id}/view` (`backend/routers/knowledge_base.py`, inline, .md/.txt/.csv/.json/.pdf only). Frontend: `DocumentViewer.jsx` (modal; own small Markdown renderer with headings, tables, lists, code, quotes, bold/italic/links; text shown as is; PDF embedded), a View button on every viewable row in `KnowledgeBaseSections.jsx` (both Uploaded Documents and Knowledge Base), `isViewable`/`documentViewUrl`/`fetchDocumentText` in `services/documents.js`, styles in `KnowledgeBase.css`. Verified headless: the shipment-builder document opens with 2 tables, code blocks, lists and no raw markup. docx/xlsx are not viewable (download only). Also: vite had died between sessions and was restarted on its own (`npm run dev:frontend`); headless checks now run with Chrome from the scratchpad `pp` folder (Edge headless stopped launching).
+
+### 2026-11-05 — Document: how the shipment builder assigns kilos
+
+**Prompt:** "analize the way the shipment is built, which are the desicions or variables taken into account to assign the amounts per product, and build a .md document depicting it, add it to the documents tab"
+
+Read-only analysis of `ShipmentBuilder/shipmentBuilder.js`, `ShipmentBuilderModal.jsx`, `shipmentFinance.js`, `services/marketOpportunitySettings.js` and the saved Destination Market settings. Wrote `docs/shipment_builder_allocation.md` (inputs, candidate selection, market level from DDP vs target price, cargo caps and the wholesaler margin rule, wholesalers -> premium -> niche water-filling, manual weights, money chain, and observations: capacity is the aircraft max payload not the target cargo %, rating does not change the kilos). Uploaded to the Documentation tab via `POST /documents` (not added to the knowledge base). No code changed.
+
 ### 2026-10-12 — Bahamas and Barbados product portfolios built
 
 **Prompt:** "bahamas, barbados, grenada doesn't have a product portfolio, but i am sure i already built it, can you check if the info is hidden or not added" / "do it, and i will fond the source for grenada"

@@ -6,12 +6,15 @@ import {
   documentDownloadUrl,
   fetchDocuments,
   isIndexable,
+  isViewable,
 } from '../../../../services/documents'
+import DocumentViewer from './DocumentViewer'
 import { formatBytes, formatDocumentDate } from './documentFormat'
 import './KnowledgeBase.css'
 
 function DocumentRow({ document, onChanged }) {
   const [busy, setBusy] = useState(false)
+  const [viewing, setViewing] = useState(false)
 
   const run = async (action, failure) => {
     setBusy(true)
@@ -43,6 +46,11 @@ function DocumentRow({ document, onChanged }) {
         </span>
       </div>
       <div className="documentation__link-actions">
+        {isViewable(document.original_filename) && (
+          <button type="button" className="documentation__link-btn" onClick={() => setViewing(true)}>
+            View
+          </button>
+        )}
         <a className="documentation__link-btn" href={documentDownloadUrl(document.id)} download>
           Download
         </a>
@@ -62,6 +70,7 @@ function DocumentRow({ document, onChanged }) {
           </button>
         )}
       </div>
+      {viewing && <DocumentViewer document={document} onClose={() => setViewing(false)} />}
     </div>
   )
 }
