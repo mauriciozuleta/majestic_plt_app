@@ -593,6 +593,27 @@ class ProductHsCode(Base):
     description = Column(String, nullable=True)
 
 
+class CatalogItemWeight(Base):
+    """Web-researched weight of ONE item of a product ("pineapple", each = about 1.5 kg; "cilantro", bunch = about 70 g), the one fact the catalog
+    normalization module (backend/catalog_normalization/) needs to convert BOTH ways between a count and a weight: a price per each -> $/kg, and a
+    10 kg box -> how many items it holds. Global, researched once per (product, count unit) and reused everywhere. `signature` is
+    "<product key>|<count unit>" (see catalog_normalization/store.py)."""
+    __tablename__ = 'catalog_item_weights'
+
+    signature = Column(String, primary_key=True, index=True)
+    product = Column(String, nullable=False)
+    count_unit = Column(String, nullable=False)
+    item_kg = Column(Float, nullable=True)  # typical (average) weight of one item, kg
+    item_kg_min = Column(Float, nullable=True)
+    item_kg_max = Column(Float, nullable=True)
+    std_pack_kg = Column(Float, nullable=True)  # a standard wholesale carton/box of it, kg (when one exists)
+    std_pack_items = Column(Float, nullable=True)  # items in that standard pack
+    confidence = Column(String, nullable=True)  # 'high' | 'medium' | 'low'
+    note = Column(String, nullable=True)
+    sources_json = Column(String, nullable=False, default='[]')
+    researched_at = Column(String, nullable=False)
+
+
 class ProductCustomOverride(Base):
     """A user-entered correction for one exact priced row (a specific
     product at a specific source/size — finer-grained than

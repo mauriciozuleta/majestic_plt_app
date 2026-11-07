@@ -101,6 +101,12 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 
 ## Entries
 
+### 2026-11-07 — Catalog normalization module (built and tested, not wired in yet)
+
+**Prompts:** "commit changes" (commit `43fc19f`, not pushed) and "i think we need to build a catalog normalization module ... analize the current normalization process ... build the module separated and test it with 10 products of each kind ..."
+
+Analysis: unit normalization is spread over the frontend and done at read time, per country/source shape: `unitConversion.js` (Colombia + USA), `genericUnitConversion.js` (custom sources), `countWeightConversion.js` (count -> weight, only for matched pairs in Market Opportunities, one direction; eggs by USDA, others a cached Haiku guess without web: `unit_weight_estimates`), `weightResearch.js` + backend `weight_research` (Sonnet + web, per pack signature, manual button), `productOverrides`. Nothing is normalized at ingestion; the catalogs store raw unit text. New module `backend/catalog_normalization/` (`units.py` parser, `researcher.py` web research of one item's weight, `store.py`, `service.py` with `normalize_price`/`normalize_catalog`/`items_in_weight`/`weight_of_items`, `evaluate.py`, `README.md`), new model `CatalogItemWeight` (table `catalog_item_weights`), tests `backend/tests/test_catalog_normalization.py` (14). Live: 10/10 stated-weight rows exact, 10/10 unit-priced products researched inside plausible ranges. Nothing in the app calls the module yet.
+
 ### 2026-11-05 — Documentation: "View" button
 
 **Prompt:** "add to the documentation/knowledge base a "view" button so user can see the document without needing to download it"
