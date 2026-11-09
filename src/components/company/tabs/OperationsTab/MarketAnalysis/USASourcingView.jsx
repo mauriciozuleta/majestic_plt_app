@@ -4,6 +4,7 @@ import { exportUsaSourcingToCsv, exportUsaSourcingToPdf } from './usaSourcingExp
 import { formatPriceLine } from './priceFormat'
 import { usaRowSignature } from './unitConversion'
 import { useWeightResearch } from './useWeightResearch'
+import { DeleteSelectedButton, RowCheckbox, SelectAllCheckbox, useCatalogSelection } from './CatalogDeleteControls'
 import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
 import { missingResearchNames, resolveFromNorm } from '../../../../../services/catalogNorm'
@@ -74,6 +75,7 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
   const [productCodes, setProductCodes] = useState(new Map())
   const [snapshotVersion, setSnapshotVersion] = useState(0) // bumped after an item-weight research so the converted catalog is read again
   const weightResearch = useWeightResearch(() => setSnapshotVersion((version) => version + 1))
+  const selection = useCatalogSelection()
   const [customOverrides, setCustomOverrides] = useState(new Map())
   const [editingRowSignature, setEditingRowSignature] = useState(null)
   const [editDraft, setEditDraft] = useState({ price: '', weight: '' })
@@ -139,7 +141,19 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
     }
   }, [companyId, productsBySource])
 
-  const products = useMemo(() => USA_SOURCES.flatMap((s) => productsBySource[s.key] ?? []), [productsBySource])
+  // each product carries the snapshot it is stored in (usa_beef, usa_retail_produce …), which is what a deletion needs
+  const products = useMemo(
+    () => USA_SOURCES.flatMap((s) => (productsBySource[s.key] ?? []).map((product) => ({ ...product, snapshotKey: `usa_${s.key}` }))),
+    [productsBySource],
+  )
+  const usaRowKey = (product) => [product.snapshotKey, product.category, product.product_en, product.unit, product.detail, product.pack].join('|')
+  const describeSelected = () =>
+    products
+      .filter((product) => selection.selected.has(usaRowKey(product)))
+      .map((product) => ({
+        item: { source: product.snapshotKey, category: product.category, name: product.product_en, unit: product.unit, detail: product.detail ?? null, pack: product.pack ?? null },
+        label: `${product.product_en} — ${product.category}${product.unit ? ` (${product.unit})` : ''}`,
+      }))
 
   const categoryCounts = useMemo(() => {
     const counts = new Map()
@@ -399,10 +413,16 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
           ) : (
             <div className={`usa-sourcing__table-wrap ${updating ? 'is-updating' : ''}`}>
               {updating && <div className="usa-sourcing__table-overlay">Fetching latest prices…</div>}
+              <div className="catalog-select__toolbar">
+                <DeleteSelectedButton selection={selection} describe={describeSelected} onDeleted={() => setSnapshotVersion((version) => version + 1)} />
+              </div>
               <table className="usa-sourcing__table">
                 <thead>
                   <tr>
-                    <th>Code</th>
+                    <th className="catalog-select__col">
+                    <SelectAllCheckbox selection={selection} rowKeys={filtered.map(usaRowKey)} />
+                  </th>
+              <th>Code</th>
                     <th>Category</th>
                     <th>Product</th>
                     <th>Unit</th>
@@ -422,6 +442,9 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
                     const isEditing = editingRowSignature === resolved.rowSignature
                     return (
                       <tr key={`${product.category}-${product.product_en}-${index}`}>
+                        <td className="catalog-select__col">
+                          <RowCheckbox selection={selection} rowKey={usaRowKey(product)} label={product.product_en} />
+                        </td>
                         <td className="usa-sourcing__code-cell">{productCodes.get(product.product_en.toLowerCase()) || '—'}</td>
                         <td className="usa-sourcing__category-cell">{product.category}</td>
                         <td className="usa-sourcing__product-name">{product.product_en}</td>

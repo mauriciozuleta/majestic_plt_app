@@ -58,6 +58,7 @@ from .routers import (
     startup_investment,
     usa_sourcing,
     catalog_normalization,
+    catalog_products,
     fuel_prices,
 )
 
@@ -614,6 +615,7 @@ app.include_router(product_matches.router)
 app.include_router(air_logistics.router)
 app.include_router(expense_providers.router)
 app.include_router(catalog_normalization.router)
+app.include_router(catalog_products.router)
 app.include_router(fuel_prices.router)
 
 

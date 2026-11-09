@@ -127,7 +127,7 @@ function AskKnowledgeBase() {
   )
 }
 
-// Two cards for one shared, portfolio-wide list (the same in every company's
+// Three cards for one shared, portfolio-wide list (the same in every company's
 // Documentation): files that were only uploaded (consult/download), and the
 // knowledge base folder (files that were indexed, plus every generated report
 // mirrored in automatically).
@@ -149,8 +149,11 @@ function KnowledgeBaseSections({ refreshKey, onChanged }) {
     }
   }, [refreshKey])
 
+  // Modification reports (products deleted from the catalog …) get their own card; they are not shown again under Knowledge Base.
+  const isModificationReport = (document) => (document.report_key || '').startsWith('modification_report:')
+  const modificationReports = documents.filter(isModificationReport)
   const uploaded = documents.filter((document) => !document.in_knowledge_base)
-  const knowledgeBase = documents.filter((document) => document.in_knowledge_base)
+  const knowledgeBase = documents.filter((document) => document.in_knowledge_base && !isModificationReport(document))
 
   return (
     <>
@@ -167,6 +170,18 @@ function KnowledgeBaseSections({ refreshKey, onChanged }) {
         ) : (
           uploaded.map((document) => <DocumentRow key={document.id} document={document} onChanged={onChanged} />)
         )}
+      </section>
+
+      <section className="documentation__category">
+        <h4>Modification Reports</h4>
+        <p className="documentation__hint kb-section-note">
+          One report for every change made by hand to the stored data (for example products deleted from a Country Product Portfolio): what changed, when and by whom.
+        </p>
+        {status === 'ready' && modificationReports.length === 0 ? (
+          <p className="documentation__hint">No modifications have been made yet.</p>
+        ) : null}
+        {status === 'ready' &&
+          modificationReports.map((document) => <DocumentRow key={document.id} document={document} onChanged={onChanged} />)}
       </section>
 
       <section className="documentation__category">

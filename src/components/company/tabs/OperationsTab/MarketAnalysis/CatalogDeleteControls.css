@@ -1,0 +1,123 @@
+.catalog-select__box {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: #ef4444;
+}
+
+th.catalog-select__col,
+td.catalog-select__col {
+  width: 2rem;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.catalog-select__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0;
+}
+
+.catalog-select__delete {
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #b91c1c;
+  background: #dc2626;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.catalog-select__delete:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.catalog-select__delete:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.catalog-select__done {
+  font-size: 0.8rem;
+  color: #6ee7b7;
+}
+
+.catalog-select__dismiss {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.catalog-select__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1rem;
+}
+
+.catalog-select__dialog {
+  width: min(520px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border, #2a3f5c);
+  background: var(--bg-card, #111f31);
+  color: var(--text-primary, #eaf3ff);
+  padding: 1.2rem 1.3rem;
+}
+
+.catalog-select__dialog h3 {
+  margin: 0 0 0.5rem;
+  color: #fca5a5;
+}
+
+.catalog-select__dialog p {
+  margin: 0 0 0.7rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #b6c4da);
+}
+
+.catalog-select__list {
+  margin: 0 0 0.6rem;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.catalog-select__more {
+  font-size: 0.8rem;
+}
+
+.catalog-select__error {
+  color: #fca5a5;
+}
+
+.catalog-select__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.catalog-select__actions button:not(.catalog-select__delete) {
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, #2a3f5c);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}

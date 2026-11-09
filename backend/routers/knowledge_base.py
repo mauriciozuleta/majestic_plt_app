@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..database import get_db
 from ..knowledge_base import rag
+from ..modification_reports import KEY_PREFIX as MODIFICATION_KEY_PREFIX, REPORTS_DIR as MODIFICATION_REPORTS_DIR
 from ..knowledge_base.claude_client import KnowledgeBaseAnswerError, answer_question
 from .competitiveness import ANALYSES_DIR, TITLE_LINE
 from .country_profile import PROFILES_DIR
@@ -65,6 +66,7 @@ def _serialize(document: models.KnowledgeDocument) -> dict:
         'size_bytes': document.size_bytes,
         'uploaded_at': document.uploaded_at,
         'source': document.source,
+        'report_key': document.report_key,
         'in_knowledge_base': document.in_knowledge_base,
         'chunk_count': document.chunk_count,
     }
@@ -128,6 +130,11 @@ def _report_sources(db: Session):
             owner = companies.get(target.company_id, '')
             key = f'competitiveness:{target.company_id}:{target.country_code or target.id}__{source_slug}'
             yield key, f'{source_name} → {target.name} — Competitiveness ({owner})', target.company_id, path
+
+    if MODIFICATION_REPORTS_DIR.exists():
+        for path in sorted(MODIFICATION_REPORTS_DIR.glob('*.md')):
+            title = path.read_text(encoding='utf-8').splitlines()[0].lstrip('# ').strip() or path.stem
+            yield f'{MODIFICATION_KEY_PREFIX}{path.name}', f'{title} · {path.stem[:10]}', None, path
 
     for category in db.query(models.RiskCategory).all():
         path = PLANS_DIR / f'{category.id}.md'

@@ -16,6 +16,7 @@ import { exportProductsToCsv, exportProductsToPdf } from './priceComparisonExpor
 import { formatOneUsdEquals, formatPriceLine } from './priceFormat'
 import { colombiaRowSignature } from './unitConversion'
 import { useWeightResearch } from './useWeightResearch'
+import { DeleteSelectedButton, RowCheckbox, SelectAllCheckbox, useCatalogSelection } from './CatalogDeleteControls'
 import { fetchExchangeRate } from '../../../../../services/exchangeRate'
 import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
@@ -133,6 +134,7 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
   const highlightActive = Boolean(highlightHsCode) && !highlightCleared
   const [snapshotVersion, setSnapshotVersion] = useState(0) // bumped after an item-weight research so the converted catalogs are read again
   const weightResearch = useWeightResearch(() => setSnapshotVersion((version) => version + 1))
+  const selection = useCatalogSelection()
   const [customOverrides, setCustomOverrides] = useState(new Map())
   const [editingRowSignature, setEditingRowSignature] = useState(null)
   const [editDraft, setEditDraft] = useState({ price: '', weight: '' })
@@ -262,6 +264,18 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
   }, [companyId, laMayoristaProducts, corabastosProducts])
 
   const products = useMemo(() => mergeSources(laMayoristaProducts, corabastosProducts), [laMayoristaProducts, corabastosProducts])
+
+  // A row merges the product of both sources: deleting it removes it from each snapshot that has it (same id).
+  const describeSelected = () =>
+    products
+      .filter((product) => selection.selected.has(product.id))
+      .map((product) => ({
+        item: [
+          product.laMayorista != null ? { source: 'la_mayorista', id: product.id } : null,
+          product.corabastos != null ? { source: 'corabastos', id: product.id } : null,
+        ].filter(Boolean),
+        label: `${translateProductName(product.nameEs, translationOverrides).text} (${product.nameEs}) — ${product.laMayorista != null && product.corabastos != null ? 'La Mayorista + Corabastos' : product.laMayorista != null ? 'La Mayorista' : 'Corabastos'}`,
+      }))
 
   const categoryCounts = useMemo(() => {
     const counts = new Map()
@@ -723,12 +737,23 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
             </div>
           </div>
 
+          <div className="catalog-select__toolbar">
+            <DeleteSelectedButton
+              selection={selection}
+              describe={describeSelected}
+              onDeleted={() => setSnapshotVersion((version) => version + 1)}
+            />
+          </div>
+
           <div className={`price-comparison__table-wrap ${updating ? 'is-updating' : ''}`}>
             {updating && <div className="price-comparison__table-overlay">Fetching latest prices…</div>}
             <table className="price-comparison__table">
               <thead>
                 <tr>
-                  <th>Code</th>
+                  <th className="catalog-select__col">
+                <SelectAllCheckbox selection={selection} rowKeys={filtered.map((product) => product.id)} />
+              </th>
+              <th>Code</th>
                   <th>Category</th>
                   <th>Product</th>
                   <th>Unit</th>
@@ -755,6 +780,9 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
                   const referenceEntry = pickReferenceEntry(sourceEntries)
                   return (
                     <tr key={product.id}>
+                      <td className="catalog-select__col">
+                        <RowCheckbox selection={selection} rowKey={product.id} label={product.nameEs} />
+                      </td>
                       <td className="price-comparison__code-cell">{code || '—'}</td>
                       <td className="price-comparison__category-cell">
                         {categoryMeta ? `${categoryMeta.es} / ${categoryMeta.en}` : product.category}

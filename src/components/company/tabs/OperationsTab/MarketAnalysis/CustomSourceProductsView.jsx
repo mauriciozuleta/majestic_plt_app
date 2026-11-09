@@ -8,6 +8,7 @@ import { downloadCsv } from '../../../../../utils/exportCsv'
 import { formatOneUsdEquals, formatPriceLine } from './priceFormat'
 import { missingResearchNames, resolveFromNorm } from '../../../../../services/catalogNorm'
 import { useWeightResearch } from './useWeightResearch'
+import { DeleteSelectedButton, RowCheckbox, SelectAllCheckbox, useCatalogSelection } from './CatalogDeleteControls'
 import './ColombiaProductAnalysisView.css'
 
 const ISO_CURRENCY_RE = /^[A-Z]{3}$/
@@ -90,6 +91,7 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
   const [editingRowSignature, setEditingRowSignature] = useState(null)
   const [editDraft, setEditDraft] = useState({ price: '', weight: '' })
   const [savingOverride, setSavingOverride] = useState(false)
+  const selection = useCatalogSelection()
 
   const loadSources = () =>
     fetchCustomSourceProducts().then((rows) => {
@@ -106,6 +108,15 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
       )
       return mine
     })
+
+  // The ticked rows, as the backend deletes them (the snapshot key of their source + the row's identity).
+  const describeSelected = () =>
+    products
+      .filter((row) => selection.selected.has(rowSignature(row)))
+      .map((row) => ({
+        item: { source: `custom_${row.sourceId}`, id: row.id, category: row.category, name: row.name, unit: row.unit },
+        label: `${row.name} — ${row.sourceLabel}${row.unit ? ` (${row.unit})` : ''}`,
+      }))
 
   const weightResearch = useWeightResearch(() => loadSources().catch(() => {})) // after a research the converted catalog is read again
 
@@ -468,11 +479,18 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
         </div>
       </div>
 
+      <div className="catalog-select__toolbar">
+        <DeleteSelectedButton selection={selection} describe={describeSelected} onDeleted={() => loadSources()} />
+      </div>
+
       <div className={`price-comparison__table-wrap ${updating ? 'is-updating' : ''}`}>
         {updating && <div className="price-comparison__table-overlay">Fetching latest prices…</div>}
         <table className="price-comparison__table">
           <thead>
             <tr>
+              <th className="catalog-select__col">
+                <SelectAllCheckbox selection={selection} rowKeys={filtered.map(rowSignature)} />
+              </th>
               <th>Code</th>
               <th>Category</th>
               <th>Product</th>
@@ -493,6 +511,9 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
               const isEditing = editingRowSignature === resolved.rowSignature
               return (
                 <tr key={`${row.sourceId}-${row.category}-${row.id}-${index}`}>
+                  <td className="catalog-select__col">
+                    <RowCheckbox selection={selection} rowKey={rowSignature(row)} label={row.name} />
+                  </td>
                   <td className="price-comparison__code-cell">{productCodes.get(row.name.toLowerCase()) || '—'}</td>
                   <td className="price-comparison__category-cell">{row.category}</td>
                   <td>
