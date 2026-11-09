@@ -1,5 +1,6 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import MissingDataModal from './MissingDataModal'
 import { IconCheck } from '@tabler/icons-react'
 import { fetchCountryProfile, fetchMarketAnalysisRegions, fetchReferenceCountries, fetchRegionAssignments } from '../../services/commercialStructure'
 import { fetchTradeCountries } from '../../services/globalTradeData'
@@ -10,7 +11,7 @@ import { useTaxCalcStore } from '../../store/useTaxCalcStore'
 import { COLOMBIA_CALCULATOR, IMPORT_DUTY_STRUCTURES } from './importDutyStructures'
 import { buildMarketAnalysisStatus } from '../../services/marketAnalysisStatus'
 import { exportCountryProfileToPdf } from '../company/tabs/OperationsTab/countryProfileExport'
-import MarketAnalysisPanel from '../company/tabs/OperationsTab/MarketAnalysis/MarketAnalysisPanel'
+import CountryInformationPanel from './CountryInformationPanel'
 import AvailableCategoriesPanel from './AvailableCategoriesPanel'
 import SamPanel from './SamPanel'
 import GlobalTamPanel from './GlobalTamPanel'
@@ -28,6 +29,7 @@ import './MarketAnalysisView.css'
 // distinguishable at a glance even before their content exists to tell
 // them apart by.
 const PAGE_TABS = [
+  { key: 'dashboard', label: 'Dashboard', rgb: '245, 158, 11', text: '#fcd34d' },
   { key: 'country-information', label: 'Country Information', rgb: '59, 130, 246', text: '#93c5fd' },
   { key: 'market-size', label: 'Market Size', rgb: '167, 139, 250', text: '#e9d5ff' },
   { key: 'market-opportunities', label: 'Market Opportunities', rgb: '20, 184, 166', text: '#5eead4' },
@@ -162,12 +164,14 @@ function MarketAnalysisView() {
 
   // ?tab=market-opportunities (e.g. from the Shipment builder) opens that tab.
   const [searchParams] = useSearchParams()
-  const [pageTab, setPageTab] = useState(() => searchParams.get('tab') || 'country-information')
+  const [pageTab, setPageTab] = useState(() => searchParams.get('tab') || (countryId ? 'country-information' : 'dashboard'))
   const [marketSizeTab, setMarketSizeTab] = useState('available-categories')
   const [regions, setRegions] = useState([])
   const [status, setStatus] = useState({})
   const [loadStatus, setLoadStatus] = useState('loading')
-  const [initialRequest, setInitialRequest] = useState(null)
+  // Country Information: the country and the document shown (a deep link /market-analysis/<id> opens that country's commercial profile)
+  const [selection, setSelection] = useState({ countryId: countryId || '', docKey: 'profile', hsCode: null })
+  const updateSelection = useCallback((patch) => setSelection((previous) => ({ ...previous, ...patch })), [])
   const [viewingDoc, setViewingDoc] = useState(null)
   const [exportingPdf, setExportingPdf] = useState(false)
   // Countries UN Comtrade has a verified reporter code for (see
@@ -188,7 +192,6 @@ function MarketAnalysisView() {
   const [tourismUpdating, setTourismUpdating] = useState(false)
   const [tourismMessage, setTourismMessage] = useState('')
   const [regionOwners, setRegionOwners] = useState({})
-  const detailRef = useRef(null)
 
   useEffect(() => {
     fetchTaxCountries()
@@ -226,7 +229,7 @@ function MarketAnalysisView() {
 
   const countries = regions.flatMap((region) => region.countries.map((country) => ({ ...country, region: region.region })))
   const countryById = new Map(countries.map((country) => [country.id, country]))
-  const selected = countryId ? countryById.get(countryId) : null
+  const selected = selection.countryId ? countryById.get(selection.countryId) : null
   // ISO2 -> this country's own Commercial Structure row (id/company_id),
   // for Available Categories' country-code links: buildCategoryCoverage()
   // tags coverage with ISO2 codes from the global reference-countries list
@@ -321,6 +324,8 @@ function MarketAnalysisView() {
       })
   }, [])
 
+  const [missingFor, setMissingFor] = useState(null) // the country whose missing product data the form is open for
+
   const refreshStatus = useCallback((countryList) => {
     if (!countryList.length) {
       setStatus({})
@@ -333,20 +338,14 @@ function MarketAnalysisView() {
     loadRegions().then(refreshStatus)
   }, [loadRegions, refreshStatus])
 
-  const selectCountry = (country) => {
-    setInitialRequest(null)
-    navigate(country.id === countryId ? '/market-analysis' : `/market-analysis/${country.id}`)
+  // A dashboard pill or a country name opens that country's document in Country Information (the commercial profile unless a pill asked for another).
+  const openCountryInformation = (country, docKey = 'profile', extra = {}) => {
+    setSelection({ countryId: country.id, docKey, hsCode: extra.hsCode || null })
+    setPageTab('country-information')
   }
-
-  // `extra` lets a caller attach more than just which pill to open (e.g.
-  // Available Categories' country-code click also needs to say which HS
-  // code to land on — see focusCategoryProduct below); every existing
-  // caller just wants the pill, so extra defaults to nothing.
-  const focusPanel = (country, tabKey, extra = {}) => {
-    setInitialRequest({ countryId: country.id, tabKey, ...extra })
-    if (country.id !== countryId) navigate(`/market-analysis/${country.id}`)
-    requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }
+  const selectCountry = (country) => openCountryInformation(country, 'profile')
+  // `tabKey` is the column's own key ('overview' = the commercial profile, 'products' = the product portfolio); `extra.hsCode` pre-filters the portfolio
+  const focusPanel = (country, tabKey, extra = {}) => openCountryInformation(country, tabKey === 'overview' ? 'profile' : tabKey, extra)
 
   // Available Categories' own "jump to this product" — a country-code
   // click there carries the ISO2 code it was shown under (now always the
@@ -402,11 +401,7 @@ function MarketAnalysisView() {
               type="button"
               className={`market-analysis__tab ${isActive ? 'is-active' : ''}`}
               onClick={() => setPageTab(tab.key)}
-              style={{
-                background: `rgba(${tab.rgb}, ${isActive ? 0.28 : 0.14})`,
-                color: isActive ? tab.text : undefined,
-                borderBottomColor: isActive ? `rgba(${tab.rgb}, 0.28)` : undefined,
-              }}
+              style={{ '--tab-rgb': tab.rgb, '--tab-text': tab.text }}
             >
               {tab.label}
             </button>
@@ -425,11 +420,7 @@ function MarketAnalysisView() {
                   type="button"
                   className={`market-analysis__tab ${isActive ? 'is-active' : ''}`}
                   onClick={() => setMarketSizeTab(tab.key)}
-                  style={{
-                    background: `rgba(${tab.rgb}, ${isActive ? 0.28 : 0.14})`,
-                    color: isActive ? tab.text : undefined,
-                    borderBottomColor: isActive ? `rgba(${tab.rgb}, 0.28)` : undefined,
-                  }}
+                  style={{ '--tab-rgb': tab.rgb, '--tab-text': tab.text }}
                 >
                   {tab.label}
                 </button>
@@ -457,7 +448,7 @@ function MarketAnalysisView() {
         </div>
       )}
 
-      {pageTab === 'country-information' && (
+      {pageTab === 'dashboard' && (
         <div className="market-analysis__tab-panel">
         {loadStatus === 'loading' && <p className="market-analysis__hint">Loading regions…</p>}
         {loadStatus === 'error' && <p className="market-analysis__hint">Could not load the regions.</p>}
@@ -541,7 +532,7 @@ function MarketAnalysisView() {
                       region.countries.map((country) => {
                         const rowStatus = status[country.id]
                         return (
-                          <tr key={country.id} className={country.id === countryId ? 'is-selected' : ''}>
+                          <tr key={country.id} className={country.id === selection.countryId ? 'is-selected' : ''}>
                             <td>
                               {country.pending ? (
                                 <span className="market-analysis__country-pending" title="Not in Commercial Structure yet">
@@ -632,11 +623,23 @@ function MarketAnalysisView() {
                               if (column.key === 'product') {
                                 return (
                                   <td key={column.key} className="market-analysis__pill-cell">
-                                    <DocCell
-                                      done={rowStatus.hasProductData}
-                                      label="Country Product Portfolio"
-                                      onClick={() => focusPanel(country, column.tabKey)}
-                                    />
+                                    <div className="market-analysis__pill-stack">
+                                      <DocCell
+                                        done={rowStatus.hasProductData}
+                                        label="Country Product Portfolio"
+                                        onClick={() => focusPanel(country, column.tabKey)}
+                                      />
+                                      {rowStatus.missingCount > 0 && (
+                                        <button
+                                          type="button"
+                                          className="market-analysis__pill is-missing"
+                                          onClick={() => setMissingFor(country.name)}
+                                          title={`${rowStatus.missingCount} product${rowStatus.missingCount === 1 ? '' : 's'} of ${country.name} priced per unit still have no weight of one item. Click to fill it in.`}
+                                        >
+                                          {rowStatus.missingCount} need data
+                                        </button>
+                                      )}
+                                    </div>
                                   </td>
                                 )
                               }
@@ -658,32 +661,7 @@ function MarketAnalysisView() {
           </>
         )}
 
-        {selected && (
-          <div className="market-analysis__detail" ref={detailRef}>
-            <div className="market-analysis__detail-head">
-              <h4>{selected.name}</h4>
-              <span>
-                {selected.region} · {selected.company_name}
-              </span>
-            </div>
-            <MarketAnalysisPanel
-              // Keyed on the requested tab (and HS code, when a country-code
-              // click from Available Categories asked for one) too, not just
-              // the country, so clicking a different pending column — or a
-              // different leaf-level country code — for the same already-
-              // selected country still jumps/filters there (a plain
-              // key={selected.id} wouldn't remount, and the panel's own tab
-              // state only reads its initial props once).
-              key={`${selected.id}:${initialRequest?.countryId === selected.id ? initialRequest.tabKey : ''}:${initialRequest?.countryId === selected.id ? initialRequest.hsCode || '' : ''}`}
-              companyId={selected.company_id}
-              country={selected}
-              initialTabKey={initialRequest?.countryId === selected.id ? initialRequest.tabKey : null}
-              initialHsCode={initialRequest?.countryId === selected.id ? initialRequest.hsCode || null : null}
-              onBuilt={onBuilt}
-            />
-          </div>
-        )}
-        {loadStatus === 'ready' && countryId && !selected && <p className="market-analysis__hint">That country is no longer active.</p>}
+        {missingFor && <MissingDataModal country={missingFor} onClose={() => setMissingFor(null)} onSaved={() => refreshStatus(countries)} />}
 
         {viewingDoc && (
           <div className="country-profile-view__overlay">
@@ -710,6 +688,25 @@ function MarketAnalysisView() {
             </div>
           </div>
         )}
+        </div>
+      )}
+
+      {pageTab === 'country-information' && (
+        <div className="market-analysis__tab-panel">
+          {loadStatus === 'ready' && !hasCountries ? (
+            <p className="market-analysis__hint">No active countries yet — activate countries in Commercial Structure.</p>
+          ) : (
+            <CountryInformationPanel
+              countries={countries}
+              selection={selection}
+              onSelect={updateSelection}
+              tradeCountryCodes={tradeCountryCodes}
+              dutyCalculators={dutyCalculators}
+              tourismByIso={tourismByIso}
+              tourismState={tourismState}
+              onBuilt={onBuilt}
+            />
+          )}
         </div>
       )}
     </section>

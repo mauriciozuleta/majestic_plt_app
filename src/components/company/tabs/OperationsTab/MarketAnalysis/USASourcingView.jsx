@@ -2,17 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { USA_SOURCES, fetchUsaSourceProducts, fetchUsaSourcingSnapshot } from './usaSourcingFetchers'
 import { exportUsaSourcingToCsv, exportUsaSourcingToPdf } from './usaSourcingExport'
 import { formatPriceLine } from './priceFormat'
-import {
-  applyCustomOverride,
-  applyResearchedWeight,
-  explainUsaConversion,
-  usaPricePerKg,
-  usaRowSignature,
-  usaWeightResearchItem,
-} from './unitConversion'
+import { usaRowSignature } from './unitConversion'
+import { useWeightResearch } from './useWeightResearch'
 import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
-import { fetchWeightResearch, researchMissingWeights } from '../../../../../services/weightResearch'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
+import { missingResearchNames, resolveFromNorm } from '../../../../../services/catalogNorm'
 import './USASourcingView.css'
 
 const SNAPSHOT_KEY_TO_SOURCE = {
@@ -23,6 +17,7 @@ const SNAPSHOT_KEY_TO_SOURCE = {
   usa_grains: 'grains',
   usa_produce_fl: 'produce_fl',
   usa_produce_ca: 'produce_ca',
+  usa_retail_produce: 'retail_produce',
 }
 
 const INITIAL_SYNC_STATE = { status: 'never', lastSyncedAt: null, error: null }
@@ -77,27 +72,12 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
   const [updating, setUpdating] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [productCodes, setProductCodes] = useState(new Map())
-  const [researchedWeights, setResearchedWeights] = useState(new Map())
-  const [researchingWeights, setResearchingWeights] = useState(false)
+  const [snapshotVersion, setSnapshotVersion] = useState(0) // bumped after an item-weight research so the converted catalog is read again
+  const weightResearch = useWeightResearch(() => setSnapshotVersion((version) => version + 1))
   const [customOverrides, setCustomOverrides] = useState(new Map())
   const [editingRowSignature, setEditingRowSignature] = useState(null)
   const [editDraft, setEditDraft] = useState({ price: '', weight: '' })
   const [savingOverride, setSavingOverride] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    fetchWeightResearch()
-      .then((data) => {
-        if (cancelled) return
-        setResearchedWeights(new Map(Object.entries(data.results)))
-      })
-      .catch(() => {
-        // Non-fatal: rows just keep showing '—' for whatever isn't researched yet.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -142,7 +122,7 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [snapshotVersion])
 
   useEffect(() => {
     if (!companyId) return undefined
@@ -190,46 +170,16 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
 
   const isSeafoodSelected = activeCategory === 'Seafood (Gulf, domestic landings)'
 
-  // Resolves a product's final, effective $/kg — official conversion, then
-  // an AI-researched fallback, then any custom user override on top (see
-  // unitConversion.js) — plus the plain-language comment explaining
-  // however it was actually produced, for the Comments column.
+  // A product's final, effective $/kg and the comment explaining how it was produced (for the Comments column): the catalog normalization module's figure
+  // (backend/catalog_normalization), with any custom user override on top.
   const resolvePerKg = (product) => {
-    const basePerKg = usaPricePerKg(product)
-    const officialComment = explainUsaConversion(product)
-    const item = usaWeightResearchItem(product)
-    const afterResearch = applyResearchedWeight(product.price, basePerKg, officialComment, item?.signature ?? null, researchedWeights)
     const rowSignature = usaRowSignature(product)
     const override = customOverrides.get(rowSignature)
-    const resolved = applyCustomOverride(product.price, afterResearch, override)
-    return { ...resolved, rowSignature, override }
+    return { ...resolveFromNorm(product.price, product.norm, override), rowSignature, override }
   }
 
-  // Every currently-loaded product with no $/kg figure yet and no pending
-  // research result — deduped by signature, since every size grade of the
-  // same carton (32s, 36s, ...) shares one signature (see unitConversion.js).
-  const missingWeightItems = useMemo(() => {
-    const itemsBySignature = new Map()
-    products.forEach((product) => {
-      if (usaPricePerKg(product) !== null) return
-      const item = usaWeightResearchItem(product)
-      if (item && !researchedWeights.has(item.signature)) itemsBySignature.set(item.signature, item)
-    })
-    return Array.from(itemsBySignature.values())
-  }, [products, researchedWeights])
-
-  const handleResearchWeights = async () => {
-    if (researchingWeights || !missingWeightItems.length) return
-    setResearchingWeights(true)
-    try {
-      const data = await researchMissingWeights(missingWeightItems)
-      setResearchedWeights(new Map(Object.entries(data.results)))
-    } catch (error) {
-      window.alert(`Weight research failed: ${error.message}`)
-    } finally {
-      setResearchingWeights(false)
-    }
-  }
+  // The products still waiting for the weight of one item (a price per each / per bunch), by the name the module reads.
+  const missingNames = useMemo(() => missingResearchNames(products.map((product) => product.norm)), [products])
 
   const handleStartOverrideEdit = (resolved) => {
     setEditingRowSignature(resolved.rowSignature)
@@ -368,15 +318,15 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
           <button type="button" className="usa-sourcing__export-btn" onClick={handleExportPdf} disabled={!filtered.length || exportingPdf}>
             {exportingPdf ? 'Exporting…' : 'Export PDF'}
           </button>
-          {missingWeightItems.length > 0 && (
+          {missingNames.length > 0 && (
             <button
               type="button"
               className="usa-sourcing__research-btn"
-              onClick={handleResearchWeights}
-              disabled={researchingWeights}
-              title="Ask AI to research the standard pack weight for products with no price-per-kg figure yet"
+              onClick={() => weightResearch.run(missingNames)}
+              disabled={weightResearch.researching}
+              title="Research on the web the weight of one item of the products priced per unit, so they get a price per kg"
             >
-              {researchingWeights ? 'Researching…' : `Research Missing Weights (${missingWeightItems.length})`}
+              {weightResearch.researching ? 'Researching…' : `Research item weights (${missingNames.length})`}
             </button>
           )}
           <button type="button" className="usa-sourcing__update-btn" onClick={handleUpdate} disabled={updating}>
@@ -491,6 +441,14 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
                                   }`}
                                 >
                                   AI
+                                </span>
+                              )}
+                              {!resolved.custom && resolved.reference && (
+                                <span
+                                  className="usa-sourcing__researched-badge"
+                                  title={`USDA published item weight (no AI).${resolved.note ? ` ${resolved.note}` : ''}`}
+                                >
+                                  USDA
                                 </span>
                               )}
                             </>

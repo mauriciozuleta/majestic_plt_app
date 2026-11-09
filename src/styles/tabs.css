@@ -1,0 +1,85 @@
+/* ONE place for how every tab looks, app-wide (page tabs, company tabs, sub-tabs, settings tabs, packer tabs …).
+   RULE: only the SELECTED tab has a coloured background; every other tab has none and shows just its title in colour.
+   A tab's colour comes from two custom properties — --tab-rgb ("r, g, b", used for the selected background and border)
+   and --tab-text (the title colour) — set per tab below or inline by the component (see PAGE_TABS in MarketAnalysisView.jsx).
+   To make a new tab follow the rule, give it the `app-tab` class (or add its selector to the list below) and, if wanted, its colour.
+   Do NOT put background/colour on a tab in a component stylesheet: this file wins (the :not(#app-tab) bump outranks any class rule). */
+
+/* ---- tab colours (defaults per tab family) ---- */
+.company-workspace__tab { --tab-rgb: 245, 158, 11; --tab-text: #fcd34d; }
+.company-workspace__tab--operations { --tab-rgb: 249, 115, 22; --tab-text: #fdba74; }
+.company-workspace__subtab { --tab-rgb: 56, 189, 248; --tab-text: #7dd3fc; }
+.company-workspace__subtab--startup-investment { --tab-rgb: 53, 211, 153; --tab-text: #6ee7b7; }
+.simulations-workspace__tab { --tab-rgb: 167, 139, 250; --tab-text: #ddd6fe; }
+.simulations-workspace__subtab { --tab-rgb: 56, 189, 248; --tab-text: #7dd3fc; }
+.rag-files__tab,
+.tax-calc__tab { --tab-rgb: 20, 184, 166; --tab-text: #5eead4; }
+.mo-settings__tab,
+.providers-view__category { --tab-rgb: 249, 115, 22; --tab-text: #fdba74; }
+.species-gallery__tab { --tab-rgb: 53, 211, 153; --tab-text: #6ee7b7; }
+.packer-tabs button { --tab-rgb: 232, 163, 61; --tab-text: #f0b95f; }
+.tab,
+.app-tab { --tab-rgb: 59, 130, 246; --tab-text: #93c5fd; }
+
+/* ---- the rule ---- */
+:is(
+  .app-tab,
+  .market-analysis__tab,
+  .species-gallery__tab,
+  .rag-files__tab,
+  .company-workspace__tab,
+  .company-workspace__subtab,
+  .simulations-workspace__tab,
+  .simulations-workspace__subtab,
+  .mo-settings__tab,
+  .tax-calc__tab,
+  .providers-view__category,
+  .tab:not(.tab--add),
+  .packer-tabs button
+):not(#app-tab) {
+  background: none;
+  box-shadow: none;
+  border-color: transparent;
+  color: var(--tab-text, #93c5fd);
+  font-weight: 500;
+}
+
+:is(
+  .app-tab,
+  .market-analysis__tab,
+  .species-gallery__tab,
+  .rag-files__tab,
+  .company-workspace__tab,
+  .company-workspace__subtab,
+  .simulations-workspace__tab,
+  .simulations-workspace__subtab,
+  .mo-settings__tab,
+  .tax-calc__tab,
+  .providers-view__category,
+  .tab:not(.tab--add),
+  .packer-tabs button
+):not(#app-tab):hover {
+  background: none;
+  filter: brightness(1.2);
+}
+
+:is(
+  .app-tab.is-active,
+  .market-analysis__tab.is-active,
+  .species-gallery__tab.is-active,
+  .rag-files__tab.is-active,
+  .company-workspace__tab.is-active,
+  .company-workspace__subtab.is-active,
+  .simulations-workspace__tab.is-active,
+  .simulations-workspace__subtab.is-active,
+  .mo-settings__tab.is-active,
+  .tax-calc__tab.is-active,
+  .providers-view__category.is-active,
+  .tab.is-active,
+  .packer-tabs button[aria-selected='true']
+):not(#app-tab) {
+  background: rgba(var(--tab-rgb, 59, 130, 246), 0.28);
+  border-color: rgba(var(--tab-rgb, 59, 130, 246), 0.55);
+  color: var(--tab-text, #93c5fd);
+  font-weight: 600;
+}

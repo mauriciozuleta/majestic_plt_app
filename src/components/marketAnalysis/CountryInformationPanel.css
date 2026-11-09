@@ -1,0 +1,90 @@
+.country-info {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.country-info__pickers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.country-info__pickers label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted, #8ea3c2);
+}
+
+.country-info__pickers select {
+  min-width: min(260px, 100%);
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, #2a3f5c);
+  background: var(--surface, #0d1826);
+  color: var(--text-primary, #eaf3ff);
+  font: inherit;
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.country-info__pickers select:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.country-info__meta {
+  margin-bottom: 0.55rem;
+  font-size: 0.8rem;
+  color: var(--text-muted, #8ea3c2);
+}
+
+.country-info__document {
+  min-width: 0;
+  border: 1px solid var(--border, #2a3f5c);
+  border-radius: 12px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.country-info__hint {
+  margin: 0 0 0.8rem;
+  font-size: 0.84rem;
+  color: var(--text-muted, #8ea3c2);
+  max-width: 80ch;
+  line-height: 1.5;
+}
+
+.country-info__tourism-table {
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  min-width: min(520px, 100%);
+}
+
+.country-info__tourism-table th,
+.country-info__tourism-table td {
+  padding: 0.45rem 0.8rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border, #2a3f5c);
+}
+
+.country-info__tourism-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted, #8ea3c2);
+}
+
+.country-info__tourism-table .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

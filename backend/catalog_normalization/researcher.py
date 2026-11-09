@@ -76,7 +76,12 @@ def research_item_weights(items: list[tuple[str, str, str]]) -> list[ItemWeight]
         'messages': [{'role': 'user', 'content': _prompt(items)}],
     }
     response = httpx.post(ANTHROPIC_API_URL, json=payload, headers={'x-api-key': key, 'anthropic-version': ANTHROPIC_VERSION, 'content-type': 'application/json'}, timeout=900)
-    response.raise_for_status()
+    if response.status_code >= 400:  # the API's own message ("credit balance is too low", a rejected request ...), not a bare "400 Bad Request"
+        try:
+            detail = response.json().get('error', {}).get('message') or response.text[:300]
+        except ValueError:
+            detail = response.text[:300]
+        raise RuntimeError(f'The research request was rejected by the Anthropic API ({response.status_code}): {detail}')
     data = response.json()
     if data.get('stop_reason') == 'max_tokens':
         raise RuntimeError('The research answer was cut off (max_tokens) — use fewer products per call.')

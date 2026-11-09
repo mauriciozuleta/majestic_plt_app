@@ -6,18 +6,20 @@
 import { fetchAllCompetitivenessAnalyses, fetchProfiledCountries } from './commercialStructure'
 import { fetchCustomSourceProducts } from './productSources'
 import { fetchPriceComparisonSnapshot } from '../components/company/tabs/OperationsTab/MarketAnalysis/priceComparisonFetchers'
+import { fetchMissingSummary } from './catalogNormalization'
 import { fetchUsaSourcingSnapshot } from '../components/company/tabs/OperationsTab/MarketAnalysis/usaSourcingFetchers'
 
 // Returns { [countryId]: { profile: {generated_at} | null, analyses: [{target_country_id, target_country_name, source_country_name, generated_at}], hasProductData: bool } }
 export async function buildMarketAnalysisStatus(countries) {
   const companyIds = [...new Set(countries.map((country) => country.company_id))]
 
-  const [profileLists, analysisLists, colombiaSnapshots, usaSnapshots, customSources] = await Promise.all([
+  const [profileLists, analysisLists, colombiaSnapshots, usaSnapshots, customSources, missingByCountry] = await Promise.all([
     Promise.all(companyIds.map((id) => fetchProfiledCountries(id).catch(() => []))),
     Promise.all(companyIds.map((id) => fetchAllCompetitivenessAnalyses(id).catch(() => []))),
     fetchPriceComparisonSnapshot().catch(() => []),
     fetchUsaSourcingSnapshot().catch(() => []),
     fetchCustomSourceProducts().catch(() => []),
+    fetchMissingSummary().catch(() => ({})), // products with a unit price and no item weight yet, per country (the red pill)
   ])
 
   const profileByCountryId = new Map(profileLists.flat().map((row) => [row.country_id, row]))
@@ -37,6 +39,7 @@ export async function buildMarketAnalysisStatus(countries) {
       analyses: analyses.filter(
         (row) => row.source_country_name?.trim().toLowerCase() === nameLower || row.target_country_id === country.id,
       ),
+      missingCount: missingByCountry[country.name] ?? 0,
       hasProductData: (nameLower === 'colombia' && hasColombiaData) || (nameLower === 'united states' && hasUsaData) || customCountries.has(nameLower),
     }
   })

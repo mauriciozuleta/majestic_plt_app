@@ -12,20 +12,6 @@ const TABS = [
   { key: 'products', label: 'Country Product Portfolio' },
 ]
 
-function pillStyle(isSelected) {
-  return {
-    padding: '7px 16px',
-    borderRadius: '999px',
-    border: isSelected ? '1px solid #3b82f6' : '1px solid #2a3f5c',
-    background: isSelected ? 'rgba(59, 130, 246, 0.28)' : 'transparent',
-    boxShadow: isSelected ? '0 0 0 1px rgba(59, 130, 246, 0.4)' : 'none',
-    color: isSelected ? '#eaf3ff' : '#8ea3c2',
-    fontSize: '0.82rem',
-    fontWeight: isSelected ? 700 : 600,
-    cursor: 'pointer',
-  }
-}
-
 // The analysis for one active country: Overview (the country's commercial
 // profile, straight away — no extra click) and Country Product Portfolio
 // (every product from every source added for this country, wholesaler and
@@ -41,7 +27,7 @@ function pillStyle(isSelected) {
 // own `highlightHsCode` prop for how it's applied; `onBuilt` fires whenever
 // the commercial profile build actually completes, so that caller can
 // refresh its "has a document" status.
-function MarketAnalysisPanel({ companyId, country, initialTabKey = null, initialHsCode = null, onBuilt }) {
+function MarketAnalysisPanel({ companyId, country, initialTabKey = null, initialHsCode = null, onBuilt, hideTabs = false }) {
   const [tabKey, setTabKey] = useState(initialTabKey || 'overview')
 
   const renderContent = () => {
@@ -69,15 +55,17 @@ function MarketAnalysisPanel({ companyId, country, initialTabKey = null, initial
 
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {TABS.map((tab) => (
-          <button key={tab.key} type="button" onClick={() => setTabKey(tab.key)} style={pillStyle(tabKey === tab.key)}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {!hideTabs && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {TABS.map((tab) => (
+            <button key={tab.key} type="button" onClick={() => setTabKey(tab.key)} className={`app-tab ${tabKey === tab.key ? 'is-active' : ''}`} style={{ borderRadius: '999px', padding: '7px 16px', fontSize: '0.82rem', cursor: 'pointer', border: '1px solid transparent' }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <div style={{ marginTop: '16px', border: '1px solid #2a3f5c', borderRadius: '12px', background: '#111f31', padding: '16px' }}>
+      <div style={{ marginTop: hideTabs ? 0 : '16px', border: '1px solid #2a3f5c', borderRadius: '12px', background: '#111f31', padding: '16px' }}>
         {renderContent()}
       </div>
     </div>

@@ -28,8 +28,7 @@
 .packer-toolbar .packer-field:first-child { flex: 2 1 220px; }
 .packer-toggle { display: flex; align-items: center; gap: .45rem; padding: .5rem 0; }
 .packer-tabs { display: flex; gap: .4rem; border-bottom: 1px solid var(--border); padding-bottom: .6rem; }
-.packer-tabs button { border-radius: 7px; background: transparent; border-color: transparent; }
-.packer-tabs button[aria-selected=true] { background: rgba(232,163,61,.13); color: var(--accent-amber-text); border-color: rgba(232,163,61,.35); }
+.packer-tabs button { border-radius: 7px; }
 .packer-badge { display: inline-block; padding: .12rem .35rem; margin-left: .5rem; border-radius: 4px; background: var(--bg-panel); font-family: var(--font-mono); font-size: .65rem; }
 .packer-stats { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: .65rem; }
 .packer-stats > div { background: linear-gradient(135deg,var(--bg-card),var(--bg-panel)); border: 1px solid var(--border); border-radius: 8px; padding: .8rem; }

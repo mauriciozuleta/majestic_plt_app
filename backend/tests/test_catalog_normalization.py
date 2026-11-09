@@ -47,8 +47,9 @@ class ParseUnitTests(unittest.TestCase):
 class NormalizeTests(unittest.TestCase):
     def store(self):
         store = MemoryStore()
-        store.put(ItemWeight('pineapple', 'each', 1.5, 1.2, 2.0, std_pack_kg=9.0, std_pack_items=6, confidence='high', note='USDA', sources=['https://x']))
-        store.put(ItemWeight('avocado', 'each', 0.2, 0.15, 0.3, confidence='medium', note='Hass'))
+        # products USDA's table has no rule for, so the researched store is what answers (USDA is asked first)
+        store.put(ItemWeight('lulo', 'each', 1.5, 1.2, 2.0, std_pack_kg=9.0, std_pack_items=6, confidence='high', note='research', sources=['https://x']))
+        store.put(ItemWeight('curuba', 'each', 0.2, 0.15, 0.3, confidence='medium', note='research'))
         store.put(ItemWeight('cilantro', 'bunch', 0.07, confidence='medium', note='retail bunch'))
         return store
 
@@ -58,17 +59,17 @@ class NormalizeTests(unittest.TestCase):
         self.assertAlmostEqual(result.price_per_kg, 4.0 / (3 * LB_TO_KG))
 
     def test_price_per_each_uses_the_researched_item_weight(self):
-        result = normalize_price('Pineapple', 'each', 3.0, self.store())
+        result = normalize_price('Lulo', 'each', 3.0, self.store())
         self.assertEqual(result.method, 'researched_item_weight')
         self.assertAlmostEqual(result.price_per_kg, 2.0)  # 3.00 per 1.5 kg
 
     def test_an_unresearched_product_says_it_needs_research(self):
-        result = normalize_price('Mango', 'each', 3.0, self.store())
+        result = normalize_price('Tamarillo', 'each', 3.0, self.store())
         self.assertEqual(result.method, 'needs_research')
         self.assertIsNone(result.price_per_kg)
 
     def test_a_count_pack_multiplies_the_item_weight(self):
-        result = normalize_price('Avocado', '4 count mesh bags', 3.6, self.store())
+        result = normalize_price('Curuba', '4 count mesh bags', 3.6, self.store())
         self.assertAlmostEqual(result.pack_weight_kg, 0.8)
         self.assertAlmostEqual(result.price_per_kg, 4.5)
         self.assertAlmostEqual(result.price_per_item, 0.9)
@@ -88,9 +89,10 @@ class NormalizeTests(unittest.TestCase):
 
     def test_both_directions(self):
         store = self.store()
-        self.assertAlmostEqual(items_in_weight('avocado', 10, store)['items'], 50)
-        self.assertAlmostEqual(weight_of_items('pineapple', 8, store)['weight_kg'], 12.0)
-        self.assertIsNone(items_in_weight('mango', 10, store))
+        self.assertAlmostEqual(items_in_weight('curuba', 10, store)['items'], 50)
+        self.assertAlmostEqual(weight_of_items('lulo', 8, store)['weight_kg'], 12.0)
+        self.assertIsNone(items_in_weight('tamarillo', 10, store))
+        self.assertAlmostEqual(weight_of_items('pineapple', 8, store)['weight_kg'], 8 * 1.7745, places=2)  # from USDA's table, no research stored
 
     def test_catalog_researches_each_missing_product_once_and_converts_every_row(self):
         calls = []
@@ -99,7 +101,7 @@ class NormalizeTests(unittest.TestCase):
             calls.append(batch)
             return [ItemWeight(name, unit, 0.5, confidence='medium', note='test') for name, unit, _ in batch]
 
-        rows = [{'name': 'Papaya', 'unit': 'each', 'price': 2.0}, {'name': 'Papaya', 'unit': 'each', 'price': 3.0}, {'name': 'Rice', 'unit': '5 lb bag', 'price': 4.0}]
+        rows = [{'name': 'Lucuma', 'unit': 'each', 'price': 2.0}, {'name': 'Lucuma', 'unit': 'each', 'price': 3.0}, {'name': 'Rice', 'unit': '5 lb bag', 'price': 4.0}]
         out = normalize_catalog(rows, MemoryStore(), research=research)
         self.assertEqual(len(calls), 1)
         self.assertEqual(len(calls[0]), 1)  # one distinct product researched, not two
@@ -108,7 +110,7 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual(out[2]['normalized']['method'], 'stated_weight')
 
     def test_without_research_a_count_row_says_it_needs_it(self):
-        out = normalize_catalog([{'name': 'Papaya', 'unit': 'each', 'price': 2.0}], MemoryStore(), allow_research=False)
+        out = normalize_catalog([{'name': 'Lucuma', 'unit': 'each', 'price': 2.0}], MemoryStore(), allow_research=False)
         self.assertEqual(out[0]['normalized']['method'], 'needs_research')
         self.assertIsNone(out[0]['normalized']['price_per_kg'])
 

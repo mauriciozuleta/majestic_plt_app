@@ -14,6 +14,12 @@ from . import models
 
 
 def save_snapshot(db: Session, source: str, products: list):
+    # A product catalog is normalized (price per kg, pack weight, items per pack) the moment it is stored — see catalog_normalization/catalog.py. Only
+    # the deterministic part and the already-researched weights run here; nothing is fetched from the web.
+    from .catalog_normalization.catalog import annotate_with_db, is_catalog_source
+
+    if is_catalog_source(source) and isinstance(products, list):
+        annotate_with_db(db, source, products)
     fetched_at = datetime.now(timezone.utc).isoformat()
     snapshot = db.query(models.PriceComparisonSnapshot).filter_by(source=source).first()
     if snapshot:

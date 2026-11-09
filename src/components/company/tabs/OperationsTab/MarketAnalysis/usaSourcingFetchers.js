@@ -24,13 +24,20 @@ export const USA_SOURCES = [
   { key: 'grains', label: 'Grains (Export)', path: '/market-analysis/usa/grains' },
   { key: 'produce_fl', label: 'Produce (FL)', path: '/market-analysis/usa/produce-fl' },
   { key: 'produce_ca', label: 'Produce (CA)', path: '/market-analysis/usa/produce-ca' },
+  // USDA My Market News API (MARS): national retail prices of fruit and vegetables, one store-weighted average row per commodity
+  { key: 'retail_produce', label: 'Retail Produce (MARS)', path: '/market-analysis/usa/retail-produce' },
 ]
+
+// A source can also store its DETAIL rows (the retail report's individual packs, which the catalog normalization module averages into one row per
+// commodity): the rest of the app only ever sees the rows that are not detail.
+const withoutDetail = (products) => (Array.isArray(products) ? products.filter((product) => !product.detail) : products)
 
 export async function fetchUsaSourceProducts(sourceKey) {
   const source = USA_SOURCES.find((s) => s.key === sourceKey)
-  return fetchJson(source.path)
+  return withoutDetail(await fetchJson(source.path))
 }
 
 export async function fetchUsaSourcingSnapshot() {
-  return fetchJson('/market-analysis/usa/snapshot')
+  const snapshots = await fetchJson('/market-analysis/usa/snapshot')
+  return snapshots.map((snapshot) => ({ ...snapshot, products: withoutDetail(snapshot.products) }))
 }

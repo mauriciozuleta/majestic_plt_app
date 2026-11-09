@@ -37,7 +37,10 @@ BUILT_IN_SOURCES = [
     ('United States', 'USDA AMS — Grains (Export)', 'https://www.ams.usda.gov/market-news', ['usa_grains']),
     ('United States', 'USDA AMS — Produce (Florida)', 'https://www.ams.usda.gov/market-news', ['usa_produce_fl']),
     ('United States', 'USDA AMS — Produce (California)', 'https://www.ams.usda.gov/market-news', ['usa_produce_ca']),
+    ('United States', 'USDA AMS — Retail Produce (MARS)', 'https://www.ams.usda.gov/mnreports/fvwretail.pdf', ['usa_retail_produce']),
 ]
+# built-in sources that are RETAIL prices by nature (the default of the rest is wholesaler); the user can still change it in Settings
+DEFAULT_RETAIL_SOURCES = {'usa_retail_produce'}
 
 
 ANALYSIS_TYPES = ('wholesaler', 'retail')
@@ -163,7 +166,7 @@ def list_product_sources(db: Session = Depends(get_db)):
                 'country_name': country,
                 'name': name,
                 'url': url,
-                'analysis_type': built_in_types.get(keys[0], 'wholesaler'),
+                'analysis_type': built_in_types.get(keys[0], 'retail' if keys[0] in DEFAULT_RETAIL_SOURCES else 'wholesaler'),
                 'status': 'ok' if snapshot else 'empty',
                 'status_message': None,
                 'origin': 'site',

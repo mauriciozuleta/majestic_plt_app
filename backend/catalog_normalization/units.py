@@ -18,9 +18,9 @@ OZ_TO_KG = 0.028349523125
 # unit word -> kg (singular and plural spellings, English and Spanish)
 WEIGHT_FACTORS = {
     'kg': 1.0, 'kgs': 1.0, 'kilo': 1.0, 'kilos': 1.0, 'kilogram': 1.0, 'kilograms': 1.0, 'kilogramo': 1.0, 'kilogramos': 1.0,
-    'g': 0.001, 'gr': 0.001, 'gm': 0.001, 'gram': 0.001, 'grams': 0.001, 'gramo': 0.001, 'gramos': 0.001,
+    'g': 0.001, 'gr': 0.001, 'gm': 0.001, 'gms': 0.001, 'grs': 0.001, 'gram': 0.001, 'grams': 0.001, 'gramo': 0.001, 'gramos': 0.001,
     'lb': LB_TO_KG, 'lbs': LB_TO_KG, 'pound': LB_TO_KG, 'pounds': LB_TO_KG, 'libra': LB_TO_KG, 'libras': LB_TO_KG,
-    'oz': OZ_TO_KG, 'ounce': OZ_TO_KG, 'ounces': OZ_TO_KG,
+    'oz': OZ_TO_KG, 'ozs': OZ_TO_KG, 'ounce': OZ_TO_KG, 'ounces': OZ_TO_KG,
     'cwt': 100 * LB_TO_KG,  # hundredweight (US): 100 lb
     'arroba': 25 * LB_TO_KG,  # traditional Colombian unit: 25 lb
 }
@@ -30,6 +30,9 @@ _WEIGHT_WORDS = '|'.join(sorted(WEIGHT_FACTORS, key=len, reverse=True))
 _NUM = r'\d+(?:[.,]\d+)?'
 WEIGHT_RE = re.compile(rf'(?P<n>{_NUM})(?:\s*(?:-|–|to)\s*(?P<n2>{_NUM}))?\s*-?\s*(?P<u>{_WEIGHT_WORDS})\b', re.IGNORECASE)
 PER_WEIGHT_RE = re.compile(rf'(?:\bper\b|/|\bpor\b)\s*(?P<u>{_WEIGHT_WORDS})\b', re.IGNORECASE)
+NAME_PER_RE = re.compile(rf'\bper\s*(?P<u>{_WEIGHT_WORDS})\b', re.IGNORECASE)  # "Talipia Perlb", "Cauliflower Per Kg"
+NAME_VOLUME_RE = re.compile(rf'{_NUM}\s*(?:c\.?\s?c\.?|ml|cl|dl|lt|litros?|liters?|litres?|gal(?:on(?:es)?)?|l)\b', re.IGNORECASE)
+GENERIC_COUNT_UNITS = {'', 'unit', 'units', 'each', 'ea', 'item', 'items', 'pack', 'bag', 'box', 'package', 'pc', 'pcs', 'piece'}
 BARE_WEIGHT_RE = re.compile(rf'^\s*(?P<u>{_WEIGHT_WORDS})\.?\s*$', re.IGNORECASE)
 
 _VOLUME_LITERS = {'ml': 0.001, 'l': 1.0, 'lt': 1.0, 'liter': 1.0, 'liters': 1.0, 'litre': 1.0, 'litres': 1.0, 'gal': 3.785411784, 'gallon': 3.785411784,
@@ -80,8 +83,14 @@ def _weight_match(text: str):
         high = _num(match.group('n2')) if match.group('n2') else low
         amount = (low + high) / 2
         multiplier = 1.0
-        before = re.search(r'(\d+)\s*(?:[x×*/])?\s*$', text[: match.start()])
-        if before and (match.start() - before.start() <= 5):
+        # a pack count multiplies the weight only when written as such: "6 x 500 g", "3x1lb", "8*2oz", or the "8 1-lb containers" form (a hyphen joins
+        # the single number and its unit). A bare number before a weight ("#3 350g", "35 12.3 oz") is a size/model number, and "/" is an alternative
+        # unit ("454GM/1LB"), so neither multiplies.
+        explicit = re.search(r'(\d+)\s*[x×*]\s*$', text[: match.start()])
+        hyphen_form = match.group('n2') is None and re.match(rf'{_NUM}\s*-\s*[a-z]', match.group(0), re.IGNORECASE)
+        bare_count = re.search(r'(\d+)\s+$', text[: match.start()]) if hyphen_form else None
+        before = explicit or bare_count
+        if before and (match.start() - before.start() <= 6):
             multiplier = float(before.group(1))
         return amount * WEIGHT_FACTORS[unit] * multiplier, match.group(0).strip(), multiplier
     return None
@@ -93,6 +102,9 @@ def parse_unit(unit_text: str | None, product_name: str = '') -> ParsedUnit:
     name = (product_name or '').strip()
     if not text:
         found = _weight_match(name)
+        if NAME_PER_RE.search(name):
+            unit = NAME_PER_RE.search(name).group('u').lower()
+            return ParsedUnit('weight', weight_kg=WEIGHT_FACTORS[unit], basis=f'No unit given; the product name says it is priced per {unit}.')
         if found:
             return ParsedUnit('weight', weight_kg=found[0], basis=f'No unit given; the product name states its weight ("{found[1]}").')
         return ParsedUnit('unknown', basis='No unit reported.')
@@ -100,10 +112,27 @@ def parse_unit(unit_text: str | None, product_name: str = '') -> ParsedUnit:
     # a bare weight unit: the price is per that unit — unless the name states a fixed pack ("340G", "1.4KG"), which is then the priced unit
     if BARE_WEIGHT_RE.match(text):
         unit = BARE_WEIGHT_RE.match(text).group('u').lower()
+        name_per = NAME_PER_RE.search(name)
+        if name_per:  # "Pork Baby Back Ribs Per Lb (Avg 2.5-3LBS)": the price is per lb, the average pack weight is just information
+            per_unit = name_per.group('u').lower()
+            return ParsedUnit('weight', weight_kg=WEIGHT_FACTORS[per_unit], basis=f'Priced per {per_unit}: the product name says so ("{name_per.group(0)}").')
         pack = _weight_match(name)
         if pack:
             return ParsedUnit('weight', weight_kg=pack[0], basis=f'Priced per pack: the product name states its weight ("{pack[1]}").')
         return ParsedUnit('weight', weight_kg=WEIGHT_FACTORS[unit], basis=f'Priced per {unit} (1 {unit} = {WEIGHT_FACTORS[unit]:.6g} kg).')
+
+    # a generic count unit ("unit", "each", "pack") on a product whose NAME says what it weighs ("Nestle Condensed Milk 395gms") or how it is priced ("Talipia Perlb")
+    if text.lower() in GENERIC_COUNT_UNITS:
+        name_per = NAME_PER_RE.search(name)
+        if name_per:
+            unit = name_per.group('u').lower()
+            return ParsedUnit('weight', weight_kg=WEIGHT_FACTORS[unit], basis=f'Priced per {unit}: the product name says so ("{name_per.group(0)}").')
+        pack = _weight_match(name)
+        if pack:
+            return ParsedUnit('weight', weight_kg=pack[0], basis=f'Priced per pack: the product name states its weight ("{pack[1]}").')
+        name_volume = NAME_VOLUME_RE.search(name)
+        if name_volume:  # "Aceite (1000 C.C)", "Olive Oil 500ml": a liquid sold by volume — no weight without a density
+            return ParsedUnit('volume', basis=f'The product name states a volume ("{name_volume.group(0)}"): a density is needed to convert it to a weight, so no $/kg is given.')
 
     per = PER_WEIGHT_RE.search(text)
     if per and not WEIGHT_RE.search(text):

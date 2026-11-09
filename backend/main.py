@@ -56,9 +56,9 @@ from .routers import (
     product_matches,
     species_gallery,
     startup_investment,
-    unit_weight_estimates,
     usa_sourcing,
-    weight_research,
+    catalog_normalization,
+    fuel_prices,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -601,7 +601,6 @@ app.include_router(currency.router)
 app.include_router(usa_sourcing.router)
 app.include_router(country_profile.router)
 app.include_router(competitiveness.router)
-app.include_router(weight_research.router)
 app.include_router(product_overrides.router)
 app.include_router(bank_accounts.router)
 app.include_router(payroll_schedule_settings.router)
@@ -610,13 +609,16 @@ app.include_router(risk_analysis.router)
 app.include_router(comtrade.router)
 app.include_router(market_opportunities.router)
 app.include_router(market_opportunity_settings.router)
-app.include_router(unit_weight_estimates.router)
 app.include_router(species_gallery.router)
 app.include_router(product_matches.router)
 app.include_router(air_logistics.router)
 app.include_router(expense_providers.router)
+app.include_router(catalog_normalization.router)
+app.include_router(fuel_prices.router)
 
 
 @app.on_event('startup')
 def _on_startup():
     start_accounting_audit_scheduler()
+    from .fuel_prices.scheduler import start as start_fuel_scheduler
+    start_fuel_scheduler()

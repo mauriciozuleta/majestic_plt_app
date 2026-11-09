@@ -1,8 +1,8 @@
 // User-entered price/weight corrections for one exact priced row — the
-// manual escape hatch for when the official conversion is missing and AI
-// research (see weightResearch.js) is wrong, stale, or hasn't run yet.
+// manual escape hatch for when the catalog normalization module's conversion is
+// missing, or its researched item weight is wrong, stale, or hasn't run yet.
 // Plain synchronous CRUD (no background job — this never calls an
-// external API). Global, not per-company, matching weight research.
+// external API). Global, not per-company, matching the researched item weights.
 
 import { API_BASE } from './apiBase'
 

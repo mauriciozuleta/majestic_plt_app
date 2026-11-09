@@ -1,4 +1,4 @@
-import { colombiaPricePerKg } from './unitConversion'
+import { normPerKg } from '../../../../../services/catalogNorm'
 
 export const CANONICAL_CATEGORIES = [
   { key: 'pollo', es: 'Pollo', en: 'Poultry' },
@@ -28,6 +28,7 @@ export function mergeSources(laMayoristaProducts, corabastosProducts) {
       laMayorista: product.price,
       laMayoristaUnit: product.unit,
       laMayoristaUnitLabel: product.unitLabel || null,
+      laMayoristaNorm: product.norm ?? null,
       corabastos: null,
       corabastosUnit: null,
       corabastosUnitLabel: null,
@@ -39,6 +40,7 @@ export function mergeSources(laMayoristaProducts, corabastosProducts) {
       existing.corabastos = product.price
       existing.corabastosUnit = product.unit
       existing.corabastosUnitLabel = product.unitLabel || null
+      existing.corabastosNorm = product.norm ?? null
     } else {
       byId.set(product.id, {
         ...product,
@@ -48,13 +50,16 @@ export function mergeSources(laMayoristaProducts, corabastosProducts) {
         corabastos: product.price,
         corabastosUnit: product.unit,
         corabastosUnitLabel: product.unitLabel || null,
+        laMayoristaNorm: null,
+        corabastosNorm: product.norm ?? null,
       })
     }
   })
 
   return Array.from(byId.values()).map((product) => {
-    const laMayoristaPerKg = colombiaPricePerKg(product.laMayorista, product.laMayoristaUnit, product.laMayoristaUnitLabel)
-    const corabastosPerKg = colombiaPricePerKg(product.corabastos, product.corabastosUnit, product.corabastosUnitLabel)
+    // the catalog normalization module's price per kg (backend/catalog_normalization): the only conversion in the app
+    const laMayoristaPerKg = normPerKg(product.laMayoristaNorm)
+    const corabastosPerKg = normPerKg(product.corabastosNorm)
     const matched = product.laMayorista != null && product.corabastos != null
     const sourceTag = matched ? null : product.laMayorista != null ? 'La Mayorista only' : 'Corabastos only'
     // Comparable once BOTH sides resolve to a real $/kg price — broader than

@@ -122,20 +122,9 @@
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 10px 10px 0 0;
-  background: rgba(20, 184, 166, 0.08);
-  color: var(--text-secondary);
   font-size: 0.82rem;
   padding: 0.5rem 0.9rem;
   cursor: pointer;
-}
-
-.rag-files__tab:hover {
-  background: rgba(20, 184, 166, 0.16);
-}
-
-.rag-files__tab.is-active {
-  background: rgba(20, 184, 166, 0.28);
-  color: #5eead4;
 }
 
 .rag-files__tab-count {

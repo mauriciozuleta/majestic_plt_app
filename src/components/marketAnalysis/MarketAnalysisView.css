@@ -33,19 +33,10 @@
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 10px 10px 0 0;
-  background: var(--bg-panel);
-  color: var(--text-muted);
   font-size: 0.78rem;
   font-family: inherit;
   position: relative;
   top: 1px;
-}
-
-.market-analysis__tab.is-active {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--bg-card);
-  font-weight: 600;
 }
 
 .market-analysis__tab-panel {
@@ -1451,15 +1442,8 @@
   padding: 0.5rem 0.9rem;
   border: none;
   border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
   cursor: pointer;
   font-size: 0.85rem;
-}
-
-.species-gallery__tab.is-active {
-  color: var(--text-primary);
-  border-bottom-color: rgba(53, 211, 153, 0.7);
 }
 
 .species-gallery__steps {

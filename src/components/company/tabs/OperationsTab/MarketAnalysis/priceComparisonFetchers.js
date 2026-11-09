@@ -58,7 +58,7 @@ export async function startTranslationSuggestions(items) {
 // Kicks off (or joins, if one is already running) the background Tier 3/4
 // translation-suggestion job and resolves once it's done — same "survives
 // navigating away, polled since 'done' is `building` going false" shape as
-// researchMissingWeights (services/weightResearch.js).
+// the item-weight research of the catalog normalization module (services/catalogNormalization.js).
 export function requestTranslationSuggestions(items) {
   return startTranslationSuggestions(items).then((startResult) => {
     if (startResult.status === 'no_items' || startResult.status === 'already_building') return fetchTranslationSuggestions()

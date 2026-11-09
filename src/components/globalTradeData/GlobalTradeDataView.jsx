@@ -71,14 +71,15 @@ function BilateralCoverageBanner({ note }) {
 // own sidebar entry regardless of which company is currently selected. All
 // calls go through our backend (services/globalTradeData.js); the Comtrade
 // subscription key never touches the browser.
-function GlobalTradeDataView() {
+function GlobalTradeDataView({ initialCountry = null, initialFlow = null } = {}) {
   // A link into this page (the Market Analysis table's Global Trade Data
   // columns, for one) can preselect a country and flow via ?country=<code>
   // &flow=M|X — read once as initial state, then this page owns its own
   // controls same as always; nothing here keeps the URL in sync afterward.
   const [searchParams] = useSearchParams()
-  const requestedCountry = searchParams.get('country')
-  const requestedFlow = searchParams.get('flow')
+  // embedded in Market Analysis ▸ Country Information, the country and flow come as props instead of the URL
+  const requestedCountry = initialCountry ?? searchParams.get('country')
+  const requestedFlow = initialFlow ?? searchParams.get('flow')
 
   const [countries, setCountries] = useState([])
   const [defaultYear, setDefaultYear] = useState(null)

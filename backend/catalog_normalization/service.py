@@ -13,8 +13,9 @@ Nothing is guessed — a row that cannot be converted says why."""
 import re
 from dataclasses import asdict, dataclass, field
 
+from .reference import lookup as reference_lookup
 from .researcher import MAX_ITEMS_PER_BATCH, research_item_weights
-from .store import ItemWeight, product_key
+from .store import PRICED_UNIT, ItemWeight, product_key
 from .units import OZ_TO_KG, LB_TO_KG, ParsedUnit, parse_unit
 
 # USDA AMS minimum net weight per dozen, by egg size class (oz) — same table as the frontend's unitConversion.js EGG_DOZEN_OZ
@@ -33,7 +34,7 @@ class NormalizedPrice:
     items_per_pack: float | None  # items in one priced unit (when known)
     item_kg: float | None  # weight of one item (when known)
     price_per_item: float | None
-    method: str  # 'stated_weight' | 'official_factor' | 'researched_item_weight' | 'needs_research' | 'unconvertible'
+    method: str  # 'stated_weight' | 'official_factor' | 'reference_item_weight' (USDA table) | 'researched_item_weight' | 'needs_research' | 'unconvertible'
     confidence: str  # 'stated' | 'official' | 'high' | 'medium' | 'low' | 'none'
     note: str
     sources: list[str] = field(default_factory=list)
@@ -65,7 +66,7 @@ def research_target(name: str, parsed: ParsedUnit) -> tuple[str, str] | None:
     return name, unit
 
 
-def normalize_price(name: str, unit_text: str | None, price: float | None, store, *, parsed: ParsedUnit | None = None) -> NormalizedPrice:
+def normalize_price(name: str, unit_text: str | None, price: float | None, store, *, parsed: ParsedUnit | None = None, researchable: bool = True) -> NormalizedPrice:
     """Uses only what is already known (the text and the store) — it never calls the web; see normalize_catalog for that."""
     parsed = parsed or parse_unit(unit_text, name)
     if price is None:
@@ -90,8 +91,26 @@ def normalize_price(name: str, unit_text: str | None, price: float | None, store
             pack_kg = dozen_kg / 12 * count
             note = f'USDA minimum net weight for {size} eggs: {dozen_kg / OZ_TO_KG:.0f} oz/dozen = {dozen_kg:.3f} kg.' + (' Size not stated: "large" assumed.' if assumed else '')
             return NormalizedPrice(price / pack_kg, pack_kg, count, dozen_kg / 12, price / count, 'official_factor', 'official' if not assumed else 'medium', note)
+        whole = store.get(name, PRICED_UNIT)
+        if whole is not None and whole.item_kg:
+            return NormalizedPrice(price / whole.item_kg, whole.item_kg, parsed.item_count, None, None, 'researched_item_weight', whole.confidence or 'low',
+                                   f'{parsed.basis} The whole priced unit weighs about {whole.item_kg * 1000:.0f} g ({whole.confidence or "low"} confidence): {whole.note}', whole.sources)
         target = research_target(name, parsed)
+        entered = store.get(*target) if target else None
+        if entered is not None and entered.confidence == 'user' and entered.item_kg:  # a weight a person typed wins over everything else
+            count = parsed.item_count or 1
+            pack_kg = entered.item_kg * count
+            return NormalizedPrice(price / pack_kg, pack_kg, count, entered.item_kg, price / count, 'researched_item_weight', 'user', f'{parsed.basis} {entered.note}', entered.sources)
+        reference = reference_lookup(*target) if target else None  # published data (USDA) before anything researched
+        if reference is not None:
+            count = parsed.item_count or 1
+            pack_kg = reference.item_kg * count
+            note = f'{parsed.basis} {reference.note}'
+            return NormalizedPrice(price / pack_kg, pack_kg, count, reference.item_kg, price / count, 'reference_item_weight', reference.confidence or 'medium', note, reference.sources)
         record = store.get(*target) if target else None
+        if record is None and not researchable:
+            return NormalizedPrice(None, None, parsed.item_count, None, None, 'unconvertible', 'none',
+                                   f'{parsed.basis} A packaged product with no weight stated in its unit or name: not researched (only fresh-food products are).')
         if record is None:
             return NormalizedPrice(None, None, parsed.item_count, None, None, 'needs_research', 'none', f'{parsed.basis} The weight of one {target[1] if target else "item"} of "{name}" has not been researched yet.')
         if not record.item_kg:
@@ -127,6 +146,9 @@ def normalize_catalog(rows: list[dict], store, *, research=research_item_weights
 
 
 def _item_weight(name: str, store, count_unit: str = 'each') -> ItemWeight | None:
+    reference = reference_lookup(name, count_unit)
+    if reference is not None:
+        return reference
     record = store.get(name, count_unit)
     return record if record and record.item_kg else None
 

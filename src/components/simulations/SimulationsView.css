@@ -32,14 +32,7 @@
   padding: 0.5rem 0.85rem;
   border-radius: 10px;
   font-size: 0.78rem;
-  color: var(--text-secondary);
   border: 1px solid transparent;
-}
-
-.simulations-workspace__tab.is-active {
-  color: var(--text-primary);
-  border-color: var(--border-strong);
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .simulations-workspace__subtabs {
@@ -51,16 +44,9 @@
 
 .simulations-workspace__subtab {
   font-size: 0.72rem;
-  color: var(--text-muted);
   padding: 0.4rem 0.7rem;
   border-radius: 999px;
   border: 1px solid transparent;
-}
-
-.simulations-workspace__subtab.is-active {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--border);
-  color: var(--text-secondary);
 }
 
 .simulations-workspace__content {

@@ -4,11 +4,13 @@ import ExpensesView from './ExpensesView'
 import StubSection from './StubSection'
 import ProvidersView from './ProvidersView'
 import CostOfSalesView from './CostOfSalesView'
+import FuelStatisticsView from '../../../fuelStatistics/FuelStatisticsView'
 
 const SECTIONS = [
   { slug: 'cost-of-sales', label: 'Cost of Sales', description: 'The direct costs of delivering each revenue stream.' },
   { slug: 'expenses', label: 'Expenses' },
   { slug: 'providers', label: 'Providers', description: 'The suppliers and service providers behind these costs.' },
+  { slug: 'fuel-statistics', label: 'Fuel Statistics' },
 ]
 
 function CostsExpensesView() {
@@ -30,6 +32,8 @@ function CostsExpensesView() {
         <ExpensesView />
       ) : activeSection.slug === 'providers' ? (
         <ProvidersView />
+      ) : activeSection.slug === 'fuel-statistics' ? (
+        <FuelStatisticsView />
       ) : (
         <StubSection title={activeSection.label} description={activeSection.description} />
       )}

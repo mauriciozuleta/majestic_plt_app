@@ -56,26 +56,7 @@
   padding: 0.55rem 0.85rem;
   border-radius: 10px;
   font-size: 0.76rem;
-  color: var(--text-secondary);
   border: 1px solid transparent;
-}
-
-.company-workspace__tab--operations {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.28), rgba(249, 115, 22, 0.22));
-  border-color: rgba(251, 146, 60, 0.7);
-  color: #fff3e8;
-  box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.5);
-}
-
-.company-workspace__tab.is-active {
-  color: var(--text-primary);
-  border-color: rgba(255,255,255,0.08);
-}
-
-.company-workspace__tab--operations.is-active {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.42), rgba(249, 115, 22, 0.25));
-  border-color: rgba(251, 146, 60, 0.8);
-  box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.7);
 }
 
 .company-workspace__tab.is-active::after {
@@ -98,28 +79,9 @@
 
 .company-workspace__subtab {
   font-size: 0.72rem;
-  color: var(--text-muted);
   padding: 0.4rem 0.7rem;
   border-radius: 999px;
   border: 1px solid transparent;
-}
-
-.company-workspace__subtab.is-active {
-  background: rgba(255,255,255,0.04);
-  border-color: var(--border);
-  color: var(--text-secondary);
-}
-
-.company-workspace__subtab--startup-investment {
-  background: linear-gradient(135deg, rgba(53, 211, 153, 0.3), rgba(53, 211, 153, 0.12));
-  border-color: rgba(53, 211, 153, 0.65);
-  color: #eafff5;
-}
-
-.company-workspace__subtab--startup-investment.is-active {
-  background: linear-gradient(135deg, rgba(53, 211, 153, 0.48), rgba(53, 211, 153, 0.18));
-  border-color: rgba(53, 211, 153, 0.85);
-  color: #eafff5;
 }
 
 .company-workspace__content {

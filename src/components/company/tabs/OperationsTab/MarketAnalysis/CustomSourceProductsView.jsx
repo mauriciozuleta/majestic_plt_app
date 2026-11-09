@@ -3,12 +3,11 @@ import { fetchCustomSourceProducts, refreshProductSource } from '../../../../../
 import { fetchExchangeRate } from '../../../../../services/exchangeRate'
 import { fetchReferenceCountries } from '../../../../../services/commercialStructure'
 import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
-import { fetchWeightResearch, researchMissingWeights } from '../../../../../services/weightResearch'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
 import { downloadCsv } from '../../../../../utils/exportCsv'
 import { formatOneUsdEquals, formatPriceLine } from './priceFormat'
-import { explainGenericConversion, genericPricePerKg, genericWeightResearchItem } from './genericUnitConversion'
-import { applyCustomOverride, applyResearchedWeight } from './unitConversion'
+import { missingResearchNames, resolveFromNorm } from '../../../../../services/catalogNorm'
+import { useWeightResearch } from './useWeightResearch'
 import './ColombiaProductAnalysisView.css'
 
 const ISO_CURRENCY_RE = /^[A-Z]{3}$/
@@ -69,7 +68,7 @@ function rowSignature(row) {
 // Products from every source added in Settings ▸ Product analysis sources for
 // one country, laid out exactly like the Colombia/USA tables: same header,
 // source status, currency line, category chips, stats and the same twelve
-// columns, with per-kg conversion via genericUnitConversion.js, AI weight
+// columns, with the per-kg conversion of the catalog normalization module, item-weight
 // research and custom overrides. Under Colombia/USA (showEmptyHint=false) it
 // renders as an extra "Added sources" block beside the built-in table.
 // `highlightHsCode` filters to products whose reference code (country ISO2 +
@@ -87,8 +86,6 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
   const [highlightCleared, setHighlightCleared] = useState(false)
   const highlightActive = Boolean(highlightHsCode) && !highlightCleared
   const [updating, setUpdating] = useState(false)
-  const [researchedWeights, setResearchedWeights] = useState(new Map())
-  const [researchingWeights, setResearchingWeights] = useState(false)
   const [customOverrides, setCustomOverrides] = useState(new Map())
   const [editingRowSignature, setEditingRowSignature] = useState(null)
   const [editDraft, setEditDraft] = useState({ price: '', weight: '' })
@@ -110,6 +107,8 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
       return mine
     })
 
+  const weightResearch = useWeightResearch(() => loadSources().catch(() => {})) // after a research the converted catalog is read again
+
   useEffect(() => {
     let cancelled = false
     loadSources()
@@ -123,9 +122,6 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
         const match = rows.find((row) => row.name.trim().toLowerCase() === countryName.trim().toLowerCase())
         setCountryCurrency(match?.currency_code || null)
       })
-      .catch(() => {})
-    fetchWeightResearch()
-      .then((data) => !cancelled && setResearchedWeights(new Map(Object.entries(data.results))))
       .catch(() => {})
     fetchCustomOverrides()
       .then((data) => !cancelled && setCustomOverrides(new Map(Object.entries(data))))
@@ -199,16 +195,11 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [products, activeCategory, search, highlightActive, highlightHsCode, productCodes])
 
-  // Official conversion, then an AI-researched weight, then a custom override
-  // on top — the same order the Colombia/USA tables apply (unitConversion.js).
+  // The catalog normalization module's figure (backend/catalog_normalization) with a custom override on top — the same for every table.
   const resolvePerKg = (row) => {
-    const basePerKg = genericPricePerKg(row.price, row.unit, row.name)
-    const officialComment = explainGenericConversion(row.unit, row.name)
-    const item = genericWeightResearchItem(countryName, row.sourceName, row.name, row.unit)
-    const afterResearch = applyResearchedWeight(row.price, basePerKg, officialComment, item.signature, researchedWeights)
     const signature = rowSignature(row)
     const override = customOverrides.get(signature)
-    return { ...applyCustomOverride(row.price, afterResearch, override), rowSignature: signature, override }
+    return { ...resolveFromNorm(row.price, row.norm, override), rowSignature: signature, override }
   }
 
   const commentFor = (row, resolved) => {
@@ -221,15 +212,8 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
     return parts.filter(Boolean).join(' ')
   }
 
-  const missingWeightItems = useMemo(() => {
-    const bySignature = new Map()
-    products.forEach((row) => {
-      if (genericPricePerKg(row.price, row.unit, row.name) !== null) return
-      const item = genericWeightResearchItem(countryName, row.sourceName, row.name, row.unit)
-      if (!researchedWeights.has(item.signature)) bySignature.set(item.signature, item)
-    })
-    return [...bySignature.values()]
-  }, [products, researchedWeights, countryName])
+  // The products still waiting for the weight of one item (a price per each / per bunch), by the name the module reads.
+  const missingNames = useMemo(() => missingResearchNames(products.map((row) => row.norm)), [products])
 
   const stats = useMemo(() => {
     let withKg = 0
@@ -238,20 +222,7 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
     })
     return { total: filtered.length, withKg, withoutKg: filtered.length - withKg }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolvePerKg reads only the state listed here
-  }, [filtered, researchedWeights, customOverrides])
-
-  const handleResearchWeights = async () => {
-    if (researchingWeights || !missingWeightItems.length) return
-    setResearchingWeights(true)
-    try {
-      const data = await researchMissingWeights(missingWeightItems)
-      setResearchedWeights(new Map(Object.entries(data.results)))
-    } catch (error) {
-      window.alert(`Weight research failed: ${error.message}`)
-    } finally {
-      setResearchingWeights(false)
-    }
-  }
+  }, [filtered, customOverrides])
 
   // Re-reads every one of this country's sources that has a web address; a
   // source that only has a loaded file is marked stale with the reason.
@@ -388,15 +359,15 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
           <button type="button" className="price-comparison__export-btn" onClick={handleExportCsv} disabled={!filtered.length}>
             Export CSV
           </button>
-          {missingWeightItems.length > 0 && (
+          {missingNames.length > 0 && (
             <button
               type="button"
               className="price-comparison__research-btn"
-              onClick={handleResearchWeights}
-              disabled={researchingWeights}
-              title="Ask AI to research the standard pack weight for products with no price-per-kg figure yet"
+              onClick={() => weightResearch.run(missingNames)}
+              disabled={weightResearch.researching}
+              title="Research on the web the weight of one item of the products priced per unit, so they get a price per kg"
             >
-              {researchingWeights ? 'Researching…' : `Research Missing Weights (${missingWeightItems.length})`}
+              {weightResearch.researching ? 'Researching…' : `Research item weights (${missingNames.length})`}
             </button>
           )}
           <button type="button" className="price-comparison__update-btn" onClick={handleUpdate} disabled={updating}>
@@ -545,6 +516,14 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
                             }`}
                           >
                             AI
+                          </span>
+                        )}
+                        {!resolved.custom && resolved.reference && (
+                          <span
+                            className="price-comparison__researched-badge"
+                            title={`USDA published item weight (no AI).${resolved.note ? ` ${resolved.note}` : ''}`}
+                          >
+                            USDA
                           </span>
                         )}
                       </>

@@ -9,11 +9,10 @@
 //     unmatched never dropped) and productTranslations.js's
 //     translateProductName()/normalizeProductName() for Colombia, both
 //     frontend-only by design (Colombia's raw names are Spanish).
-//   - unitConversion.js's colombiaPricePerKg/usaPricePerKg (official,
-//     fixed-factor conversion, an unconvertible row returns null) for the
-//     two built-in country pipelines, and this feature's own
-//     genericUnitConversion.js (same discipline, generalized to custom
-//     sources) for every other country.
+//   - the catalog normalization module (backend/catalog_normalization): every
+//     catalog product is converted to a price per kg when its catalog is
+//     stored, and arrives here with its `norm` block (catalogNorm.js); a unit
+//     that needs the weight of one item is researched on the web by the module.
 //   - crossCountryMatchOverrides.js — match_table.py's own curated-dict
 //     pattern, generalized to arbitrary country pairs.
 //   - productHsCodes.js's own classification cache (the same one
@@ -45,20 +44,10 @@ import {
   fetchTranslationOverrides,
 } from '../components/company/tabs/OperationsTab/MarketAnalysis/priceComparisonFetchers'
 import { fetchUsaSourcingSnapshot } from '../components/company/tabs/OperationsTab/MarketAnalysis/usaSourcingFetchers'
-import { colombiaPricePerKg, explainColombiaConversion, usaPricePerKg, explainUsaConversion } from '../components/company/tabs/OperationsTab/MarketAnalysis/unitConversion'
-import { genericPricePerKg, explainGenericConversion } from '../components/company/tabs/OperationsTab/MarketAnalysis/genericUnitConversion'
-import {
-  classifyColombiaCountUnit,
-  classifyGenericCountUnit,
-  isEggProduct,
-  resolveEggPriceViaUsdaStandard,
-  genericWeightSignature,
-  buildGenericWeightDescription,
-  resolveGenericPriceFromWeightGrams,
-} from '../components/company/tabs/OperationsTab/MarketAnalysis/countWeightConversion'
+import { commentWithFallback, isReferenceConversion, isResearchedConversion, normPerKg } from './catalogNorm'
+import { convertCatalogRow, researchProductWeights } from './catalogNormalization'
 import { lookupCrossCountryOverride } from '../data/crossCountryMatchOverrides'
 import { fetchProductHsCodes } from './productHsCodes'
-import { requestUnitWeightEstimates } from './unitWeightEstimates'
 import { requestProductMatches } from './productMatches'
 
 async function fetchJson(path, options) {
@@ -131,8 +120,8 @@ export async function getOrComputeComparison(sourceCountry, targetCountries, { f
     }
   }
   onStatus?.('computing')
-  const { rows: computedRows, unmatchedByTarget, aiMatchErrors } = await computeMarketOpportunity(sourceCountry, targetCountries)
-  const result = { unmatchedByTarget, unmatchedUnknown: false, origin: 'computed', aiMatchErrors: aiMatchErrors || {} }
+  const { rows: computedRows, unmatchedByTarget, aiMatchErrors, weightError } = await computeMarketOpportunity(sourceCountry, targetCountries)
+  const result = { unmatchedByTarget, unmatchedUnknown: false, origin: 'computed', aiMatchErrors: aiMatchErrors || {}, weightError: weightError || null }
   if (computedRows.length === 0) return { ...result, rows: [], calculatedAt: new Date().toISOString() }
   const payload = computedRows.map(({ _target_display_name, ...rest }) => ({ ...rest, target_product_name: _target_display_name ?? null }))
   const saved = await saveMarketOpportunityComparisons(payload, unmatchedByTarget)
@@ -185,6 +174,12 @@ export async function fetchMarketOpportunityComparisons(sourceCountry, targetCou
 // true for a Colombia product whose Spanish name resolved through
 // productTranslations.js.
 
+// A conversion that rests on a web-researched item weight is flagged like the older AI estimates (conversionMethod/conversionNote), so the comparison row
+// says so and asks for a check; every other norm method (a weight written in the data, an official factor) needs no flag.
+function researchedFields(norm) {
+  return isResearchedConversion(norm) || isReferenceConversion(norm) ? { conversionMethod: norm.method, conversionNote: norm.note, conversionConfidence: norm.confidence } : {}
+}
+
 async function collectColombiaComparisonProducts() {
   const [snapshots, overrides] = await Promise.all([
     fetchPriceComparisonSnapshot(),
@@ -208,6 +203,7 @@ async function collectColombiaComparisonProducts() {
       const value = useLaMayorista ? p.laMayorista : p.corabastos
       const unit = useLaMayorista ? p.laMayoristaUnit : p.corabastosUnit
       const unitLabel = useLaMayorista ? p.laMayoristaUnitLabel : p.corabastosUnitLabel
+      const norm = useLaMayorista ? p.laMayoristaNorm : p.corabastosNorm
       return {
         matchName: normalizeProductName(text),
         displayName: text,
@@ -217,13 +213,12 @@ async function collectColombiaComparisonProducts() {
         priceValue: value,
         priceUnit: unit === 'kg' ? 'kg' : unitLabel || unit,
         priceCurrency: 'COP',
-        perKgLocal: colombiaPricePerKg(value, unit, unitLabel),
-        unitComment: explainColombiaConversion(unit, unitLabel),
+        perKgLocal: normPerKg(norm),
+        unitComment: commentWithFallback(norm, 'This price could not be converted to a price per kg.'),
+        norm,
+        ...researchedFields(norm),
         translated: isTranslated,
-        // Raw (untranslated-shape) unit fields — countWeightConversion.js's
-        // classifyColombiaCountUnit needs the ORIGINAL unit/unitLabel pair
-        // (e.g. unit === 'other', unitLabel === 'unidad'), not the merged
-        // display string priceUnit already collapsed those into above.
+        // The raw (untranslated-shape) unit fields, kept next to the merged display string priceUnit above.
         rawUnit: unit,
         rawUnitLabel: unitLabel,
       }
@@ -242,8 +237,10 @@ async function collectUsaComparisonProducts() {
       priceValue: p.price,
       priceUnit: p.unit,
       priceCurrency: 'USD',
-      perKgLocal: usaPricePerKg(p),
-      unitComment: explainUsaConversion(p),
+      perKgLocal: normPerKg(p.norm),
+      unitComment: commentWithFallback(p.norm, 'This price could not be converted to a price per kg.'),
+      norm: p.norm,
+      ...researchedFields(p.norm),
       translated: false,
     })),
   )
@@ -280,8 +277,10 @@ async function collectCustomComparisonProducts(countryName) {
         priceValue: product.price,
         priceUnit: product.unit,
         priceCurrency: currency,
-        perKgLocal: genericPricePerKg(product.price, product.unit, product.name),
-        unitComment: explainGenericConversion(product.unit, product.name),
+        perKgLocal: normPerKg(product.norm),
+        unitComment: commentWithFallback(product.norm, 'This price could not be converted to a price per kg.'),
+        norm: product.norm,
+        ...researchedFields(product.norm),
         translated: false,
         rawUnit: product.unit,
       }
@@ -375,10 +374,8 @@ function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCount
   if (!sourceProduct.priceCurrency) reviewReasons.push(`Source (${sourceCountry}): no currency could be determined for this product.`)
   if (!targetProduct.priceCurrency) reviewReasons.push(`Target (${targetCountry}): no currency could be determined for this product.`)
 
-  // A count-based unit converted to $/kg via countWeightConversion.js (see
-  // that module's own header) — a Haiku-estimated conversion (cached or
-  // fresh) is never presented with the same confidence as an exact-name
-  // match, and an egg conversion that had to assume a default USDA size
+  // A count-based unit converted to $/kg with a researched item weight (the catalog normalization module) is never presented with the same confidence as an
+  // exact-name match, and an egg conversion that had to assume a default USDA size
   // class is flagged too, even though the underlying dozen-weight figure
   // itself is a real, official standard — the ASSUMPTION is what's
   // uncertain, not the reference table (see resolveEggPriceViaUsdaStandard).
@@ -394,14 +391,14 @@ function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCount
     }
     if (!product.conversionNote) return
     conversionNotes.push(`${side === 'source' ? 'Source' : 'Target'} (${countryName}): ${product.conversionNote}`)
-    if (product.conversionMethod === 'cached_estimate' || product.conversionMethod === 'fresh_haiku_estimate') {
+    if (product.conversionMethod === 'reference_item_weight') {
       reviewReasons.push(
-        `${side === 'source' ? 'Source' : 'Target'} (${countryName}): converted from a count-based unit using an AI-estimated pack weight (Haiku, ${product.conversionMethod === 'cached_estimate' ? 'cached from an earlier estimate' : 'freshly estimated'}), not an official standard.`,
+        `${side === 'source' ? 'Source' : 'Target'} (${countryName}): converted from a count-based unit using USDA's published item weight (${product.conversionConfidence ?? 'medium'} confidence) — an average item, check it before relying on this price.`,
       )
     }
-    if (product.assumedGradeDefault) {
+    if (product.conversionMethod === 'researched_item_weight') {
       reviewReasons.push(
-        `${side === 'source' ? 'Source' : 'Target'} (${countryName}): this product's own grading scale has no established correspondence to USDA's egg size classes — "Large" was assumed for the dozen-weight lookup, not a confirmed match.`,
+        `${side === 'source' ? 'Source' : 'Target'} (${countryName}): converted from a count-based unit using a web-researched item weight (${product.conversionConfidence ?? 'unknown'} confidence) — check the weight before relying on this price.`,
       )
     }
   })
@@ -435,112 +432,44 @@ function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCount
 
 // -------------------------------------------------- count-vs-weight conversion
 //
-// See countWeightConversion.js's own header for the full picture. This is
-// the orchestration: find which matched-pair products actually need it
-// (one side still unconvertible-because-count-based, the OTHER side
-// already weight-resolved — the specific mismatch this exists for, not
-// "every count-based product regardless of pairing"), resolve eggs for
-// free/synchronously, and batch every other distinct product into ONE
-// cached-Haiku-estimate request. A product object is mutated in place
-// (perKgLocal/conversionNote/conversionMethod/assumedGradeDefault) the
-// first time it's resolved — since sourceProducts/targetProducts arrays
-// are shared across every target-country iteration in
-// computeMarketOpportunity, this also means a product is never
-// re-resolved twice within one run, on top of the backend's own
-// forever-cache keeping it from ever being paid for twice across runs.
-
-// Colombia's collector always sets BOTH rawUnit/rawUnitLabel (even when
-// unitLabel itself is null, for a plain "kg" product) — so the key's
-// PRESENCE, not its value, is what distinguishes Colombia's raw
-// unit/unitLabel pair from a custom source's single rawUnit string. A USA
-// product has neither key: its own count-based case (produce cartons) is
-// already handled by a separate, dedicated research pathway
-// (usaWeightResearchItem) and is out of scope here.
-function classifyProductCountUnit(product) {
-  if ('rawUnitLabel' in product) return classifyColombiaCountUnit(product.rawUnit, product.rawUnitLabel)
-  if ('rawUnit' in product) return classifyGenericCountUnit(product.rawUnit)
-  return null
-}
-
+// A matched product whose price is per unit ("each", "per bunch", a counted bag) cannot be compared with the other side's $/kg until the weight of one item is
+// known. That weight is the catalog normalization module's job (backend/catalog_normalization): it is researched on the web once per product, cached for the whole
+// app, and every catalog is converted with it. This only asks the module to research the products of the MATCHED pairs that still need it (one side unconvertible,
+// the other side already a $/kg price: never every count-based product), then converts those rows again with what was found. -> an error message, or null.
 async function resolveCountWeightConversions(pairs) {
-  const genericCandidates = new Map() // signature -> { product, description }
-
+  const wanted = new Map() // module name -> products waiting for it
   pairs.forEach(({ sp, tp }) => {
     ;[sp, tp].forEach((product, index) => {
       const counterpart = index === 0 ? tp : sp
-      if (product.perKgLocal != null) return // already resolved (official, or a prior pair already converted it)
-      if (counterpart.perKgLocal == null) return // the OTHER side isn't weight-resolved either — not this module's scope
-      const countInfo = classifyProductCountUnit(product)
-      if (!countInfo) return // null unit, volume unit, or anything else unitConversion.js/genericUnitConversion.js already explain — untouched
-
-      if (isEggProduct(product.hsCode, product.displayName)) {
-        const resolved = resolveEggPriceViaUsdaStandard(product.priceValue, countInfo.itemCount, countInfo.perSingleItem)
-        if (resolved) {
-          product.perKgLocal = resolved.perKg
-          product.conversionNote = resolved.conversionNote
-          product.conversionMethod = resolved.method
-          product.assumedGradeDefault = resolved.assumedGradeDefault
-        }
-        return
-      }
-
-      // Unlike the egg formula above, the generic Haiku tier normally asks
-      // for the WHOLE pack's weight directly (same convention as
-      // usaWeightResearchItem/colombiaWeightResearchItem) — countInfo's
-      // itemCount can be null here (a bare "Bag"/"Bundle"/"Head" with no
-      // stated count) and this is still eligible; packDescription is all
-      // the generic tier actually needs. countInfo.perSingleItem flips this
-      // to asking for ONE item's weight instead (see
-      // classifyColombiaCountUnit's own header) — carried onto the product
-      // so the conversionNote below can describe what was actually asked.
-      const signature = genericWeightSignature(product.displayName)
-      if (!genericCandidates.has(signature)) {
-        genericCandidates.set(signature, {
-          products: [],
-          description: buildGenericWeightDescription(product.displayName, countInfo.packDescription, countInfo.perSingleItem),
-          perSingleItem: countInfo.perSingleItem,
-        })
-      }
-      genericCandidates.get(signature).products.push(product)
+      if (product.perKgLocal != null || counterpart.perKgLocal == null) return
+      if (product.norm?.method !== 'needs_research' || !product.norm.read_name) return
+      if (!wanted.has(product.norm.read_name)) wanted.set(product.norm.read_name, [])
+      wanted.get(product.norm.read_name).push(product)
     })
   })
+  if (wanted.size === 0) return null
 
-  if (genericCandidates.size === 0) return
-
-  const items = [...genericCandidates.entries()].map(([signature, entry]) => ({ signature, description: entry.description }))
-  // Chunked at the backend's own MAX_ITEMS_PER_BATCH (25) — a real "By
-  // Region" run could plausibly exceed that in one go; each chunk is its
-  // own request so one large run never fails outright over a batch-size
-  // limit meant for a single Haiku call.
-  const CHUNK_SIZE = 25
-  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-    const chunk = items.slice(i, i + CHUNK_SIZE)
-    // eslint-disable-next-line no-await-in-loop -- sequential chunks are deliberate: each is its own Haiku call, not worth parallelizing for a handful of chunks at most
-    const { results } = await requestUnitWeightEstimates(chunk)
-    chunk.forEach(({ signature }) => {
-      const result = results[signature]
-      const entry = genericCandidates.get(signature)
-      if (!result || result.weight_grams == null) {
-        entry.products.forEach((product) => {
-          product.conversionNote = `AI (Haiku) could not estimate a typical pack weight for this product${result?.note ? `: ${result.note}` : '.'}`
-        })
-        return
+  const { error } = await researchProductWeights([...wanted.keys()], { limit: wanted.size })
+  const products = [...wanted.values()].flat()
+  await Promise.all(
+    products.map(async (product) => {
+      try {
+        const converted = await convertCatalogRow(product.norm.read_name, product.norm.read_unit, product.priceValue)
+        if (normPerKg(converted) == null) return
+        product.norm = { ...product.norm, ...converted }
+        product.perKgLocal = converted.price_per_kg
+        product.unitComment = converted.note
+        if (isResearchedConversion(converted) || isReferenceConversion(converted)) {
+          product.conversionMethod = converted.method
+          product.conversionNote = converted.note
+          product.conversionConfidence = converted.confidence
+        }
+      } catch {
+        // the row stays unconverted, with its own explanation
       }
-      const method = result.cached ? 'cached_estimate' : 'fresh_haiku_estimate'
-      entry.products.forEach((product) => {
-        // Each product in this signature group shares the SAME weight
-        // estimate (same displayName), but keeps its own price — a
-        // different source's row for the exact same product name still
-        // divides its OWN price by the shared pack weight, never another
-        // row's price.
-        product.perKgLocal = resolveGenericPriceFromWeightGrams(product.priceValue, result.weight_grams)
-        product.conversionNote =
-          `Converted using a Haiku-estimated typical ${entry.perSingleItem ? 'single-item' : 'pack'} weight (${result.weight_grams.toFixed(0)} g` +
-          `${result.note ? `: ${result.note}` : ''}) — an AI estimate, not an official standard.`
-        product.conversionMethod = method
-      })
-    })
-  }
+    }),
+  )
+  return error
 }
 
 // Computes (but does not yet persist) every source->target comparison row
@@ -772,19 +701,16 @@ export async function computeMarketOpportunity(sourceCountry, targetCountries) {
     }),
   )
 
-  // Count-vs-weight conversion (countWeightConversion.js) runs AFTER
-  // matching, on the real matched pairs only — never speculatively on
-  // every count-based product regardless of whether it's actually part of
-  // a real comparison, which is both wasted Haiku spend and outside this
-  // mechanism's own stated scope (see that module's header).
-  await resolveCountWeightConversions(matchedPairs)
+  // The item-weight research for per-unit prices runs AFTER matching, on the real matched pairs only — never speculatively on every count-based product,
+  // which would be wasted research spend (see resolveCountWeightConversions).
+  const weightError = await resolveCountWeightConversions(matchedPairs)
 
   const pairRows = matchedPairs.map(({ sp, tp, matchTier, targetCountry, aiNote }) =>
     buildComparisonRow(sp, tp, matchTier, sourceCountry, targetCountry, rates, aiNote),
   )
   const rows = oneRowPerSourceProduct(matchedPairs, pairRows)
 
-  return { rows, unmatchedByTarget, sourceProductCount: sourceProducts.length, aiMatchErrors }
+  return { rows, unmatchedByTarget, sourceProductCount: sourceProducts.length, aiMatchErrors, weightError }
 }
 
 /** Every product of a country's portfolio with its price per kg in USD (null where the unit or currency couldn't be converted)

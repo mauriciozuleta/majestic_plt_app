@@ -31,7 +31,12 @@ def product_key(name: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 
+PRICED_UNIT = 'priced_unit'  # the weight of the WHOLE priced unit of one exact catalog row ("Pimento (S)" sold as a 100's bag), keyed by the exact name
+
+
 def signature(name: str, count_unit: str) -> str:
+    if count_unit == PRICED_UNIT:
+        return f"{(name or '').strip().lower()}|{PRICED_UNIT}"  # parentheses are part of the name: "(s)" and "(20lb)" are different packs
     return f'{product_key(name)}|{count_unit}'
 
 
@@ -69,7 +74,7 @@ class DbStore:
         weight.researched_at = weight.researched_at or datetime.now(timezone.utc).isoformat()
         sig = signature(weight.product, weight.count_unit)
         row = self.session.query(models.CatalogItemWeight).filter_by(signature=sig).first() or models.CatalogItemWeight(signature=sig)
-        row.product, row.count_unit = product_key(weight.product), weight.count_unit
+        row.product, row.count_unit = (weight.product.strip().lower() if weight.count_unit == PRICED_UNIT else product_key(weight.product)), weight.count_unit
         row.item_kg, row.item_kg_min, row.item_kg_max = weight.item_kg, weight.item_kg_min, weight.item_kg_max
         row.std_pack_kg, row.std_pack_items = weight.std_pack_kg, weight.std_pack_items
         row.confidence, row.note, row.sources_json, row.researched_at = weight.confidence, weight.note, json.dumps(weight.sources), weight.researched_at

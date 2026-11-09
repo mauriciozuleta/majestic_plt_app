@@ -14,17 +14,12 @@ import {
 import { normalizeProductName, translateProductName } from './productTranslations'
 import { exportProductsToCsv, exportProductsToPdf } from './priceComparisonExport'
 import { formatOneUsdEquals, formatPriceLine } from './priceFormat'
-import {
-  applyCustomOverride,
-  applyResearchedWeight,
-  colombiaRowSignature,
-  colombiaWeightResearchItem,
-  explainColombiaConversion,
-} from './unitConversion'
+import { colombiaRowSignature } from './unitConversion'
+import { useWeightResearch } from './useWeightResearch'
 import { fetchExchangeRate } from '../../../../../services/exchangeRate'
 import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
-import { fetchWeightResearch, researchMissingWeights } from '../../../../../services/weightResearch'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
+import { missingResearchNames, resolveFromNorm } from '../../../../../services/catalogNorm'
 import './ColombiaProductAnalysisView.css'
 
 // Both La Mayorista and Corabastos always price in Colombian pesos — a
@@ -47,6 +42,7 @@ function buildSourceEntries(product) {
       perKg: product.laMayoristaPerKg,
       unit: product.laMayoristaUnit,
       unitLabel: product.laMayoristaUnitLabel,
+      norm: product.laMayoristaNorm ?? null,
     })
   }
   if (product.corabastos !== null && product.corabastos !== undefined) {
@@ -56,26 +52,19 @@ function buildSourceEntries(product) {
       perKg: product.corabastosPerKg,
       unit: product.corabastosUnit,
       unitLabel: product.corabastosUnitLabel,
+      norm: product.corabastosNorm ?? null,
     })
   }
   return entries
 }
 
-// Resolves each entry's final, effective $/kg — official conversion, then
-// an AI-researched fallback, then any custom user override on top (see
-// unitConversion.js) — plus the plain-language comment explaining however
-// it was actually produced, for the Comments column.
-function resolveEntries(product, entries, researchedWeights, customOverrides) {
+// Each entry's final, effective $/kg and the comment explaining how it was produced (for the Comments column): the catalog normalization module's figure
+// (backend/catalog_normalization), with any custom user override on top. `customOverrides` is empty for the export, which only needs the base figure.
+function resolveEntries(product, entries, customOverrides = new Map()) {
   return entries.map((entry) => {
-    const officialComment = explainColombiaConversion(entry.unit, entry.unitLabel)
-    const packSignature = entry.unitLabel
-      ? colombiaWeightResearchItem(product.category, product.nameEs, entry.unitLabel, entry.label).signature
-      : null
-    const afterResearch = applyResearchedWeight(entry.cop, entry.perKg, officialComment, packSignature, researchedWeights)
     const rowSignature = colombiaRowSignature(product.category, product.nameEs, entry.label)
     const override = customOverrides.get(rowSignature)
-    const resolved = applyCustomOverride(entry.cop, afterResearch, override)
-    return { ...entry, ...resolved, rowSignature, override }
+    return { ...entry, ...resolveFromNorm(entry.cop, entry.norm, override), rowSignature, override }
   })
 }
 
@@ -142,8 +131,8 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
   const [productCodes, setProductCodes] = useState(new Map())
   const [highlightCleared, setHighlightCleared] = useState(false)
   const highlightActive = Boolean(highlightHsCode) && !highlightCleared
-  const [researchedWeights, setResearchedWeights] = useState(new Map())
-  const [researchingWeights, setResearchingWeights] = useState(false)
+  const [snapshotVersion, setSnapshotVersion] = useState(0) // bumped after an item-weight research so the converted catalogs are read again
+  const weightResearch = useWeightResearch(() => setSnapshotVersion((version) => version + 1))
   const [customOverrides, setCustomOverrides] = useState(new Map())
   const [editingRowSignature, setEditingRowSignature] = useState(null)
   const [editDraft, setEditDraft] = useState({ price: '', weight: '' })
@@ -184,7 +173,7 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [snapshotVersion])
 
   useEffect(() => {
     let cancelled = false
@@ -251,21 +240,6 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
       })
       .catch(() => {
         // Non-fatal: rows just show the plain "translation needed" chip without an AI suggestion.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    fetchWeightResearch()
-      .then((data) => {
-        if (cancelled) return
-        setResearchedWeights(new Map(Object.entries(data.results)))
-      })
-      .catch(() => {
-        // Non-fatal: rows just keep showing '—' for whatever isn't researched yet.
       })
     return () => {
       cancelled = true
@@ -362,33 +336,11 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
     setUpdating(false)
   }
 
-  // Every currently-loaded row that has no $/kg figure yet and hasn't
-  // already been researched — deduped by signature, since every size/count
-  // grade of the same pack shares one signature (see unitConversion.js).
-  const missingWeightItems = useMemo(() => {
-    const itemsBySignature = new Map()
-    products.forEach((product) => {
-      buildSourceEntries(product).forEach((entry) => {
-        if (entry.perKg !== null || !entry.unitLabel) return
-        const item = colombiaWeightResearchItem(product.category, product.nameEs, entry.unitLabel, entry.label)
-        if (!researchedWeights.has(item.signature)) itemsBySignature.set(item.signature, item)
-      })
-    })
-    return Array.from(itemsBySignature.values())
-  }, [products, researchedWeights])
-
-  const handleResearchWeights = async () => {
-    if (researchingWeights || !missingWeightItems.length) return
-    setResearchingWeights(true)
-    try {
-      const data = await researchMissingWeights(missingWeightItems)
-      setResearchedWeights(new Map(Object.entries(data.results)))
-    } catch (error) {
-      window.alert(`Weight research failed: ${error.message}`)
-    } finally {
-      setResearchingWeights(false)
-    }
-  }
+  // The products still waiting for the weight of one item (a price per each / per bunch), by the English name the module reads.
+  const missingNames = useMemo(
+    () => missingResearchNames(products.flatMap((product) => buildSourceEntries(product).map((entry) => entry.norm))),
+    [products],
+  )
 
   const handleStartOverrideEdit = (entry) => {
     setEditingRowSignature(entry.rowSignature)
@@ -584,7 +536,7 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
       const translation = translateProductName(product.nameEs, translationOverrides)
       const rate = rateSync.rate
       const [laEntry, coEntry] = ['La Mayorista', 'Corabastos'].map(
-        (label) => resolveEntries(product, buildSourceEntries(product), researchedWeights).find((e) => e.label === label) || null,
+        (label) => resolveEntries(product, buildSourceEntries(product)).find((e) => e.label === label) || null,
       )
       return {
         productEn: translation.text,
@@ -649,15 +601,15 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
           <button type="button" className="price-comparison__export-btn" onClick={handleExportPdf} disabled={!filtered.length || exportingPdf}>
             {exportingPdf ? 'Exporting…' : 'Export PDF'}
           </button>
-          {missingWeightItems.length > 0 && (
+          {missingNames.length > 0 && (
             <button
               type="button"
               className="price-comparison__research-btn"
-              onClick={handleResearchWeights}
-              disabled={researchingWeights}
-              title="Ask AI to research the standard pack weight for products with no price-per-kg figure yet"
+              onClick={() => weightResearch.run(missingNames)}
+              disabled={weightResearch.researching}
+              title="Research on the web the weight of one item of the products priced per unit, so they get a price per kg"
             >
-              {researchingWeights ? 'Researching…' : `Research Missing Weights (${missingWeightItems.length})`}
+              {weightResearch.researching ? 'Researching…' : `Research item weights (${missingNames.length})`}
             </button>
           )}
           {missingTranslationItems.length > 0 && (
@@ -799,7 +751,7 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
                   const suggestion = translationSuggestions.get(translationKey)
                   const isResolvingSuggestion = resolvingSuggestionKey === translationKey
                   const code = productCodes.get(translation.text.toLowerCase())
-                  const sourceEntries = resolveEntries(product, buildSourceEntries(product), researchedWeights, customOverrides)
+                  const sourceEntries = resolveEntries(product, buildSourceEntries(product), customOverrides)
                   const referenceEntry = pickReferenceEntry(sourceEntries)
                   return (
                     <tr key={product.id}>
@@ -919,6 +871,14 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
                                     }`}
                                   >
                                     AI
+                                  </span>
+                                )}
+                                {!entry.custom && entry.reference && (
+                                  <span
+                                    className="price-comparison__researched-badge"
+                                    title={`USDA published item weight (no AI).${entry.note ? ` ${entry.note}` : ''}`}
+                                  >
+                                    USDA
                                   </span>
                                 )}
                               </>

@@ -20,6 +20,7 @@ from ..usa_sources.pork import fetch_pork_products
 from ..usa_sources.poultry import fetch_poultry_products
 from ..usa_sources.produce_ca import fetch_produce_ca_products
 from ..usa_sources.produce_fl import fetch_produce_fl_products
+from ..usa_sources.retail_produce import fetch_retail_produce_products
 
 router = APIRouter()
 
@@ -31,6 +32,7 @@ _SNAPSHOT_SOURCES = [
     'usa_grains',
     'usa_produce_fl',
     'usa_produce_ca',
+    'usa_retail_produce',
 ]
 
 
@@ -63,6 +65,12 @@ router.add_api_route(
 router.add_api_route(
     '/market-analysis/usa/produce-ca',
     _endpoint('usa_produce_ca', fetch_produce_ca_products, 'Produce (CA)'),
+    methods=['GET'],
+)
+
+router.add_api_route(
+    '/market-analysis/usa/retail-produce',
+    _endpoint('usa_retail_produce', fetch_retail_produce_products, 'Retail produce (MARS)'),
     methods=['GET'],
 )
 

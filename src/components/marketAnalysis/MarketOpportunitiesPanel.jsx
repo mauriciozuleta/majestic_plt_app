@@ -126,13 +126,9 @@ function reviewBadges(row) {
   if (reasons.some((r) => r.startsWith('Different price levels'))) {
     badges.push({ label: 'Wholesale vs Retail', className: 'market-analysis__estimated-badge' })
   }
-  // A count-based unit converted via a Haiku-estimated pack weight
-  // (countWeightConversion.js's 'cached_estimate'/'fresh_haiku_estimate')
-  // — never the same treatment as an official USDA-standard egg
-  // conversion, which needs no badge of its own beyond whatever the match
-  // tier already earned (an official, non-estimated factor, same
-  // precedent as unitConversion.js's other official conversions).
-  const isAiEstimatedWeight = reasons.some((r) => /ai-estimated pack weight/i.test(r))
+  // A count-based unit converted with a web-researched item weight (the catalog normalization module, or an older AI-estimated pack weight) — never the same
+  // treatment as an official USDA-standard egg conversion or a weight written in the data, which need no badge beyond whatever the match tier earned.
+  const isAiEstimatedWeight = reasons.some((r) => /ai-estimated pack weight|web-researched item weight|usda's published item weight/i.test(r))
   if (isAiEstimatedWeight) badges.push({ label: 'Estimated Unit Weight', className: 'market-analysis__estimated-badge' })
   const blocksScore = reasons.some((r) => /could not be converted|no usd exchange rate|no currency could be determined|common usd\/kg basis/i.test(r))
   if (blocksScore) badges.push({ label: 'Unresolved', className: 'market-analysis__estimated-badge market-analysis__estimated-badge--low-confidence' })
@@ -153,6 +149,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   const [runStatus, setRunStatus] = useState('idle')
   const [runError, setRunError] = useState(null)
   const [aiMatchErrors, setAiMatchErrors] = useState({})
+  const [weightError, setWeightError] = useState(null)
   const [rows, setRows] = useState([])
   const [unmatchedByTarget, setUnmatchedByTarget] = useState({})
   const [calculatedAt, setCalculatedAt] = useState(null)
@@ -240,6 +237,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
         if (result.origin === 'computed' && result.rows.length > 0) onSaved?.()
         if (cancelled) return
         setAiMatchErrors(result.aiMatchErrors)
+        setWeightError(result.weightError ?? null)
         setRows(result.rows)
         setUnmatchedByTarget(result.unmatchedByTarget)
         setUnmatchedUnknown(result.unmatchedUnknown)
@@ -596,6 +594,12 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
           AI matching for {country} didn't complete ({message}) — products it couldn't judge are paired by shared HS code only.
         </p>
       ))}
+
+      {weightError && (
+        <p className="market-analysis__hint">
+          The weight of some per-unit products could not be researched ({weightError}) — those prices stay unconverted until it is.
+        </p>
+      )}
 
       {rows.length > 0 && (
         <>
