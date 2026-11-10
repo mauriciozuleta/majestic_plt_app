@@ -19,3 +19,17 @@ export const saveChatMessage = async (message) => {
   if (!response.ok) throw new Error(`Request failed (${response.status})`)
   return response.json()
 }
+
+// Empties the log; the backend first saves the whole conversation as a modification report (Documentation ▸ Modification Reports).
+export const clearChatHistory = async (clearedBy) => {
+  const response = await fetch(`${API_BASE}/assistant/messages/clear`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cleared_by: clearedBy || '' }),
+  })
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null)
+    throw new Error(typeof detail?.detail === 'string' ? detail.detail : `Request failed (${response.status})`)
+  }
+  return response.json()
+}

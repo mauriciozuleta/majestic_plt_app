@@ -85,6 +85,20 @@ def price(country: str | None = None, airport: str | None = None, cls: str = Que
     return resolve.get_price(db, country=country, airport=airport, operator_class=cls, date_from=date_from, date_to=date_to)
 
 
+@router.get('/bts/monthly')
+def bts_monthly(db: Session = Depends(get_db)):
+    """Separate U.S. airline-paid benchmark, independent of the spot-price resolver."""
+    source = db.get(m.FuelSource, 'bts_p12')
+    if source is None or not source.enabled:
+        return {'status': 'disabled', 'message': 'Enable BTS monthly fuel in Data coverage & sources.'}
+    row = (db.query(m.FuelObservation).filter_by(source_id='bts_p12', series_id='bts_p12:US:scheduled',
+                                               operator_class='scheduled', period_type='month')
+           .order_by(m.FuelObservation.obs_date.desc()).first())
+    if row is None:
+        return {'status': 'no_data', 'message': 'Monthly BTS data has not been downloaded yet.'}
+    return resolve._answer(db, row, 'country', date.today())
+
+
 @router.get('/series')
 def series(kind: str = 'price', country: str | None = None, airport: str | None = None, region: str | None = None, cls: str = Query('scheduled', alias='class'),
            driver: str | None = None, date_from: date | None = Query(None, alias='from'), date_to: date | None = Query(None, alias='to'), db: Session = Depends(get_db)):

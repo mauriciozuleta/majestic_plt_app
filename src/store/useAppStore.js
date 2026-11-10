@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { fetchChatHistory, saveChatMessage } from '../services/chatHistory'
+import { clearChatHistory, fetchChatHistory, saveChatMessage } from '../services/chatHistory'
 
 const ACTIVE_COMPANY_KEY = 'majestic-active-company-id'
 const COMPANY_ORDER_KEY = 'majestic-company-order'
@@ -157,6 +157,12 @@ export const useAppStore = create((set, get) => ({
     set((state) => ({ assistantMessages: [...state.assistantMessages, stored] }))
     saveChatMessage(stored).catch(() => {})
     return stored
+  },
+  // Clears the saved log (the backend keeps a copy as a modification report) and the list shown.
+  clearAssistantMessages: async () => {
+    const result = await clearChatHistory(get().currentUser?.name)
+    set({ assistantMessages: [] })
+    return result
   },
   // Anything already added in this session before the history arrives (e.g. a
   // background-job notice) is kept after the saved log, never dropped.

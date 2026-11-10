@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchFuelEvents, fetchFuelPrice, fetchFuelSeries, fetchFuelStat, searchFuelPlaces } from '../../services/fuelPrices'
+import { fetchBtsMonthly, fetchFuelCoverage, fetchFuelEvents, fetchFuelPrice, fetchFuelSeries, fetchFuelStat, searchFuelPlaces } from '../../services/fuelPrices'
 import { formatCurrencyValue } from '../../utils/currencyFormat'
 import FuelChart from './FuelChart'
 import FuelSourcesPanel from './FuelSourcesPanel'
@@ -48,6 +48,7 @@ function PriceCard({ cls, result }) {
           <div className="fuel-card__muted">
             {result.source_name} · {result.price_basis.replace('_', ' ')} · as of {result.as_of} ({result.freshness_days} days old)
           </div>
+          {result.attribution && <div className="fuel-card__muted">{result.attribution}</div>}
           {result.note && <div className="fuel-card__note">{result.note}</div>}
           {result.formula && <div className="fuel-card__note">Formula: {result.formula}</div>}
         </>
@@ -113,6 +114,26 @@ function StatBlock({ kind, stat }) {
   return <div className="fuel-stat"><h5>{kind.replace('_', ' ')}</h5>{body}{meta}</div>
 }
 
+function DriversBlock({ stat }) {
+  if (!stat) return null
+  if (stat.status !== 'ok') return <div className="fuel-stat is-refused"><h5>crack spread vs EIA drivers</h5><p>Not computed: {stat.reason}</p></div>
+  return (
+    <div className="fuel-stat">
+      <h5>Crack spread vs EIA drivers</h5>
+      <ul>
+        {stat.drivers.map((d) => (
+          <li key={d.driver}>
+            {d.label}: {d.status === 'ok'
+              ? <>strongest at {d.best ? `${d.best.lag_weeks} week lag (corr ${d.best.corr.toFixed(2)})` : 'no lag'} <span className="fuel-stat__meta">n {d.n}, {d.from} → {d.to}</span></>
+              : <span className="fuel-stat__meta">not computed — {d.reason}</span>}
+          </li>
+        ))}
+      </ul>
+      <p className="fuel-stat__meta">{stat.note} Lags tested: 0 to 8 weeks (driver leads).</p>
+    </div>
+  )
+}
+
 function DriverPanel({ decomposition }) {
   if (!decomposition) return null
   if (decomposition.status !== 'ok') return <div className="fuel-stat is-refused"><h5>Crude vs crack spread</h5><p>Not computed: {decomposition.reason}</p></div>
@@ -142,16 +163,26 @@ function FuelStatisticsView() {
   const [range, setRange] = useState('5y')
   const [overlay, setOverlay] = useState('none')
   const [price, setPrice] = useState(null)
+  const [btsMonthly, setBtsMonthly] = useState(null)
   const [series, setSeries] = useState({})
   const [overlaySeries, setOverlaySeries] = useState(null)
   const [events, setEvents] = useState([])
   const [stats, setStats] = useState({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [alerts, setAlerts] = useState({ stale: [], reminders: [] })
 
   const classes = classMode === 'both' ? ['scheduled', 'non_scheduled'] : [classMode]
   const from = useMemo(() => fromDate(RANGES.find((r) => r.id === range)?.years), [range])
   const placeArgs = useMemo(() => (place.type === 'airport' ? { airport: place.code, country: place.country_iso2 } : { country: place.code }), [place])
+
+  useEffect(() => {
+    if (tab !== 'prices') return undefined
+    let cancelled = false
+    fetchBtsMonthly().then((data) => { if (!cancelled) setBtsMonthly(data) })
+      .catch((e) => { if (!cancelled) setBtsMonthly({ status: 'error', message: e.message }) })
+    return () => { cancelled = true }
+  }, [tab])
 
   useEffect(() => {
     if (query.trim().length < 2) {
@@ -168,6 +199,7 @@ function FuelStatisticsView() {
 
   useEffect(() => {
     fetchFuelEvents().then(setEvents).catch(() => {})
+    fetchFuelCoverage().then((c) => setAlerts({ stale: c.stale || [], reminders: c.reminders || [] })).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -188,6 +220,7 @@ function FuelStatisticsView() {
           // eslint-disable-next-line no-await-in-loop
           statResults[kind] = await fetchFuelStat(kind, baseArgs)
         }
+        statResults.drivers = await fetchFuelStat('drivers', baseArgs)
         statResults.decomposition = await fetchFuelStat('decomposition', { ...placeArgs, operatorClass: classes[0], from: fromDate(1) })
         if (!cancelled) {
           setPrice(priceResult)
@@ -255,6 +288,12 @@ function FuelStatisticsView() {
             </div>
           </div>
 
+          {(alerts.stale.length > 0 || alerts.reminders.length > 0) && (
+            <p className="fuel-warning">
+              {alerts.stale.length > 0 && `${alerts.stale.length} data job(s) are stale or failing. `}
+              {alerts.reminders.map((r) => r.message).join(' ')} See “Data coverage &amp; sources”.
+            </p>
+          )}
           <p className="fuel-place">Showing: <b>{place.label}</b>{resolvedNote && <span> ({resolvedNote})</span>}</p>
           {error && <p className="fuel-stats__error">{error}</p>}
           {loading && <p className="fuel-stats__empty">Loading…</p>}
@@ -264,6 +303,18 @@ function FuelStatisticsView() {
               {classes.map((cls) => price.results[cls] && <PriceCard key={cls} cls={cls} result={price.results[cls]} />)}
             </div>
           )}
+
+          <div className="fuel-chart-box">
+            <h4>BTS monthly airline-paid fuel — U.S. scheduled carriers</h4>
+            {btsMonthly?.status === 'ok' ? (
+              <>
+                <div className="fuel-card__value">{usd(btsMonthly.value, 2)}<small> / US gal</small></div>
+                <p className="fuel-card__muted">Reporting month: {btsMonthly.as_of.slice(0, 7)} · Domestic + international operations. U.S. carrier benchmark; not a local airport or retail price.</p>
+                <p className="fuel-card__muted">{btsMonthly.attribution}</p>
+              </>
+            ) : <p className="fuel-card__muted">{btsMonthly?.message || 'Loading monthly BTS price…'}</p>}
+            <a href="https://www.transtats.bts.gov/fuel.asp" target="_blank" rel="noreferrer">BTS monthly report</a>
+          </div>
 
           <div className="fuel-chart-box">
             <div className="fuel-chart-box__head">
@@ -278,7 +329,7 @@ function FuelStatisticsView() {
             </div>
             {mainSeries?.points?.length ? (
               <>
-                <FuelChart primary={mainSeries.points} secondary={overlaySeries} secondaryLabel={overlay} events={events} />
+                <FuelChart primary={mainSeries.points} secondary={overlaySeries} secondaryLabel={overlay} periodType={mainSeries.period_type} events={events} />
                 <p className="fuel-stat__meta">Series {mainSeries.series_id} · {mainSeries.period_type} · quality {Object.entries(mainSeries.quality_mix).map(([k, v]) => `${k} ${v}`).join(', ')}. Vertical lines mark events ({events.map((e) => e.title).join('; ') || 'none'}).</p>
               </>
             ) : (
@@ -288,8 +339,13 @@ function FuelStatisticsView() {
             )}
           </div>
 
+          <p className="fuel-attribution">
+            Source: <a href="https://www.eia.gov/" target="_blank" rel="noreferrer">U.S. Energy Information Administration</a> for the EIA series; other sources as named on each card.
+            Not endorsed by EIA; derived values (crack spread, statistics) are this app’s own calculations.
+          </p>
           <div className="fuel-stat-grid">
             <DriverPanel decomposition={stats.decomposition} />
+            <DriversBlock stat={stats.drivers} />
             {STAT_KINDS.map((kind) => <StatBlock key={kind} kind={kind} stat={stats[kind]} />)}
           </div>
         </>

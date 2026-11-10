@@ -16,9 +16,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .. import models
+from .. import data_history
 from ..custom_sources.extract import SourceError, analyze_url, parse_file
+from ..data_history import HeldForApproval
 from ..database import get_db
-from ..snapshot_store import list_snapshots, save_snapshot
+from ..snapshot_store import list_snapshots, record_current, save_snapshot
 from .product_classification import classify_source_products_in_background
 
 router = APIRouter()
@@ -107,11 +109,14 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _store(db: Session, source: models.ProductSource, products: list[dict], origin: str, note: str) -> None:
+def _store(db: Session, source: models.ProductSource, products: list[dict], origin: str, note: str, force: bool = False) -> None:
+    """Saves a source's products. A read of a site or a catalog download (origin 'site' / 'catalog') that looks worse than what is stored (empty, far fewer
+    products) is parked for approval and raises HeldForApproval; a file a person loaded, or an approved update (`force`), is saved as is."""
     if source.currency:
         for product in products:
             product['currency'] = product.get('currency') or source.currency
-    save_snapshot(db, _snapshot_key(source.id), products)
+    meta = {'source': _serialize(source), 'origin': origin, 'note': note, 'source_id': source.id}
+    save_snapshot(db, _snapshot_key(source.id), products, guard=origin in ('site', 'catalog') and not force, force=force, reason=f'{origin}: {note}'[:200], meta=meta)
     source.status = 'ok'
     source.status_message = note
     source.origin = origin
@@ -129,7 +134,7 @@ def _restamp_currency(db: Session, source: models.ProductSource) -> None:
         save_snapshot(db, _snapshot_key(source.id), products)
 
 
-def _analyze(db: Session, source: models.ProductSource) -> None:
+def _analyze(db: Session, source: models.ProductSource) -> str | None:
     """Reads the source's site. On failure the source keeps whatever
     products it already had and asks for a file instead."""
     if source.origin == 'catalog':
@@ -148,7 +153,12 @@ def _analyze(db: Session, source: models.ProductSource) -> None:
             source.status = 'needs_file'
         source.status_message = f'{error} You can load a products file instead.'
         return
-    _store(db, source, products, 'site', note)
+    try:
+        _store(db, source, products, 'site', note)
+    except HeldForApproval as held:
+        # the stored products stay as they are until a person decides (Settings ▸ Data history)
+        source.status_message = str(held)
+        return 'held'
 
 
 @router.get('/product-sources')
@@ -289,6 +299,8 @@ def load_product_source_file(source_id: str, payload: SourceFile, db: Session = 
 def delete_product_source(source_id: str, db: Session = Depends(get_db)):
     source = _get(db, source_id)
     snapshot = db.query(models.PriceComparisonSnapshot).filter_by(source=_snapshot_key(source.id)).first()
+    record_current(db, _snapshot_key(source.id), 'before the source was deleted', {'source': _serialize(source)})
+    data_history.store.record_deleted(data_history.snapshot_scope(_snapshot_key(source.id)), reason=f'source "{source.name}" deleted', stats={'source': _serialize(source)})
     if snapshot:
         db.delete(snapshot)
     db.delete(source)

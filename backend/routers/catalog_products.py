@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..database import get_db
 from ..modification_reports import write_deletion_report
-from ..snapshot_store import list_snapshots
+from ..snapshot_store import list_snapshots, record_current
 
 router = APIRouter()
 
@@ -113,6 +113,8 @@ def delete_catalog_products(payload: DeleteRequest, db: Session = Depends(get_db
         if source_model is not None:
             source_model.product_count = len(kept)
     db.commit()
+    for key, _kept, _source_model in plan:
+        record_current(db, key, 'products deleted by a person')
 
     path, title = write_deletion_report(removed, len(payload.items), payload.deleted_by)
     from .knowledge_base import sync_reports  # late import: knowledge_base imports the report folder from the module above

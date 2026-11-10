@@ -35,7 +35,7 @@ class FuelObservation(Base):
     driver_code = Column(String)  # brent, ... for series_kind=driver
     obs_date = Column(Date, nullable=False)
     period_type = Column(String, nullable=False, default='day')  # day | week | month
-    value_usd_per_gal = Column(Float, nullable=False)
+    value_usd_per_gal = Column(Float, nullable=False)  # price rows and Brent; non-price drivers live in fuel_driver_points
     value_original = Column(Float)
     unit_original = Column(String)
     currency_original = Column(String)
@@ -94,3 +94,31 @@ class FuelAdjustment(Base):
     add_usd_per_gal = Column(Float, nullable=False)
     note = Column(String)
     __table_args__ = (UniqueConstraint('country_iso2', 'operator_class', name='uq_fuel_adj'),)
+
+
+class FuelDriverPoint(Base):
+    """Non-price drivers in their own unit (stocks MBBL, utilization %, production / exports MBBL per day). Brent is a price and lives in fuel_observations."""
+    __tablename__ = 'fuel_driver_points'
+    id = Column(Integer, primary_key=True)
+    series_id = Column(String, nullable=False)
+    driver_code = Column(String, nullable=False, index=True)
+    obs_date = Column(Date, nullable=False)
+    period_type = Column(String, nullable=False, default='week')
+    value = Column(Float, nullable=False)
+    unit = Column(String, nullable=False)  # mbbl | mbbl_d | percent
+    source_id = Column(String, nullable=False)
+    retrieved_at = Column(DateTime, server_default=func.now())
+    raw_ref = Column(Text)
+    __table_args__ = (UniqueConstraint('series_id', 'obs_date', name='uq_fuel_driver_point'),)
+
+
+class FuelJobRun(Base):
+    """Persisted last-run state of each scheduled job (source + job key), so the scheduler can catch up after the app was down and the UI can warn when data are stale."""
+    __tablename__ = 'fuel_job_runs'
+    source_id = Column(String, primary_key=True)
+    job_key = Column(String, primary_key=True)
+    frequency = Column(String)
+    last_attempt_at = Column(DateTime)
+    last_success_at = Column(DateTime)
+    last_error = Column(Text)
+    rows_last = Column(Integer)

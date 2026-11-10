@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..background_jobs import clear_building, get_error, is_building, mark_building, mark_error
+from ..data_history import HeldForApproval
 from ..database import SessionLocal, get_db
 from ..price_sources.corabastos import fetch_corabastos_products
 from ..price_sources.la_mayorista import fetch_la_mayorista_products
@@ -28,6 +29,14 @@ from ..translation.resolve import resolve_many
 router = APIRouter()
 
 _SNAPSHOT_SOURCES = ['la_mayorista', 'corabastos']
+
+
+def _save_guarded(db: Session, source: str, products: list) -> None:
+    """Stores a fetch; one that looks worse than what is stored (empty, far fewer products) is held for approval and answered with 409."""
+    try:
+        save_snapshot(db, source, products, guard=True, reason='update')
+    except HeldForApproval as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 # Same "background task + sibling marker file" pattern as weight_research.py
 # — resolving a batch of names through Tier 3 (local model) / Tier 4 (web
@@ -51,7 +60,7 @@ def get_la_mayorista_prices(db: Session = Depends(get_db)):
         products = fetch_la_mayorista_products()
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f'La Mayorista fetch failed: {exc}') from exc
-    save_snapshot(db, 'la_mayorista', products)
+    _save_guarded(db, 'la_mayorista', products)
     return products
 
 
@@ -61,7 +70,7 @@ def get_corabastos_prices(db: Session = Depends(get_db)):
         products = fetch_corabastos_products()
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f'Corabastos fetch failed: {exc}') from exc
-    save_snapshot(db, 'corabastos', products)
+    _save_guarded(db, 'corabastos', products)
     return products
 
 

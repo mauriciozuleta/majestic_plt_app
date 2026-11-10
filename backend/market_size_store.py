@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from . import models
+from . import data_history, models
 
 
 def get_snapshot(db: Session, kind: str) -> dict | None:
@@ -31,15 +31,30 @@ def get_snapshot(db: Session, kind: str) -> dict | None:
     }
 
 
-def save_snapshot(db: Session, kind: str, flow: str, chapters: list[str], data: dict) -> dict:
+def save_snapshot(db: Session, kind: str, flow: str, chapters: list[str], data: dict, *, guard: bool = False, force: bool = False,
+                  reason: str = 'refresh', computed_at: str | None = None) -> dict:
     """Overwrites (or creates) this kind's one stored row. `data` is the
     already-computed response body (regions/categories/etc, no computed_at
-    of its own yet) — `computed_at` is stamped here and folded into the
-    stored (and returned) data dict, so every caller — the first-ever
-    compute, a manual recompute, or the chatbox tool — gets back exactly
-    what a normal GET would now return, computed_at included."""
-    computed_at = datetime.now(timezone.utc).isoformat()
+    of its own yet) — `computed_at` is stamped here (or kept, for a restore)
+    and folded into the stored (and returned) data dict, so every caller — the
+    first-ever compute, a manual recompute, or the chatbox tool — gets back
+    exactly what a normal GET would now return, computed_at included.
+
+    The new state is appended to the data history first. With `guard=True` a
+    recompute whose totals fell sharply (a rate-limited run skips countries)
+    is held for approval instead of overwriting the stored figures."""
+    scope = data_history.market_size_scope(kind)
+    if guard and not force:
+        previous = get_snapshot(db, kind)
+        findings = data_history.guard.check_market_size(kind, previous['data'] if previous else None, data)
+        if findings:
+            held_id = data_history.store.hold(scope, 'json', {'flow': flow, 'chapters': chapters, 'data': data}, findings=findings, reason=reason,
+                                              stats={'diff': data_history.diff.diff_market_size(kind, previous['data'] if previous else None, data)})
+            raise data_history.HeldForApproval(scope, held_id, findings)
+    computed_at = computed_at or datetime.now(timezone.utc).isoformat()
     stamped = {**data, 'computed_at': computed_at}
+    data_history.store.record(scope, 'json', {'flow': flow, 'chapters': chapters, 'data': stamped}, reason=reason)
+    data_history.store.supersede_pending(scope)
     row = db.query(models.MarketSizeSnapshot).filter_by(kind=kind).first()
     if row:
         row.flow = flow

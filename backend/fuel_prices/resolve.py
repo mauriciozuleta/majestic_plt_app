@@ -10,6 +10,7 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from . import models as m
+from .sources import ATTRIBUTION
 
 LEVELS = ('airport', 'country', 'region', 'global')
 PERIOD_RANK = {'day': 0, 'week': 1, 'month': 2}
@@ -57,7 +58,7 @@ def _answer(db: Session, row: m.FuelObservation, requested: str, today: date) ->
     return {
         'status': 'ok', 'value': round(row.value_usd_per_gal, 4), 'unit': 'USD/US gal', 'as_of': row.obs_date.isoformat(), 'geo_level_used': row.geo_level,
         'geo_level_requested': requested, 'place_used': row.airport_iata or row.country_iso2 or row.region_code or 'GLOBAL', 'operator_class': row.operator_class,
-        'price_basis': row.price_basis, 'source': row.source_id, 'source_name': source.name if source else row.source_id, 'quality': row.quality, 'confidence': row.confidence,
+        'price_basis': row.price_basis, 'source': row.source_id, 'source_name': source.name if source else row.source_id, 'attribution': ATTRIBUTION.get(row.source_id), 'quality': row.quality, 'confidence': row.confidence,
         'freshness_days': (today - row.obs_date).days, 'series_id': row.series_id, 'period_type': row.period_type,
         'original': {'value': row.value_original, 'unit': row.unit_original, 'currency': row.currency_original},
         'changes': {'1w': _change(db, row, 7), '1m': _change(db, row, 30), '1y': _change(db, row, 365)}}
@@ -97,7 +98,7 @@ def _estimate(db: Session, ids: list[str], place: dict, requested: str, cls: str
             value = base.value_usd_per_gal + adj.add_usd_per_gal
             return {
                 'status': 'ok', 'value': round(value, 4), 'unit': 'USD/US gal', 'as_of': base.obs_date.isoformat(), 'geo_level_used': level, 'geo_level_requested': requested,
-                'place_used': base.region_code or 'GLOBAL', 'operator_class': cls, 'price_basis': 'estimate', 'source': base.source_id, 'source_name': base.source_id,
+                'place_used': base.region_code or 'GLOBAL', 'operator_class': cls, 'price_basis': 'estimate', 'source': base.source_id, 'source_name': base.source_id, 'attribution': ATTRIBUTION.get(base.source_id),
                 'quality': 'estimated', 'confidence': 0.3, 'freshness_days': (today - base.obs_date).days, 'series_id': None, 'period_type': base.period_type,
                 'original': None, 'changes': {},
                 'formula': f'{level} scheduled benchmark {base.value_usd_per_gal:.4f} + {place["country"]} adjustment {adj.add_usd_per_gal:+.4f} ({adj.note or "no note"}) = {value:.4f}',

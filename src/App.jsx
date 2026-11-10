@@ -19,6 +19,7 @@ import OperationsTab from './components/company/tabs/OperationsTab/OperationsTab
 import SimulatorTab from './components/company/tabs/SimulatorTab/SimulatorTab'
 import DriversTab from './components/company/tabs/DriversTab/DriversTab'
 import DocumentationTab from './components/company/tabs/DocumentationTab/DocumentationTab'
+import AgentsView from './components/agents/AgentsView'
 import DocumentationView, { DocumentationIndexRedirect } from './components/documentation/DocumentationView'
 import SettingsView from './components/company/tabs/ManagementTab/SettingsView/SettingsView'
 import RagFilesView from './components/ragFiles/RagFilesView'
@@ -75,6 +76,7 @@ function Layout() {
               </Route>
               <Route path="/rag-files" element={<Navigate to="/tools/rag-files" replace />} />
               <Route path="/tax-calculator" element={<Navigate to="/tools/tax-calculator" replace />} />
+              <Route path="/agents" element={<AgentsView />} />
               <Route path="/settings" element={<SettingsView />} />
               <Route path="/accounting-audit" element={<AccountingAuditView />} />
 

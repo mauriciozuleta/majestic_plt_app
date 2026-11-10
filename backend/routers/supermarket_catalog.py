@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..custom_sources.extract import SourceError, parse_file
+from ..data_history import HeldForApproval
 from ..database import SessionLocal, get_db
 from .product_sources import _now, _serialize, _store
 
@@ -238,7 +239,13 @@ def _import(db: Session, job: dict) -> dict:
         note += f" Incomplete — {len(failed)} categor{'y' if len(failed) == 1 else 'ies'} failed: {', '.join(item['category'] for item in failed)}."
     if job.get('status') == 'cancelled':
         note += ' Cancelled before finishing — the products collected so far were added.'
-    _store(db, source, products, CATALOG_ORIGIN, note)
+    try:
+        _store(db, source, products, CATALOG_ORIGIN, note)
+    except HeldForApproval as held:
+        # a download that came back empty or far smaller than the stored catalog: the stored products stay until a person decides
+        source.status_message = str(held)
+        db.commit()
+        return {'status': 'held', 'source': _serialize(source), 'product_count': len(products), 'file': str(path), 'error': str(held)}
     db.commit()
     return {
         'status': 'imported',

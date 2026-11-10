@@ -1,0 +1,9 @@
+{
+  "year": "YEAR",
+  "month": "MONTH",
+  "gallons": ["TOTAL_GALLONS"],
+  "cost": ["TOTAL_COST"],
+  "operator_class": "scheduled",
+  "carrier_column": "CARRIER_NAME",
+  "carrier_exclude": ["All Majors", "All Nationals"]
+}

@@ -1,8 +1,12 @@
 """Tests of the aviation fuel price module. No test touches the network: adapters are fed saved text, the database is in memory."""
 
 import math
+import os
 import unittest
-from datetime import date, timedelta
+from unittest import mock
+
+import httpx
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -11,12 +15,16 @@ from sqlalchemy.pool import StaticPool
 from backend.database import Base
 from backend.fuel_prices import models as m
 from backend.fuel_prices import resolve, service, stats, units
-from backend.fuel_prices.sources import bts_p12, csv_import, eia_fred, iata_regional
+from backend.fuel_prices.sources import bts_p12, bts_socrata, csv_import, eia_api, iata_regional
 from backend.fuel_prices.stats import descriptive, drivers
 from backend.fuel_prices.stats.common import Refused
 
-FRED_JET = 'observation_date,DJFUELUSGULF\n2026-03-02,3.10\n2026-03-03,.\n2026-03-04,3.30\n'
-FRED_BRENT = 'observation_date,DCOILBRENTEU\n2026-03-02,84.0\n2026-03-04,126.0\n'
+def eia_rows(pairs, units='$/GAL'):
+    """Rows shaped like api.eia.gov/v2 responses (period + value as a string + units)."""
+    return [{'period': d, 'value': str(v) if v is not None else None, 'units': units} for d, v in pairs]
+
+
+JET_ROWS = eia_rows([('2026-11-02', 3.10), ('2026-11-03', None), ('2026-11-04', 3.30)])
 
 
 def make_db():
@@ -29,7 +37,7 @@ def make_db():
 
 def enable_all(db):
     for s in db.query(m.FuelSource).all():
-        if s.adapter not in ('platts_stub', 'argus_stub', 'airnav_stub'):
+        if s.adapter not in ('platts_stub', 'argus_stub', 'airnav_stub') and s.terms_status != 'restricted':
             s.enabled = True
     db.commit()
 
@@ -50,13 +58,90 @@ class UnitTests(unittest.TestCase):
 
 
 class AdapterTests(unittest.TestCase):
-    def test_fred_parse_skips_missing_and_converts(self):
-        jet = eia_fred.parse_csv(FRED_JET, 'DJFUELUSGULF')
+    def test_eia_parse_skips_missing_and_converts(self):
+        jet = eia_api.parse_rows('jet_daily', JET_ROWS)
         self.assertEqual([o.obs_date.day for o in jet], [2, 4])
-        self.assertEqual((jet[0].geo_level, jet[0].country_iso2, jet[0].operator_class, jet[0].price_basis), ('country', 'US', 'scheduled', 'spot'))
-        brent = eia_fred.parse_csv(FRED_BRENT, 'DCOILBRENTEU')
-        self.assertAlmostEqual(brent[1].value_usd_per_gal, 3.0)
-        self.assertEqual((brent[1].series_kind, brent[1].driver_code, brent[1].unit_original), ('driver', 'brent', 'usd_bbl'))
+        self.assertEqual((jet[0].geo_level, jet[0].country_iso2, jet[0].operator_class, jet[0].price_basis, jet[0].series_id),
+                         ('country', 'US', 'scheduled', 'spot', 'eia_api:EER_EPJK_PF4_RGC_DPG:daily'))
+        brent = eia_api.parse_rows('brent_daily', eia_rows([('2026-03-04', 126.0)], '$/BBL'))
+        self.assertAlmostEqual(brent[0].value_usd_per_gal, 3.0)
+        self.assertEqual((brent[0].series_kind, brent[0].driver_code, brent[0].unit_original), ('driver', 'brent', 'usd_bbl'))
+        monthly = eia_api.parse_rows('jet_monthly', eia_rows([('2026-03', 3.1)]))
+        self.assertEqual((monthly[0].obs_date, monthly[0].period_type), (date(2026, 3, 1), 'month'))
+        stocks = eia_api.parse_rows('jet_stocks', eia_rows([('2026-10-30', 41000)], 'MBBL'))
+        self.assertTrue(stocks[0].is_native_driver)
+        self.assertEqual((stocks[0].value_native, stocks[0].native_unit), (41000.0, 'mbbl'))
+        with self.assertRaises(eia_api.EiaError):
+            eia_api.parse_rows('jet_stocks', eia_rows([('2026-10-30', 1)], 'FURLONGS'))
+
+    def test_eia_pagination_uses_offsets_until_total(self):
+        calls = []
+
+        def fake(route, params, tries=4):
+            calls.append(params['offset'])
+            n = min(5000, 12000 - params['offset'])
+            return {'total': '12000', 'data': eia_rows([('2000-01-01', 1.0)] * n)}
+        with mock.patch.object(eia_api, '_request', fake), mock.patch.object(eia_api.time, 'sleep'):
+            rows = eia_api.fetch_rows('petroleum/pri/spt', 'X', 'daily')
+        self.assertEqual((calls, len(rows)), ([0, 5000, 10000], 12000))
+
+    def test_eia_incremental_start_param_and_job_catalogue(self):
+        seen = {}
+
+        def fake(route, params, tries=4):
+            seen.update(params)
+            return {'total': '0', 'data': []}
+        with mock.patch.object(eia_api, '_request', fake):
+            eia_api.fetch_rows('petroleum/pri/spt', 'X', 'monthly', date(2026, 5, 3))
+        self.assertEqual(seen['start'], '2026-05')
+        jobs = {j.key: j.frequency for j in eia_api.EiaApiAdapter().jobs()}
+        self.assertEqual((jobs['jet_daily'], jobs['jet_weekly'], jobs['jet_monthly'], jobs['jet_stocks']), ('daily', 'weekly', 'monthly', 'weekly'))
+        self.assertEqual(len(jobs), 11)
+
+    def test_eia_key_never_leaks(self):
+        secret = 'SECRETKEY123456'
+        request = httpx.Request('GET', f'https://api.eia.gov/v2/x?api_key={secret}')
+        failing = httpx.Response(404, request=request)
+        with mock.patch.dict(os.environ, {'EIA_API_KEY': secret}), mock.patch.object(eia_api.httpx, 'get', return_value=failing):
+            with self.assertRaises(eia_api.EiaError) as ctx:
+                eia_api._request('petroleum/pri/spt/data', {})
+        self.assertNotIn(secret, str(ctx.exception))
+        self.assertNotIn(secret, repr(ctx.exception))
+        with mock.patch.dict(os.environ, {'EIA_API_KEY': secret}):
+            self.assertEqual(eia_api.scrub(f'boom {secret}'), 'boom <redacted>')
+        with mock.patch.dict(os.environ, {'EIA_API_KEY': ''}):
+            with self.assertRaises(eia_api.EiaError):
+                eia_api._request('x', {})
+
+    def test_eia_retries_with_backoff_on_429(self):
+        ok = httpx.Response(200, json={'response': {'data': [], 'total': 0}}, request=httpx.Request('GET', 'https://api.eia.gov/v2/x'))
+        limited = httpx.Response(429, request=httpx.Request('GET', 'https://api.eia.gov/v2/x'))
+        with mock.patch.dict(os.environ, {'EIA_API_KEY': 'k'}), mock.patch.object(eia_api.httpx, 'get', side_effect=[limited, ok]), mock.patch.object(eia_api.time, 'sleep') as slept:
+            self.assertEqual(eia_api._request('x', {})['total'], 0)
+        self.assertTrue(slept.called)
+
+    def test_bts_socrata_parse_annual_and_skips_part_year(self):
+        cost = [{'year': '2024', 'total': '52000000000', 'large_regional_carriers': '2000000000', 'national_carriers': '3000000000', 'major_carriers': '47000000000'},
+                {'year': '2026M1-6', 'total': '1', 'large_regional_carriers': '1', 'national_carriers': '1', 'major_carriers': '1'}]
+        gallons = [{'year': '2024', 'total': '20000000000', 'large_regional_carriers': '1000000000', 'national_carriers': '1500000000', 'major_carriers': '17500000000'}]
+        obs = bts_socrata.parse(cost, gallons)
+        by = {o.series_id: o for o in obs}
+        self.assertEqual(len(obs), 4)
+        self.assertAlmostEqual(by['bts_socrata:US:total'].value_usd_per_gal, 2.6)
+        self.assertAlmostEqual(by['bts_socrata:US:large_regional'].value_usd_per_gal, 2.0)
+        major = by['bts_socrata:US:major']
+        self.assertEqual((major.period_type, major.obs_date, major.quality), ('year', date(2024, 1, 1), 'derived'))
+
+    def test_bts_generic_map_with_carrier_exclude(self):
+        text = 'YEAR,MONTH,CARRIER_NAME,TOTAL_GALLONS,TOTAL_COST\n2025,3,Delta,1000,2500\n2025,3,United,1000,2700\n2025,3,All Majors,2000,5200\n'
+        cmap = {'year': 'YEAR', 'month': 'MONTH', 'gallons': ['TOTAL_GALLONS'], 'cost': ['TOTAL_COST'], 'operator_class': 'scheduled', 'carrier_column': 'CARRIER_NAME',
+                'carrier_exclude': ['All Majors']}
+        obs, errors = bts_p12.parse(text, cmap)
+        self.assertEqual((errors, len(obs)), ([], 1))
+        self.assertAlmostEqual(obs[0].value_usd_per_gal, 2.6)  # without the exclude the aggregate row would double count
+        self.assertTrue(obs[0].raw_ref['explicit_column_map'])
+        _, errors = bts_p12.parse(text, {**cmap, 'gallons': ['NOPE']})
+        self.assertIn('not in the file', errors[0])
 
     def test_bts_parse(self):
         text = ('YEAR,MONTH,CARRIER,SCHED_FUEL_GALLONS,SCHED_FUEL_COST,NONSCHED_FUEL_GALLONS,NONSCHED_FUEL_COST\n'
@@ -92,8 +177,7 @@ class ResolutionTests(unittest.TestCase):
         self.db = make_db()
         enable_all(self.db)
         self.today = date(2026, 11, 9)
-        jet = eia_fred.parse_csv(FRED_JET.replace('2026-03', '2026-11'), 'DJFUELUSGULF')
-        service.upsert(self.db, jet)
+        service.upsert(self.db, eia_api.parse_rows('jet_daily', JET_ROWS))
 
     def test_seed_reference(self):
         self.assertEqual(self.db.get(m.FuelCountry, 'CO').region_code, 'LAC')
@@ -103,13 +187,13 @@ class ResolutionTests(unittest.TestCase):
     def test_sources_start_disabled_except_verified_manual(self):
         db = make_db()
         states = {s.id: s.enabled for s in db.query(m.FuelSource)}
-        self.assertFalse(states['eia_fred'])
+        self.assertFalse(states['eia_api'])
         self.assertFalse(states['iata_regional'])
         self.assertTrue(states['manual_csv'])
         with self.assertRaises(ValueError):
-            service.set_enabled(db, 'eia_fred', True)  # needs the user's sign-off
-        service.set_enabled(db, 'eia_fred', True, 'Don')
-        self.assertEqual(db.get(m.FuelSource, 'eia_fred').terms_signed_off_by, 'Don')
+            service.set_enabled(db, 'eia_api', True)  # needs the user's sign-off
+        service.set_enabled(db, 'eia_api', True, 'Don')
+        self.assertEqual(db.get(m.FuelSource, 'eia_api').terms_signed_off_by, 'Don')
         with self.assertRaises(ValueError):
             service.set_enabled(db, 'airnav_stub', True, 'Don')  # restricted
 
@@ -117,7 +201,7 @@ class ResolutionTests(unittest.TestCase):
         for kw in ({'airport': 'MIA'}, {'country': 'US'}):
             res = resolve.get_price(self.db, today=self.today, **kw)['results']['scheduled']
             self.assertEqual(res['status'], 'ok')
-            self.assertEqual((res['geo_level_used'], res['quality'], res['source']), ('country', 'observed', 'eia_fred'))
+            self.assertEqual((res['geo_level_used'], res['quality'], res['source']), ('country', 'observed', 'eia_api'))
             self.assertAlmostEqual(res['value'], 3.3)
             self.assertEqual(res['freshness_days'], 5)
         self.assertEqual(resolve.get_price(self.db, airport='MIA', today=self.today)['results']['scheduled']['geo_level_requested'], 'airport')
@@ -158,7 +242,7 @@ class ResolutionTests(unittest.TestCase):
         self.assertEqual((res['geo_level_used'], res['price_basis'], res['quality']), ('airport', 'posted_retail', 'manual'))
 
     def test_acceptance_d_disabling_a_source_removes_its_data(self):
-        service.set_enabled(self.db, 'eia_fred', False)
+        service.set_enabled(self.db, 'eia_api', False)
         res = resolve.get_price(self.db, country='US', today=self.today)['results']['scheduled']
         self.assertEqual(res['status'], 'no_data')
         self.assertEqual(service.series(self.db, country='US')['points'], [])
@@ -175,7 +259,7 @@ class ResolutionTests(unittest.TestCase):
         self.assertEqual((changed['inserted'], changed['updated']), (0, 1))
 
     def test_change_vs_previous_periods(self):
-        pts = [eia_fred.parse_csv('observation_date,DJFUELUSGULF\n2026-10-02,3.0\n2026-11-02,3.3\n', 'DJFUELUSGULF')][0]
+        pts = eia_api.parse_rows('jet_daily', eia_rows([('2026-10-02', 3.0), ('2026-11-02', 3.3)]))
         service.upsert(self.db, pts)
         res = resolve.get_price(self.db, country='US', today=self.today)['results']['scheduled']
         self.assertAlmostEqual(res['changes']['1m']['pct'], 10.0, places=1)
@@ -304,11 +388,186 @@ class StatsTests(unittest.TestCase):
         res = stats.compute(db, 'descriptive', country='US')
         self.assertEqual(res['status'], 'refused')
         days = [date(2025, 1, 1) + timedelta(days=i) for i in range(30)]
-        service.upsert(db, [o for o in eia_fred.parse_csv('observation_date,DJFUELUSGULF\n' + '\n'.join(f'{d},{2 + i * 0.01}' for i, d in enumerate(days)), 'DJFUELUSGULF')])
+        service.upsert(db, eia_api.parse_rows('jet_daily', eia_rows([(d.isoformat(), 2 + i * 0.01) for i, d in enumerate(days)])))
         res = stats.compute(db, 'descriptive', country='US')
         self.assertEqual((res['status'], res['n'], res['quality_mix']), ('ok', 30, {'observed': 30}))
         self.assertEqual(stats.compute(db, 'decomposition', country='US')['status'], 'refused')  # no Brent loaded
         self.assertEqual(stats.compute(db, 'inventories', country='US')['status'], 'refused')
+
+
+class _FakeAdapter:
+    """An automatic adapter that serves canned rows (or fails) so scheduling can be tested without the network."""
+    automatic = True
+    fail = False
+    calls: list = []
+
+    def jobs(self):
+        from backend.fuel_prices.sources.base import Job
+        return [Job('daily_jet', 'daily', 'jet', 'eia_api:EER_EPJK_PF4_RGC_DPG:daily'), Job('weekly_stocks', 'weekly', 'stocks', 'eia_api:WKJSTUS1:weekly')]
+
+    def fetch_job(self, key, since=None):
+        _FakeAdapter.calls.append((key, since))
+        if _FakeAdapter.fail:
+            raise eia_api.EiaError('HTTP 503 from petroleum/pri/spt/data')
+        if key == 'daily_jet':
+            return eia_api.parse_rows('jet_daily', eia_rows([('2026-11-03', 4.1), ('2026-11-04', 4.2)]))
+        return eia_api.parse_rows('jet_stocks', eia_rows([('2026-10-30', 40000)], 'MBBL'))
+
+
+class SchedulingTests(unittest.TestCase):
+    def setUp(self):
+        self.db = make_db()
+        service.set_enabled(self.db, 'eia_api', True, 'tester')
+        _FakeAdapter.fail, _FakeAdapter.calls = False, []
+        self.patch = mock.patch.dict(service.ADAPTERS, {'eia_api': _FakeAdapter})
+        self.patch.start()
+        self.addCleanup(self.patch.stop)
+
+    def test_seed_marks_fred_restricted_and_purges_its_rows(self):
+        db = make_db()
+        db.add(m.FuelObservation(series_id='eia_fred:X', obs_date=date(2026, 1, 1), value_usd_per_gal=3.0, geo_level='country', price_basis='spot', source_id='eia_fred'))
+        db.get(m.FuelSource, 'eia_fred').terms_status = 'unverified'
+        db.get(m.FuelSource, 'eia_fred').enabled = True
+        db.commit()
+        service.seed(db)  # what the next startup does
+        fred = db.get(m.FuelSource, 'eia_fred')
+        self.assertEqual((fred.terms_status, fred.enabled), ('restricted', False))
+        self.assertEqual(db.query(m.FuelObservation).filter_by(source_id='eia_fred').count(), 0)
+        with self.assertRaises(ValueError):
+            service.set_enabled(db, 'eia_fred', True, 'Don')
+
+    def test_seed_keeps_a_users_signoff_status(self):
+        db = make_db()
+        service.set_enabled(db, 'eia_api', True, 'Don')
+        db.get(m.FuelSource, 'eia_api').terms_status = 'verified_ok'
+        db.commit()
+        service.seed(db)
+        self.assertEqual(db.get(m.FuelSource, 'eia_api').terms_status, 'verified_ok')
+
+    def test_first_run_backfills_then_runs_are_incremental_and_idempotent(self):
+        first = service.refresh_source(self.db, 'eia_api')
+        self.assertTrue(first['ok'])
+        self.assertEqual([c[1] for c in _FakeAdapter.calls], [None, None])  # no data yet: full history
+        self.assertEqual(self.db.query(m.FuelObservation).count(), 2)
+        self.assertEqual(self.db.query(m.FuelDriverPoint).count(), 1)
+        _FakeAdapter.calls = []
+        again = service.refresh_source(self.db, 'eia_api')
+        self.assertEqual((again['inserted'], again['updated']), (0, 0))
+        self.assertEqual(dict(_FakeAdapter.calls)['daily_jet'], date(2026, 11, 4))  # since = newest stored point
+
+    def test_due_logic_runs_each_job_on_its_own_frequency_and_catches_up(self):
+        now = datetime(2026, 11, 9, 12, 0)
+        self.assertTrue(service.job_due(None, 'daily', now))
+        run = m.FuelJobRun(source_id='eia_api', job_key='j', last_success_at=now - timedelta(hours=5))
+        self.assertFalse(service.job_due(run, 'daily', now))
+        run.last_success_at = now - timedelta(days=1, minutes=-10)
+        self.assertTrue(service.job_due(run, 'daily', now))  # within the 30 min tolerance
+        self.assertFalse(service.job_due(run, 'weekly', now))
+        run.last_success_at = now - timedelta(days=30)  # app was down for a month: everything is due at startup
+        self.assertTrue(all(service.job_due(run, f, now) for f in ('daily', 'weekly', 'monthly')))
+
+    def test_refresh_due_skips_jobs_that_are_not_due(self):
+        service.refresh_due(self.db)
+        _FakeAdapter.calls = []
+        self.assertEqual(service.refresh_due(self.db), [])
+        self.assertEqual(_FakeAdapter.calls, [])
+
+    def test_failure_is_stored_not_raised_and_backs_off(self):
+        _FakeAdapter.fail = True
+        out = service.refresh_due(self.db)
+        self.assertTrue(out and not any(r['ok'] for r in out))
+        run = self.db.get(m.FuelJobRun, ('eia_api', 'daily_jet'))
+        self.assertIn('HTTP 503', run.last_error)
+        _FakeAdapter.calls = []
+        self.assertEqual(service.refresh_due(self.db), [])  # retried no sooner than 6 hours later
+        self.assertEqual(_FakeAdapter.calls, [])
+        cov = service.coverage(self.db)
+        self.assertTrue(any(j['status'] == 'error' for j in cov['jobs']))
+        self.assertTrue(cov['stale'])
+
+    def test_stale_warning_by_data_age(self):
+        service.refresh_source(self.db, 'eia_api')
+        fresh = service.coverage(self.db, today=date(2026, 11, 5))
+        self.assertTrue(all(j['status'] == 'ok' for j in fresh['jobs']))
+        old = service.coverage(self.db, today=date(2026, 12, 20))
+        self.assertTrue(any(j['status'] == 'stale' and 'days old' in j['detail'] for j in old['jobs']))
+
+    def test_native_drivers_feed_the_driver_stats_instead_of_refusing(self):
+        days = [date(2024, 1, 5) + timedelta(weeks=i) for i in range(80)]
+        brent = [(d.isoformat(), 70 + 10 * math.sin(i / 6)) for i, d in enumerate(days)]
+        jet = [(d.isoformat(), (70 + 10 * math.sin(i / 6)) / 42 + 0.5 + 0.3 * math.sin(i / 4)) for i, d in enumerate(days)]
+        stocks = [(d.isoformat(), 40000 + 2000 * math.sin(i / 4)) for i, d in enumerate(days)]
+        service.upsert(self.db, eia_api.parse_rows('jet_weekly', eia_rows(jet)) + eia_api.parse_rows('brent_weekly', eia_rows(brent, '$/BBL'))
+                       + eia_api.parse_rows('jet_stocks', eia_rows(stocks, 'MBBL')))
+        one = stats.compute(self.db, 'inventories', country='US', driver='jet_stocks')
+        self.assertEqual(one['status'], 'ok')
+        self.assertEqual([r['lag_weeks'] for r in one['rows']], list(range(9)))
+        many = stats.compute(self.db, 'drivers', country='US')
+        by = {d['driver']: d for d in many['drivers']}
+        self.assertEqual(by['jet_stocks']['status'], 'ok')
+        self.assertEqual(by['jet_stocks']['unit'], 'mbbl')
+        self.assertEqual(by['jet_exports']['status'], 'refused')  # that series was not loaded: refuses on its own, the rest still answer
+        self.assertEqual(service.series(self.db, kind='driver', driver='jet_stocks')['unit'], 'mbbl')
+
+    def test_attribution_reaches_price_and_series(self):
+        service.refresh_source(self.db, 'eia_api')
+        res = resolve.get_price(self.db, country='US', today=date(2026, 11, 5))['results']['scheduled']
+        self.assertEqual(res['attribution'], 'Source: U.S. Energy Information Administration (eia.gov)')
+        self.assertIn('Energy Information Administration', service.series(self.db, country='US')['attribution'])
+
+
+class DropFolderTests(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        self.tmp = Path(tempfile.mkdtemp())
+        self.patch = mock.patch.object(service, 'DROP_DIR', self.tmp)
+        self.patch.start()
+        self.addCleanup(self.patch.stop)
+        self.db = make_db()
+        self.cmap = {'year': 'YEAR', 'month': 'MONTH', 'gallons': ['G'], 'cost': ['C'], 'operator_class': 'scheduled'}
+
+    def test_disabled_source_imports_nothing(self):
+        (self.tmp / 'a.csv').write_text('YEAR,MONTH,G,C\n2026,9,1000,2600\n')
+        self.assertEqual(service.scan_drop_folder(self.db), [])
+        self.assertTrue((self.tmp / 'a.csv').exists())
+
+    def test_file_with_explicit_map_is_imported_then_moved(self):
+        import json as _json
+        service.set_enabled(self.db, 'bts_p12', True, 'Don')
+        (self.tmp / 'column_map.json').write_text(_json.dumps(self.cmap))
+        (self.tmp / 'a.csv').write_text('YEAR,MONTH,G,C\n2026,9,1000,2600\n2026,8,1000,2800\n')
+        out = service.scan_drop_folder(self.db)
+        self.assertTrue(out[0]['ok'] and out[0]['months'] == 2)
+        self.assertEqual(len(list((self.tmp / 'processed').glob('*_a.csv'))), 1)
+        self.assertEqual(service.scan_drop_folder(self.db), [])  # nothing left to import
+        res = service.series(self.db, country='US', period='month', source_id='bts_p12')
+        self.assertEqual([p['value'] for p in res['points']], [2.8, 2.6])
+
+    def test_missing_map_or_bad_file_is_reported_and_isolated(self):
+        import json as _json
+        service.set_enabled(self.db, 'bts_p12', True, 'Don')
+        (self.tmp / 'a.csv').write_text('YEAR,MONTH,G,C\n2026,9,1000,2600\n')
+        out = service.scan_drop_folder(self.db)
+        self.assertIn('column_map.json', out[0]['error'])
+        self.assertTrue((self.tmp / 'a.csv').exists())  # left alone until a map exists
+        (self.tmp / 'column_map.json').write_text(_json.dumps({**self.cmap, 'gallons': ['NOPE']}))
+        out = service.scan_drop_folder(self.db)
+        self.assertFalse(out[0]['ok'])
+        self.assertTrue((self.tmp / 'failed' / 'a.csv.error.txt').exists())
+        self.assertIn('a.csv', self.db.get(m.FuelSource, 'bts_p12').last_error)
+
+    def test_monthly_reminder_appears_until_the_expected_month_is_imported(self):
+        self.assertIsNone(service.bts_reminder(self.db, date(2026, 11, 9)))  # source disabled: no nagging
+        service.set_enabled(self.db, 'bts_p12', True, 'Don')
+        reminder = service.bts_reminder(self.db, date(2026, 11, 9))
+        self.assertEqual((reminder['expected_through'], reminder['latest_imported']), ('2026-09-01', None))
+        text = 'YEAR,MONTH,G,C\n2026,9,1000,2600\n'
+        obs, _ = bts_p12.parse(text, self.cmap)
+        service.upsert(self.db, obs)
+        self.assertIsNone(service.bts_reminder(self.db, date(2026, 11, 9)))
+        self.assertIsNotNone(service.bts_reminder(self.db, date(2026, 12, 20)))
+        self.assertEqual(service.coverage(self.db, date(2026, 12, 20))['reminders'][0]['source'], 'bts_p12')
 
 
 if __name__ == '__main__':

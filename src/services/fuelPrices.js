@@ -30,6 +30,7 @@ export const fetchFuelSeries = ({ country, airport, region, operatorClass, kind,
   request(`/series${qs({ country, airport, region, class: operatorClass, kind, driver, from })}`)
 export const fetchFuelStat = (kind, { country, airport, operatorClass, from, to }) => request(`/stats/${kind}${qs({ country, airport, class: operatorClass, from, to })}`)
 export const fetchFuelSources = () => request('/sources')
+export const fetchBtsMonthly = () => request('/bts/monthly')
 export const setFuelSourceEnabled = (id, enabled, signedOffBy) => post(`/sources/${id}/enable`, { enabled, signed_off_by: signedOffBy })
 export const refreshFuelSource = (id, full = false) => post(`/sources/${id}/refresh${qs({ full })}`, {})
 export const fetchFuelCoverage = () => request('/coverage')

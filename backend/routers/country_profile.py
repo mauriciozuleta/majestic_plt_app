@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..background_jobs import clear_building, get_error, is_building, mark_building, mark_error
 from ..country_profile.claude_client import build_country_commercial_profile, extract_quick_facts
+from ..data_history import service as data_history_service
 from ..database import SessionLocal, get_db
 from ..knowledge_base.context import business_context, context_prompt_section
 from ..trade_gov.commercial_guides import fetch_guide
@@ -134,6 +135,7 @@ def _run_profile_build(country_id: str, country_name: str, extra_prompt: str = '
             source = f' No Country Commercial Guide for {country_name} — built from web research.{guide_note}'
         header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.{source}{based_on}\n\n'
         path.write_text(header + body, encoding='utf-8')
+        data_history_service.record_file(path, 'country profile built')
     except Exception as exc:
         mark_error(path, str(exc))
     finally:

@@ -32,6 +32,7 @@ from ..catalog_normalization.translate import overrides_from_db
 from ..catalog_normalization.units import parse_unit
 from ..catalog_normalization.validation import validate_weight
 from ..database import SessionLocal, get_db
+from ..snapshot_store import record_current
 
 router = APIRouter()
 
@@ -118,6 +119,8 @@ def reannotate(db: Session = Depends(get_db)):
         row.data_json = json.dumps(products)
         count += len(products)
     db.commit()
+    for row, _products in _catalog_rows(db):
+        record_current(db, row.source, 're-annotated (weights / rules changed)')
     return {'products': count, 'weights_copied_to_english_names': migrated, 'legacy_estimates_imported': imported}
 
 
@@ -139,6 +142,8 @@ def _run_research(pairs: list[tuple[str, str]]):
             annotate_with_db(db, row.source, products)
             row.data_json = json.dumps(products)
         db.commit()
+        for row, _products in _catalog_rows(db):
+            record_current(db, row.source, 'item weights researched')
     except Exception as error:  # noqa: BLE001 — shown to the user through /status
         mark_error(JOB_MARKER, str(error))
     finally:
@@ -303,4 +308,6 @@ def save_weights(payload: SaveIn, db: Session = Depends(get_db)):
         annotate_with_db(db, row.source, products)
         row.data_json = json.dumps(products)
     db.commit()
+    for row, _products in _catalog_rows(db):
+        record_current(db, row.source, 'item weights saved by a person')
     return {'saved': saved, 'refused': refused, 'still_missing': len(_needs(db))}

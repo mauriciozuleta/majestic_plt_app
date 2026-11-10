@@ -1,0 +1,5 @@
+# the monthly BTS downloads are user data, not source
+bts_p12/*.csv
+bts_p12/processed/
+bts_p12/failed/
+bts_p12/column_map.json

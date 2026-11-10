@@ -1,6 +1,7 @@
 import './Sidebar.css'
 import {
   IconChartDots,
+  IconRobot,
   IconFiles,
   IconHome,
   IconLayoutDashboard,
@@ -15,7 +16,6 @@ import {
 import SidebarNavItem from './SidebarNavItem'
 import CompanyList from './CompanyList'
 import UserRow from '../../user/UserRow'
-import Chatbox from '../../chatbox/Chatbox'
 import AddCompanyModal from '../../company/AddCompanyModal/AddCompanyModal'
 import { useAppStore } from '../../../store/useAppStore'
 import { addCompany as createCompany, updateCompany as updateCompanyApi } from '../../../services/companies'
@@ -86,8 +86,8 @@ function Sidebar() {
 
           <SidebarNavItem icon={IconSettings} label="Settings" to="/settings" />
           <SidebarNavItem icon={IconTools} label="Tools" to="/tools" />
+          <SidebarNavItem icon={IconRobot} label="Agents" to="/agents" />
           <UserRow />
-          <Chatbox />
         </div>
       </div>
 

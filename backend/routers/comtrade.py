@@ -18,6 +18,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from .. import market_size_store, models
+from ..data_history import HeldForApproval
 from ..comtrade import client
 from ..comtrade.classification import list_searchable_hs_codes
 from ..comtrade.countries import iso2_for_territory_code, list_tracked_countries, territory_code
@@ -511,7 +512,10 @@ def refresh_sam_overview(db: Session, chapters: str | None = None, flow: str = '
             detail='SAM has never been computed yet — view the SAM Overview tab once first, or pass chapters explicitly.',
         )
     data = _compute_sam_overview_data(db, chapter_list, flow)
-    return market_size_store.save_snapshot(db, 'sam', flow, chapter_list, data)
+    try:
+        return market_size_store.save_snapshot(db, 'sam', flow, chapter_list, data, guard=True, reason='refresh')
+    except HeldForApproval as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.post('/api/trade/sam-overview/refresh')
@@ -860,7 +864,10 @@ def refresh_tam_overview(db: Session, chapters: str | None = None, flow: str = '
             detail='TAM has never been computed yet — view the TAM Overview tab once first, or pass chapters explicitly.',
         )
     data = _compute_tam_overview_data(db, chapter_list, flow)
-    return market_size_store.save_snapshot(db, 'tam', flow, chapter_list, data)
+    try:
+        return market_size_store.save_snapshot(db, 'tam', flow, chapter_list, data, guard=True, reason='refresh')
+    except HeldForApproval as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.post('/api/trade/tam-global-overview/refresh')

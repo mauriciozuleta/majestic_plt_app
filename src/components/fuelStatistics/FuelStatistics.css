@@ -37,6 +37,11 @@
 .fuel-chart__line { fill: none; stroke: var(--accent-amber, #f97316); stroke-width: 1.6; }
 .fuel-chart__line--second { stroke: var(--accent-teal-text, #2dd4bf); stroke-width: 1.2; }
 .fuel-chart__event { stroke: #fca5a5; stroke-dasharray: 4 3; stroke-width: 1.2; }
+.fuel-chart__cursor { stroke: var(--text-muted); stroke-dasharray: 3 3; }
+.fuel-chart__point { fill: var(--accent-amber, #f97316); stroke: var(--bg-card); stroke-width: 2; }
+.fuel-chart__tooltip-bg { fill: var(--bg-card); stroke: var(--border-strong); }
+.fuel-chart__tooltip-text { fill: var(--text-primary); font-size: 12px; font-family: var(--font-mono); }
+.fuel-chart:focus-visible { outline: 2px solid var(--accent-amber, #f97316); outline-offset: 3px; }
 .fuel-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr)); gap: 0.75rem; }
 .fuel-stat p { margin: 0.3rem 0; line-height: 1.45; }
 .fuel-stat ul { margin: 0.3rem 0; padding-left: 1.1rem; }
@@ -52,3 +57,8 @@
 .fuel-actions { display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
 .fuel-actions button, .fuel-upload { border: 1px solid var(--border-strong); background: var(--bg-panel); color: var(--text-primary); border-radius: 8px; padding: 0.3rem 0.6rem; font-size: 0.72rem; cursor: pointer; }
 .fuel-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.fuel-warning { margin: 0.2rem 0; padding: 0.5rem 0.7rem; border: 1px solid rgba(249, 115, 22, 0.5); border-radius: 8px; background: rgba(249, 115, 22, 0.08); color: var(--accent-amber-text); font-size: 0.78rem; }
+.fuel-attribution { margin: 0; font-size: 0.7rem; color: var(--text-muted); }
+.fuel-badge--job-ok { color: #86efac; border-color: rgba(134, 239, 172, 0.4); }
+.fuel-badge--job-stale, .fuel-badge--job-never_run { color: var(--accent-amber-text); border-color: rgba(249, 115, 22, 0.5); }
+.fuel-badge--job-error { color: #fca5a5; border-color: rgba(252, 165, 165, 0.5); }

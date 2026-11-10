@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from .. import models, tax_calc
+from ..data_history import service as data_history_service
 from ..database import get_db
 from ..tax_calc import Inputs, mapping
 from ..tax_calc.colombia_dian import import_taxes as dian_import_taxes
@@ -85,7 +86,12 @@ def refresh(country: str):
     """Re-reads / re-downloads the country's tariff data."""
     calculator = _calculator(country)
     try:
-        return calculator.refresh()
+        result = calculator.refresh()
+        try:
+            data_history_service.record_file(calculator.path, f'{country} tariff data refreshed')
+        except AttributeError:
+            pass  # a calculator with no data file
+        return result
     except Exception as error:
         raise HTTPException(status_code=502, detail=f'Could not update the {country} tariff data: {error}') from error
 

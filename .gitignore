@@ -76,3 +76,7 @@ backend/tax_calc/colombia_dian/debug/
 # tourism module: provider answer cache and account-specific provider registries
 backend/tourism/cache/
 backend/tourism/statista_registry.json
+
+# Data history (versions of fetched/generated data) — its own SQLite file, deliberately not in git (see backend/data_history/)
+majestic_history.db
+majestic_history.db-journal

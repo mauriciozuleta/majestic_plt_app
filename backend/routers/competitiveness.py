@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..background_jobs import clear_building, get_error, is_building, mark_building, mark_error
 from ..country_profile.claude_client import build_competitiveness_analysis, extract_quick_facts
+from ..data_history import service as data_history_service
 from ..database import get_db
 from ..knowledge_base.context import business_context, context_prompt_section
 from .country_profile import PROFILES_DIR
@@ -103,6 +104,7 @@ def _run_competitiveness_build(
         based_on = f' Based on our documents: {", ".join(document_names)}.' if document_names else ''
         header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.{based_on}\n\n'
         path.write_text(header + body, encoding='utf-8')
+        data_history_service.record_file(path, 'competitiveness analysis built')
     except Exception as exc:
         mark_error(path, str(exc))
     finally:

@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import data_history, models
 from ..database import get_db
 from ..knowledge_base import rag
 from ..knowledge_base.claude_client import ANTHROPIC_API_URL, ANTHROPIC_VERSION, MODEL
@@ -203,6 +203,27 @@ def save_assistant_message(payload: StoredMessageIn, db: Session = Depends(get_d
     return _serialize_message(row)
 
 
+class ClearChatIn(BaseModel):
+    cleared_by: str = ''
+
+
+@router.post('/assistant/messages/clear')
+def clear_assistant_messages(payload: ClearChatIn, db: Session = Depends(get_db)):
+    """Empties the Assistant chat log. The whole conversation is first saved as a modification report (Documentation ▸ Modification Reports)."""
+    from ..modification_reports import write_chat_report
+    from .knowledge_base import sync_reports  # late import: knowledge_base imports the Assistant's helpers
+
+    rows = db.query(models.AssistantMessage).order_by(models.AssistantMessage.created_at.asc()).all()
+    if not rows:
+        raise HTTPException(status_code=400, detail='The chat is already empty.')
+    path, title = write_chat_report([_serialize_message(row) for row in rows], payload.cleared_by)
+    for row in rows:
+        db.delete(row)
+    db.commit()
+    sync_reports(db)
+    return {'removed': len(rows), 'report': path.name, 'title': title}
+
+
 def _api_key() -> str | None:
     return os.environ.get('CLAUDE_API_KEY') or os.environ.get('claude_api_key')
 
@@ -248,6 +269,11 @@ def _refresh_market_size_one(db: Session, label: str, summary_fn, refresh_fn) ->
 
 
 def _run_tool(db: Session, name: str, args: dict, sources: dict, actions: list) -> str:
+    with data_history.acting_as('assistant'):  # every write a tool makes is recorded in the data history as the assistant's
+        return _run_tool_inner(db, name, args, sources, actions)
+
+
+def _run_tool_inner(db: Session, name: str, args: dict, sources: dict, actions: list) -> str:
     if name == 'search_knowledge_base':
         query = str(args.get('query', '')).strip()
         if not query:
@@ -323,7 +349,9 @@ def _run_tool(db: Session, name: str, args: dict, sources: dict, actions: list) 
             return 'No such product source id. Call list_product_sources first.'
         if not row.url:
             return f'"{row.name}" has no web address, so it can only be updated by loading a file in Settings — not from here.'
-        product_sources._analyze(db, row)
+        if product_sources._analyze(db, row) == 'held':
+            db.commit()
+            return f'The new read of "{row.name}" ({row.country_name}) looked worse than the stored products, so it was NOT saved and is waiting for approval: {row.status_message} Tell the user to review it in Settings ▸ Data history.'
         db.commit()
         if row.status == 'ok':
             return f'Refreshed "{row.name}" ({row.country_name}): {row.product_count} products. {row.status_message or ""}'.strip()

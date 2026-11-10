@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import './Chatbox.css'
+import './AgentChatPanel.css'
 import { IconPlayerStop, IconSend } from '@tabler/icons-react'
-import { LOCAL_TAG, PDF_PREFIX, isLocalMessage, useChatbox } from './useChatbox'
+import { LOCAL_TAG, PDF_PREFIX, isLocalMessage, useChatbox } from '../chatbox/useChatbox'
 import { reportFileUrl } from '../../services/localModels'
-import ReportModal from './ReportModal'
+import { useAppStore } from '../../store/useAppStore'
+import ReportModal from '../chatbox/ReportModal'
 
-function Chatbox() {
+// The Assistant chat (moved here from the sidebar; the hook, the API calls and the log are unchanged).
+function AgentChatPanel() {
   const {
     messages,
     draft,
@@ -24,12 +26,25 @@ function Chatbox() {
     stopLocalReport,
   } = useChatbox()
   const endRef = useRef(null)
+  const [clearing, setClearing] = useState(false)
   // the report shown in the larger window: { text, model, country, request, sources }
   const [openReport, setOpenReport] = useState(null)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [messages.length, sending, live?.text])
+
+  const handleClear = async () => {
+    if (!window.confirm(`Clear the chat? The ${messages.length} messages are removed and saved as a report in Documentation ▸ Modification Reports.`)) return
+    setClearing(true)
+    try {
+      await useAppStore.getState().clearAssistantMessages()
+    } catch (error) {
+      window.alert(`Could not clear the chat: ${error.message}`)
+    } finally {
+      setClearing(false)
+    }
+  }
 
   const noCountry = localMode && reportCountries.length === 0
   const placeholder = localMode
@@ -73,6 +88,15 @@ function Chatbox() {
             </option>
           )}
         </select>
+        <button
+          type="button"
+          className="chatbox__clear"
+          onClick={handleClear}
+          disabled={sending || clearing || messages.length === 0}
+          title="Remove every message; the conversation is saved in Documentation ▸ Modification Reports"
+        >
+          {clearing ? 'Clearing…' : 'Clear chat'}
+        </button>
         {localMode && (
           <select
             value={country}
@@ -169,4 +193,4 @@ function Chatbox() {
   )
 }
 
-export default Chatbox
+export default AgentChatPanel

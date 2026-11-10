@@ -7,6 +7,7 @@ from pathlib import Path
 
 REPORTS_DIR = Path(__file__).resolve().parent / 'documents' / 'modification_reports'
 KEY_PREFIX = 'modification_report:'
+NL = chr(10)
 
 
 def _cell(value) -> str:
@@ -54,5 +55,38 @@ def write_deletion_report(removed: list[dict], requested: int, deleted_by: str) 
         '',
     ]
     path = REPORTS_DIR / f'{stamp}_{len(removed)}-products.md'
-    path.write_text('\n'.join(lines), encoding='utf-8')
+    path.write_text(NL.join(lines), encoding='utf-8')
+    return path, title
+
+
+def write_chat_report(messages: list[dict], cleared_by: str) -> tuple[Path, str]:
+    """`messages` = the Assistant chat log, oldest first: [{sender, text, sources, created_at}]. The whole conversation is kept in the report."""
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    noun = 'message' if len(messages) == 1 else 'messages'
+    title = f'Modification report — Assistant chat cleared ({len(messages)} {noun})'
+    lines = [
+        f'# {title}',
+        '',
+        f'- **Date (UTC):** {now.strftime("%Y-%m-%d %H:%M:%S")}',
+        f'- **Done by:** {cleared_by or "unknown user"}',
+        '- **Action:** the Assistant chat (Agents tab) was cleared; the conversation below was removed from the database',
+        f'- **Messages removed:** {len(messages)}',
+        f'- **Conversation from:** {messages[0].get("created_at", "")} **to** {messages[-1].get("created_at", "")}',
+        '',
+        '## Conversation',
+        '',
+    ]
+    for message in messages:
+        who = 'You' if message.get('sender') == 'user' else 'Assistant'
+        lines.append(f'**{who}** · {message.get("created_at", "")}')
+        lines.append('')
+        lines.extend(f'> {line}' if line.strip() else '>' for line in (message.get('text') or '').splitlines() or [''])
+        sources = [source for source in message.get('sources') or [] if source]
+        if sources:
+            lines.append('')
+            lines.append(f'_Sources: {"; ".join(sources)}_')
+        lines.append('')
+    path = REPORTS_DIR / f'{now.strftime("%Y-%m-%d_%H%M%S")}_chat-cleared.md'
+    path.write_text(NL.join(lines), encoding='utf-8')
     return path, title

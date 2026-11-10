@@ -5,6 +5,7 @@ import RoadmapDateInput from '../RoadmapView/RoadmapDateInput'
 import PayrollLevelsModal from './PayrollLevelsModal'
 import MarketOpportunitySettingsCard from './MarketOpportunitySettingsCard'
 import ProductSourcesCard from './ProductSourcesCard'
+import DataHistoryCard from './DataHistoryCard'
 import DevelopmentPhasesPanel from './DevelopmentPhasesPanel'
 import USPayrollTaxPanel from './USPayrollTaxPanel'
 import PayrollSchedulePanel from './PayrollSchedulePanel'
@@ -610,6 +611,8 @@ function SettingsView() {
       </div>
 
       <ProductSourcesCard />
+
+      <DataHistoryCard />
 
       <MarketOpportunitySettingsCard />
 

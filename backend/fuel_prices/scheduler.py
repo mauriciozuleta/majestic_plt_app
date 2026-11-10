@@ -1,4 +1,4 @@
-"""In-process refresh job (same pattern as accounting_audit_scheduler): ticks every 6 hours and refreshes only the enabled automatic sources whose update frequency elapsed.
+"""In-process refresh job (same pattern as accounting_audit_scheduler): ticks hourly (and once at startup, which is the catch-up after downtime: last-run times are persisted in fuel_job_runs) and runs only the jobs whose frequency elapsed, plus the BTS drop folder.
 A failing source is logged and retried no sooner than 6 hours later; it never raises into the app."""
 
 import logging
@@ -33,6 +33,6 @@ def start():
         db.close()
     if _scheduler is None:
         _scheduler = BackgroundScheduler(daemon=True)
-        _scheduler.add_job(_tick, 'interval', hours=6, next_run_time=datetime.now(timezone.utc))
+        _scheduler.add_job(_tick, 'interval', hours=1, next_run_time=datetime.now(timezone.utc))
         _scheduler.start()
     return _scheduler

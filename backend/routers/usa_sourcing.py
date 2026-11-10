@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
+from ..data_history import HeldForApproval
 from ..database import get_db
 from ..snapshot_store import list_snapshots, save_snapshot
 from ..usa_sources.beef import fetch_beef_products
@@ -42,7 +43,10 @@ def _endpoint(source_key, fetch_fn, label):
             products = fetch_fn()
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f'{label} fetch failed: {exc}') from exc
-        save_snapshot(db, source_key, products)
+        try:
+            save_snapshot(db, source_key, products, guard=True, reason='update')
+        except HeldForApproval as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
         return products
 
     return handler

@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 load_dotenv()
 
 from .accounting_audit_scheduler import start_accounting_audit_scheduler
-from .database import Base, engine
+from .database import Base, SessionLocal, engine
 from .aircraft_catalog import migrate_aircraft_to_cargo
 from .charter_defaults import migrate_provider_fields
 from .routers import (
@@ -59,6 +59,7 @@ from .routers import (
     usa_sourcing,
     catalog_normalization,
     catalog_products,
+    data_history,
     fuel_prices,
 )
 
@@ -617,6 +618,7 @@ app.include_router(expense_providers.router)
 app.include_router(catalog_normalization.router)
 app.include_router(catalog_products.router)
 app.include_router(fuel_prices.router)
+app.include_router(data_history.router)
 
 
 @app.on_event('startup')
@@ -624,3 +626,21 @@ def _on_startup():
     start_accounting_audit_scheduler()
     from .fuel_prices.scheduler import start as start_fuel_scheduler
     start_fuel_scheduler()
+    _record_data_history_baseline()
+
+
+def _record_data_history_baseline():
+    """Start-up check of the data history: records today's state of every dataset (the baseline the first time; afterwards only what changed outside the
+    hooked write paths). Never stops the app from starting."""
+    import logging
+
+    from .data_history import service as history_service
+
+    db = SessionLocal()
+    try:
+        result = history_service.baseline(db)
+        logging.getLogger('data_history').info('data history: %d new versions, %d unchanged', len(result['added']), result['unchanged'])
+    except Exception:  # noqa: BLE001
+        logging.getLogger('data_history').exception('data history baseline failed')
+    finally:
+        db.close()

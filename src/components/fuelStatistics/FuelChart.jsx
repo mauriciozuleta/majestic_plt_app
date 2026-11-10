@@ -1,4 +1,5 @@
 // Dependency-free SVG line chart: the price series, optional second line (Brent or crack spread, same USD/gal axis) and vertical event markers.
+import { useState } from 'react'
 const W = 760
 const H = 260
 const PAD = { left: 46, right: 12, top: 12, bottom: 24 }
@@ -22,7 +23,8 @@ function thin(points) {
   return points.filter((_, i) => i % step === 0 || i === points.length - 1)
 }
 
-function FuelChart({ primary, secondary, secondaryLabel, events = [] }) {
+function FuelChart({ primary, secondary, secondaryLabel, periodType, events = [] }) {
+  const [activeIndex, setActiveIndex] = useState(null)
   const main = thin(primary || [])
   if (main.length < 2) return <p className="fuel-stats__empty">Not enough points to draw a chart.</p>
   const second = thin(secondary || [])
@@ -42,8 +44,43 @@ function FuelChart({ primary, secondary, secondaryLabel, events = [] }) {
     const t = new Date(e.date).getTime()
     return t >= tMin && t <= tMax
   })
+  const active = activeIndex === null ? null : primary?.[activeIndex]
+  const activeX = active ? xOf([active])[0] : 0
+  const activeY = active ? yOf([active])[0] : 0
+  const comparison = active && secondary?.find((point) => point.date === active.date)
+  const tooltipX = Math.max(PAD.left, Math.min(activeX + 12, W - 252))
+  const tooltipY = Math.max(PAD.top, Math.min(activeY - 78, H - PAD.bottom - 76))
+  const dateLabel = active && new Date(`${active.date}T00:00:00Z`).toLocaleDateString('en-US', {
+    month: 'long', year: 'numeric', ...(periodType === 'month' ? {} : { day: 'numeric' }), timeZone: 'UTC',
+  })
+  const inspect = (event) => {
+    const svg = event.currentTarget
+    const matrix = svg.getScreenCTM()
+    if (!matrix) return
+    const point = svg.createSVGPoint()
+    point.x = event.clientX
+    point.y = event.clientY
+    const x = point.matrixTransform(matrix.inverse()).x
+    const target = tMin + ((x - PAD.left) / innerW) * (tMax - tMin)
+    // Inspect original observations, including points omitted from the drawn path.
+    let best = 0
+    primary.forEach((p, i) => {
+      if (Math.abs(Date.parse(p.date) - target) < Math.abs(Date.parse(primary[best].date) - target)) best = i
+    })
+    setActiveIndex(best)
+  }
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="fuel-chart" role="img" aria-label="Fuel price chart">
+    <svg viewBox={`0 0 ${W} ${H}`} className="fuel-chart" role="group" tabIndex={0}
+      aria-label="Fuel price chart. Hover or tap for prices. Use left and right arrow keys to inspect observations."
+      onPointerMove={inspect} onPointerDown={inspect} onPointerLeave={() => setActiveIndex(null)}
+      onFocus={() => setActiveIndex(primary.length - 1)} onBlur={() => setActiveIndex(null)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setActiveIndex(null)
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault()
+          setActiveIndex((index) => Math.max(0, Math.min(primary.length - 1, (index ?? primary.length - 1) + (event.key === 'ArrowLeft' ? -1 : 1))))
+        }
+      }}>
       {ticks.map((tick) => {
         const y = PAD.top + (1 - (tick - vMin) / (vMax - vMin || 1)) * innerH
         return (
@@ -66,6 +103,18 @@ function FuelChart({ primary, secondary, secondaryLabel, events = [] }) {
       })}
       {second.length > 1 && <path d={path(xOf(second), yOf(second))} className="fuel-chart__line fuel-chart__line--second"><title>{secondaryLabel}</title></path>}
       <path d={path(xOf(main), yOf(main))} className="fuel-chart__line" />
+      {active && (
+        <g className="fuel-chart__inspection" pointerEvents="none">
+          <line x1={activeX} x2={activeX} y1={PAD.top} y2={H - PAD.bottom} className="fuel-chart__cursor" />
+          <circle cx={activeX} cy={activeY} r={4} className="fuel-chart__point" />
+          <g transform={`translate(${tooltipX}, ${tooltipY})`} role="tooltip" aria-live="polite">
+            <rect width={240} height={comparison ? 74 : 54} rx={6} className="fuel-chart__tooltip-bg" />
+            <text x={10} y={19} className="fuel-chart__tooltip-text">{dateLabel}</text>
+            <text x={10} y={39} className="fuel-chart__tooltip-text">Fuel: ${active.value.toFixed(3)} / US gal</text>
+            {comparison && <text x={10} y={59} className="fuel-chart__tooltip-text">{secondaryLabel}: ${comparison.value.toFixed(3)} / US gal</text>}
+          </g>
+        </g>
+      )}
     </svg>
   )
 }

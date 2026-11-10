@@ -17,7 +17,8 @@ function SourceRow({ source, onChanged }) {
     let signedOffBy
     if (!source.enabled && source.terms_status !== 'verified_ok') {
       const terms = source.license_terms_url ? `\nTerms: ${source.license_terms_url}` : '\nNo terms URL is on record.'
-      signedOffBy = window.prompt(`“${source.name}” has terms status “${source.terms_status}”.${terms}\n\nType your name to confirm you reviewed the terms and allow its use:`)
+      const summary = source.notes ? `\n\nSummary: ${source.notes}` : ''
+      signedOffBy = window.prompt(`“${source.name}” has terms status “${source.terms_status}”.${terms}${summary}\n\nType your name to confirm you reviewed the terms and allow its use:`)
       if (!signedOffBy) return
     }
     setBusy(true)
@@ -34,8 +35,9 @@ function SourceRow({ source, onChanged }) {
 
   const refresh = async () => {
     setBusy(true)
+    setMessage('Downloading — the first full history can take a minute…')
     const result = await refreshFuelSource(source.id, source.observations === 0).catch((e) => ({ ok: false, error: e.message }))
-    setMessage(result.ok ? `Fetched ${result.fetched} (new ${result.inserted}, updated ${result.updated})` : `Failed: ${result.error}`)
+    setMessage(result.ok ? `Fetched ${result.fetched} rows (new ${result.inserted}, updated ${result.updated})` : `Failed: ${result.error}`)
     setBusy(false)
     onChanged()
   }
@@ -64,6 +66,8 @@ function SourceRow({ source, onChanged }) {
         <div className="fuel-card__muted">{source.coverage}</div>
         {source.notes && <div className="fuel-card__muted">{source.notes}</div>}
         {source.license_terms_url && <a href={source.license_terms_url} target="_blank" rel="noreferrer">terms</a>}
+        {source.attribution && <div className="fuel-card__muted">{source.attribution}</div>}
+        {source.drop_folder && source.enabled && <div className="fuel-card__muted">Drop folder: {source.drop_folder}</div>}
       </td>
       <td><span className={`fuel-badge fuel-badge--terms-${source.terms_status}`}>{STATUS_LABEL[source.terms_status]}</span>{source.terms_signed_off_by && <div className="fuel-card__muted">sign-off: {source.terms_signed_off_by}</div>}</td>
       <td>{source.enabled ? 'Enabled' : 'Disabled'}</td>
@@ -118,8 +122,34 @@ function FuelSourcesPanel() {
       </div>
 
       <h4>Data coverage</h4>
+      {coverage?.reminders?.map((r) => (
+        <p key={r.source} className="fuel-warning">
+          Monthly reminder: {r.message} Latest imported month: {r.latest_imported || 'none'}. <a href={r.url} target="_blank" rel="noreferrer">Open TranStats</a> · folder: {r.drop_folder}
+        </p>
+      ))}
+      {coverage?.stale?.map((j) => (
+        <p key={`${j.source}-${j.job}`} className="fuel-warning">
+          {j.status === 'error' ? 'Failing' : 'Stale'}: {j.source} / {j.label || j.job} ({j.frequency}) — {j.detail}
+        </p>
+      ))}
       {coverage && (
         <>
+          {coverage.jobs.length > 0 && (
+            <div className="fuel-table-wrap">
+              <table className="fuel-table">
+                <thead><tr><th>Scheduled job</th><th>Runs</th><th>Status</th><th>Newest data</th><th>Last success</th></tr></thead>
+                <tbody>
+                  {coverage.jobs.map((j) => (
+                    <tr key={`${j.source}-${j.job}`}>
+                      <td>{j.source} / {j.label || j.job}</td><td>{j.frequency}</td>
+                      <td><span className={`fuel-badge fuel-badge--job-${j.status}`}>{j.status.replace('_', ' ')}</span>{j.detail && <div className="fuel-card__muted">{j.detail}</div>}</td>
+                      <td>{j.latest_data || '—'}</td><td>{j.last_success_at ? String(j.last_success_at).slice(0, 16).replace('T', ' ') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <p className="fuel-card__muted">
             {coverage.places.length} series with observed data from enabled sources, out of {coverage.countries_total} countries; everything else falls back to the region or global index, a labelled estimate, or “no data”.
           </p>
