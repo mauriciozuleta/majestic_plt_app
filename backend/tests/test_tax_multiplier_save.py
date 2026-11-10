@@ -95,6 +95,22 @@ class SaveMultiplierTests(unittest.TestCase):
         self.assertNotEqual(rows['other tomato']['tax_multiplier'], 9.99)  # computed automatically
         self.assertEqual(rows['other tomato']['method'] != 'tax_calculator', True)
 
+    def test_without_a_product_list_the_server_uses_the_origin_portfolio(self):
+        calculator = tax_calc.get('Jamaica')
+        if not calculator.info()['ready']:
+            self.skipTest('Jamaica tariff data not present')
+        from unittest import mock
+        portfolio = [{'name': 'Tomato', 'category': 'vegetables', 'hsCode': '070200', 'priceUsdPerKg': 1.5}, {'name': 'Mystery', 'category': None, 'hsCode': None, 'priceUsdPerKg': None}]
+        client = make_client()
+        with mock.patch('backend.routers.tax_calculator.market_engine.country_prices', return_value=portfolio) as prices:
+            compute = client.post('/tax-calc/multipliers/compute', json={'destination': 'Jamaica', 'origin': 'Colombia'}).json()
+        prices.assert_called_once()
+        self.assertEqual(compute['products'], 2)
+        rows = {row['product_key']: row for row in client.get('/tax-calc/multipliers', params={'destination': 'Jamaica', 'origin': 'Colombia'}).json()['multipliers']}
+        self.assertEqual(set(rows), {'tomato', 'mystery'})
+        self.assertEqual(rows['tomato']['price_usd_kg'], 1.5)
+        self.assertEqual(rows['tomato']['hs_code'], '070200')
+
 
 if __name__ == '__main__':
     unittest.main()

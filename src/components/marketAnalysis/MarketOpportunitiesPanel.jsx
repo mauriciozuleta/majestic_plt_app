@@ -276,7 +276,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
       const next = new Map()
       for (const target of targets) {
         try {
-          await computeTaxMultipliers(target, sourceCountry, products)
+          await computeTaxMultipliers(target, sourceCountry)
         } catch {
           // this target has no automatic calculator (Colombia: its values come from the Tax Calculator, saved per product)
         }

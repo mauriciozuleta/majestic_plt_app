@@ -92,7 +92,7 @@ function TaxCalculatorView() {
     setMultipliers(new Map())
     if (!isFile || !origin || !originProducts || originProducts.length === 0) return undefined
     let cancelled = false
-    computeTaxMultipliers(destination, origin, originProducts)
+    computeTaxMultipliers(destination, origin)
       .then(() => fetchTaxMultipliers(destination, origin))
       .then((map) => !cancelled && setMultipliers(map))
       .catch(() => {})

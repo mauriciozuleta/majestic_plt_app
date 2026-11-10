@@ -16,12 +16,9 @@ const json = (method, body) => ({ method, headers: { 'Content-Type': 'applicatio
 
 export const productKey = (name) => (name || '').trim().toLowerCase()
 
-// products: [{ name, hsCode, category, priceUsdPerKg }] -> { destination, origin, products, by_status }
-export const computeTaxMultipliers = (destination, origin, products) =>
-  request(
-    '/tax-calc/multipliers/compute',
-    json('POST', { destination, origin, products: products.map((p) => ({ name: p.name, hs_code: p.hsCode, category: p.category, price_usd_kg: p.priceUsdPerKg })) }),
-  )
+// The server takes every product of the origin's portfolio with its USD/kg price (the same prices as GET /api/market-opportunities/country-prices) — the browser
+// no longer sends a list. -> { destination, origin, products, by_status }
+export const computeTaxMultipliers = (destination, origin) => request('/tax-calc/multipliers/compute', json('POST', { destination, origin }))
 
 // -> Map(productKey -> { tax_multiplier, landed_multiplier, status, method, note, tariff_code, tariff_path, detail }), or an empty map
 // when the destination has no calculator yet

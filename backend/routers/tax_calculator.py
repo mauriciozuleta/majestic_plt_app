@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from .. import models, tax_calc
 from ..data_history import service as data_history_service
 from ..database import get_db
+from ..market_opportunities import engine as market_engine
 from ..tax_calc import Inputs, mapping
 from ..tax_calc.colombia_dian import import_taxes as dian_import_taxes
 from ..tax_calc.colombia_dian.dian_types import TaxLookupRequest
@@ -116,7 +117,9 @@ SAVED_FROM_CALCULATOR = 'tax_calculator'
 class MultipliersIn(BaseModel):
     destination: str
     origin: str
-    products: list[MultiplierProductIn]
+    # Left out (the normal call now): the server takes every product of the origin's portfolio with its USD/kg price (market_opportunities.engine.country_prices).
+    # A list is still accepted, for a caller that wants a subset or its own prices.
+    products: list[MultiplierProductIn] | None = None
 
 
 def _multiplier_out(row: models.ProductTaxMultiplier) -> dict:
@@ -148,7 +151,12 @@ def compute_multipliers(payload: MultipliersIn, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc).isoformat()
     counts: dict[str, int] = {}
     seen: set[str] = set()
-    for product in payload.products:
+    if payload.products is None:
+        products = [MultiplierProductIn(name=item['name'], hs_code=item['hsCode'], category=item['category'], price_usd_kg=item['priceUsdPerKg'])
+                    for item in market_engine.country_prices(db, payload.origin)]
+    else:
+        products = payload.products
+    for product in products:
         key = product.name.strip().lower()
         if not key or key in seen:
             continue
