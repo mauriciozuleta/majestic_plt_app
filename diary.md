@@ -101,6 +101,7 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 | Commit | Date | Holds | Notes for reversing |
 | --- | --- | --- | --- |
+| `00ad49c` | 2026-11-10 | Phase 5 part 1: Market Opportunities DDP / level / sell price from the server | `git revert 00ad49c` |
 | `93a22e9` | 2026-11-10 | Phase 4: tax multiplier inputs from the server | `git revert 93a22e9` |
 | `f3c0a1d` | 2026-11-10 | Phase 3: shipment finance and allocation move to the backend | `git revert f3c0a1d` |
 | `a61b38d` | 2026-11-10 | Diary only: the Phase 2 commit id | — |
