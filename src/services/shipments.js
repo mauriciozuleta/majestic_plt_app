@@ -48,3 +48,11 @@ export async function fetchBuiltShipmentAirfares(sourceCountry, targetCountries)
   const { airfares } = await fetchJson(`/api/shipments/airfares?${new URLSearchParams({ source_country: sourceCountry, target_countries: targetCountries.join(',') })}`)
   return new Map(Object.entries(airfares))
 }
+
+/** For Market Opportunities, the targets of a pair that have a built shipment and, per product (`target|product name lowercased`), its DDP price, Market Level and suggested sell
+ * price, worked out on the server: { airfares: Map(target -> { airfarePerKg, note, routeName }), rows, unmatched } — `rows` for the products of the comparison, `unmatched` for the
+ * portfolio products with no match in the target market. Each entry: { ddp, fcaPerKg, multiplier, level, levelNote, sell, sellNote }. */
+export async function fetchPairPricing(sourceCountry, targetCountries) {
+  const data = await fetchJson(`/api/shipments/pair-pricing?${new URLSearchParams({ source_country: sourceCountry, target_countries: targetCountries.join(',') })}`)
+  return { airfares: new Map(Object.entries(data.airfares)), rows: data.rows, unmatched: data.unmatched }
+}

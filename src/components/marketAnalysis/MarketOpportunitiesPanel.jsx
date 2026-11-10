@@ -1,8 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../services/commercialStructure'
-import { fetchBuiltShipmentAirfares } from '../../services/shipmentPricing'
-import { fetchMarketOpportunitySettings, marketLevelFor as destinationLevelFor, suggestedSellPrice, UNMATCHED_MARKET_KEY } from '../../services/marketOpportunitySettings'
+import { fetchPairPricing } from '../../services/shipmentPricing'
 import { fetchProductSources } from '../../services/productSources'
 import {
   addToMarketOpportunityPriority,
@@ -298,30 +297,28 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   // DDP price + Market Level: for a target that has a built shipment (Financial ▸ Revenue ▸ route ▸ Shipment builder), every product's
   // DDP per kg = (FCA price + air fare) x (1 + tax multiplier) — the Shipment builder's own formula — and the level is the
   // Settings ▸ Market Opportunity settings ▸ Destination Market range that DDP, as a % of the target price, falls in.
-  const [airfares, setAirfares] = useState(() => new Map())
-  const [destinationMarkets, setDestinationMarkets] = useState([])
+  // worked out on the server (backend/shipments/service.py pair_pricing): the built shipment's air fare per target, and every product's DDP, Market Level and sell price
+  const [pricing, setPricing] = useState(() => ({ airfares: new Map(), rows: {}, unmatched: {} }))
+  const airfares = pricing.airfares
   useEffect(() => {
     if (runStatus !== 'ready') return undefined
     let cancelled = false
     const targets = [...new Set([...targetCountries, ...rows.map((row) => row.target_country)])]
-    fetchBuiltShipmentAirfares(sourceCountry, targets)
-      .then((map) => !cancelled && setAirfares(map))
-      .catch(() => !cancelled && setAirfares(new Map()))
-    fetchMarketOpportunitySettings()
-      .then((data) => !cancelled && setDestinationMarkets(data.destination_markets || []))
-      .catch(() => !cancelled && setDestinationMarkets([]))
+    fetchPairPricing(sourceCountry, targets)
+      .then((data) => !cancelled && setPricing(data))
+      .catch(() => !cancelled && setPricing({ airfares: new Map(), rows: {}, unmatched: {} }))
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rows/targets are summarised by runStatus + the keys below
-  }, [runStatus, sourceCountry, targetKey, rows.length])
+  }, [runStatus, sourceCountry, targetKey, rows.length, taxMultipliers]) // a new set of tax multipliers (computed on the server) changes the DDP prices
   const showDdp = rows.some((row) => airfares.has(row.target_country))
   const extraColumns = showDdp ? 3 : 0
-  const ddpFor = (row) => {
+  // `unmatched`: a portfolio product with no match in the target market
+  const ddpFor = (row, unmatched = false) => {
     const shipment = airfares.get(row.target_country)
-    const multiplier = taxMultipliers.get(`${row.target_country}|${productKey(row.product_name)}`)?.tax_multiplier ?? null
-    if (!shipment || shipment.airfarePerKg == null || multiplier == null || row.source_price_normalized == null) return { value: null, shipment, multiplier }
-    return { value: (row.source_price_normalized + shipment.airfarePerKg) * (1 + multiplier), shipment, multiplier }
+    const entry = (unmatched ? pricing.unmatched : pricing.rows)[`${row.target_country}|${productKey(row.product_name)}`]
+    return { value: entry?.ddp ?? null, shipment, multiplier: entry?.multiplier ?? null, entry }
   }
   const ddpTitle = (row, ddp) =>
     !ddp.shipment
@@ -331,17 +328,9 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
         : ddp.multiplier == null
           ? 'No tax multiplier for this product (see Tax ×).'
           : `FCA ${formatUsdPerKg(row.source_price_normalized)} + air fare ${formatUsdPerKg(ddp.shipment.airfarePerKg)} = ${formatUsdPerKg(row.source_price_normalized + ddp.shipment.airfarePerKg)}, plus taxes x${ddp.multiplier.toFixed(2)} — route ${ddp.shipment.routeName}`
-  // Destination Market level: DDP as a % of the target price, against each category's range (empty end = open)
-  const marketLevelFor = (row, ddp) => {
-    const { level, key, share, configured } = destinationLevelFor(ddp.value, row.target_price_normalized, destinationMarkets)
-    if (share == null) return { level: null, key: null, note: '' }
-    if (!configured) return { level: null, key: null, note: `DDP is ${share.toFixed(1)}% of the target price. Set the ranges in Settings ▸ Market Opportunity settings ▸ Destination Market.` }
-    return { level, key, note: `DDP is ${share.toFixed(1)}% of the target price${level ? '' : ' — outside every Destination Market range'}` }
-  }
-
-  // Suggested sell price: by the product's market level — wholesalers a % of the target price, niche / premium the DDP price + a
-  // profit % (Settings ▸ Destination Market)
-  const sellPriceFor = (row, ddp, level) => suggestedSellPrice(level.key, ddp.value, row.target_price_normalized, destinationMarkets)
+  // Destination Market level and the suggested sell price come with the entry (the server applies Settings ▸ Market Opportunity settings ▸ Destination Market)
+  const marketLevelFor = (row, ddp) => ({ level: ddp.entry?.level ?? null, note: ddp.entry?.levelNote ?? '' })
+  const sellPriceFor = (row, ddp) => ({ value: ddp.entry?.sell ?? null, note: ddp.entry?.sellNote ?? '' })
 
   // "x2.23" with the tariff line and how it was chosen as its tooltip
   const taxMultiplierFor = (target, productName) => taxMultipliers.get(`${target}|${productKey(productName)}`) ?? null
@@ -728,7 +717,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                             {showDdp && (() => {
                               const ddp = ddpFor(row)
                               const level = marketLevelFor(row, ddp)
-                              const sell = sellPriceFor(row, ddp, level)
+                              const sell = sellPriceFor(row, ddp)
                               return (
                                 <>
                                   <td title={ddpTitle(row, ddp)}>{ddp.shipment ? (ddp.value != null ? formatUsdPerKg(ddp.value) : '—') : ''}</td>
@@ -802,7 +791,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                         const entry = taxMultiplierFor(targetCountry, product.displayName)
                         // The same SAM lookups as the matched rows, by the product's own HS code.
                         const samRow = { hs_code: portfolio?.hsCode, target_country: targetCountry }
-                        const ddp = ddpFor({ target_country: targetCountry, product_name: product.displayName, source_price_normalized: portfolio?.priceUsdPerKg ?? null })
+                        const ddp = ddpFor({ target_country: targetCountry, product_name: product.displayName, source_price_normalized: portfolio?.priceUsdPerKg ?? null }, true)
                         // Only what is known for a product with no match: its source price, HS code and import taxes.
                         return (
                           <tr key={`${targetCountry}-${product.matchName}-${index}`}>
@@ -840,9 +829,9 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
                             </td>
                             <td />
                             {showDdp && <td title={ddpTitle({ source_price_normalized: portfolio?.priceUsdPerKg ?? 0 }, ddp)}>{ddp.value != null ? formatUsdPerKg(ddp.value) : ''}</td>}
-                            {showDdp && <td title="No match in the target market: a niche market product">{destinationMarkets.find((market) => market.key === UNMATCHED_MARKET_KEY)?.label ?? 'Niche Markets'}</td>}
+                            {showDdp && <td title="No match in the target market: a niche market product">{ddp.entry?.level ?? 'Niche Markets'}</td>}
                             {showDdp && (() => {
-                              const sell = suggestedSellPrice(UNMATCHED_MARKET_KEY, ddp.value, null, destinationMarkets)
+                              const sell = sellPriceFor(null, ddp)
                               return <td title={sell.note}>{sell.value != null ? formatUsdPerKg(sell.value) : ''}</td>
                             })()}
                             <td />

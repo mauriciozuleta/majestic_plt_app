@@ -110,6 +110,24 @@ class ShipmentServiceTests(unittest.TestCase):
         self.assertAlmostEqual(fares['Jamaica']['airfarePerKg'], self.airfare())
         self.assertEqual(service.built_shipment_airfares(self.db, 'Jamaica', ['Colombia']), {})
 
+    def test_pair_pricing_gives_ddp_level_and_sell_price_for_matched_and_unmatched_products(self):
+        portfolio = [{'name': 'Tomato', 'priceUsdPerKg': 1.0, 'hsCode': '070200'}, {'name': 'Avocado', 'priceUsdPerKg': 2.0, 'hsCode': '080440'}]
+        with mock.patch.object(mo_engine, 'country_prices', lambda db, country: portfolio):
+            result = service.pair_pricing(self.db, 'Colombia', ['Jamaica'])
+        airfare = self.airfare()
+        tomato = result['rows']['Jamaica|tomato']
+        # DDP/kg = (1.00 + air fare) x 1.5; against the 6.00 target price; the sell price of the Wholesalers level never drops below the cost
+        self.assertAlmostEqual(tomato['ddp'], (1.0 + airfare) * 1.5)
+        share = tomato['ddp'] / 6.0 * 100
+        self.assertEqual(tomato['level'], 'Wholesalers' if 60 <= share <= 100 else tomato['level'])
+        self.assertEqual(tomato['levelNote'], f'DDP is {share:.1f}% of the target price')
+        self.assertGreaterEqual(tomato['sell'], tomato['ddp'])
+        # Avocado is not in the comparison: no target price, a niche market product (DDP + 20% profit); it has no tax multiplier, so no DDP yet
+        avocado = result['unmatched']['Jamaica|avocado']
+        self.assertEqual((avocado['ddp'], avocado['level'], avocado['sell']), (None, 'Niche Markets', None))
+        self.assertNotIn('Jamaica|tomato', result['unmatched'])
+        self.assertEqual(service.pair_pricing(self.db, 'Jamaica', ['Colombia']), {'airfares': {}, 'rows': {}, 'unmatched': {}})
+
     def test_candidates_are_the_priority_list_in_the_saved_comparison_with_market_info(self):
         self.db.add_all([models.MarketOpportunityPriority(source_country='Colombia', target_country='Jamaica', product_name=name, created_at=NOW) for name in ('Tomato', 'Avocado', 'Ghost')])
         self.db.commit()

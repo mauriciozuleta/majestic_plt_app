@@ -101,6 +101,7 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 | Commit | Date | Holds | Notes for reversing |
 | --- | --- | --- | --- |
+| `93a22e9` | 2026-11-10 | Phase 4: tax multiplier inputs from the server | `git revert 93a22e9` |
 | `f3c0a1d` | 2026-11-10 | Phase 3: shipment finance and allocation move to the backend | `git revert f3c0a1d` |
 | `a61b38d` | 2026-11-10 | Diary only: the Phase 2 commit id | — |
 | `7fe4c7c` | 2026-11-10 | Phase 2: Market Opportunities engine on the backend (`backend/market_opportunities/`, `POST /api/market-opportunities/compute`, staleness `market_opportunity_runs`, thin `marketOpportunities.js`, overrides as JSON), parity tests for both variants | Reverting puts the 740-line engine back in the browser (it is in this commit's parent); the saved comparison rows in the database file are not touched by the code revert |
@@ -116,6 +117,10 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 ## Entries
 
+### 2026-11-10 — Phase 5 (first part): Market Opportunities DDP / level / sell price from the server
+**Prompt:** "yes, go for it" (commit Phase 4 as `93a22e9`, start Phase 5)
+
+New `GET /api/shipments/pair-pricing` (`shipments/service.py pair_pricing`, tier R): for each target with a built shipment, every product's DDP price, Market Level (+ note) and suggested sell price, for the comparison rows and for portfolio products with no match (niche). `MarketOpportunitiesPanel.jsx` no longer computes any of it (its copies of `marketLevelFor` / `suggestedSellPrice` / DDP formula are gone) and refetches when the tax multipliers change. `shipments.js` has `fetchPairPricing` (`fetchBuiltShipmentAirfares` is now unused by the panel). Review-reason text points to `cross_country_overrides.json`. New service test. Suite 412 passed / 1 skipped, oxlint clean, build ok. Still to do in Phase 5: Market Analysis status endpoint, Colombia table (`mergeSources` / `translateProductName`), `RevenueStreamsView.jsx` `routeMetrics.js`, `competitivenessInputs.js`.
 ### 2026-11-10 — Phase 4: the tax multiplier inputs come from the server
 **Prompt:** "yes" (start Phase 4)
 

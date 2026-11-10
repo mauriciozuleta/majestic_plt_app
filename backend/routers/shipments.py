@@ -27,6 +27,13 @@ def airfares(source_country: str = Query(...), target_countries: str = Query(...
     return {'airfares': service.built_shipment_airfares(db, source_country, [name for name in target_countries.split(',') if name])}
 
 
+@router.get('/pair-pricing')
+def pair_pricing(source_country: str = Query(...), target_countries: str = Query(...), db: Session = Depends(get_db)):
+    """Tier R. What Market Opportunities shows beside each product of a pair that has a built shipment: DDP price, Market Level and suggested sell price, for the products of the saved
+    comparison (`rows`) and the portfolio products with no match (`unmatched`); keys `target|product name lowercased`."""
+    return service.pair_pricing(db, source_country, [name for name in target_countries.split(',') if name])
+
+
 @router.get('/candidates')
 def candidates(source_country: str = Query(...), target_country: str = Query(...), airfare_per_kg: float | None = None, db: Session = Depends(get_db)):
     """Tier R. The products a shipment of source -> target can be built from (the priority list, looked up in the SAVED comparison), grouped by rating, each with Country SAM,

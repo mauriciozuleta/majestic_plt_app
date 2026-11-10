@@ -8,7 +8,7 @@ from .. import models
 from ..market_opportunities import engine as mo_engine
 from ..market_opportunities import staleness
 from . import allocation, finance
-from .market import UNMATCHED_MARKET_KEY
+from .market import UNMATCHED_MARKET_KEY, market_level_for, suggested_sell_price
 
 
 def _branch(db, branch_id) -> dict | None:
@@ -124,6 +124,49 @@ def built_shipment_airfares(db, source_country: str, target_countries: list[str]
         if target['name'] not in result or (result[target['name']]['airfarePerKg'] is None and price['value'] is not None):
             result[target['name']] = {'airfarePerKg': price['value'], 'note': price['note'], 'routeName': f"{origin['airport'] or origin['name']} → {destination['airport'] or destination['name']}"}
     return result
+
+
+# ---------------------------------------------------------------- Market Opportunities: DDP, market level and sell price beside each product of a pair
+
+def _pair_entry(source_price, airfare_per_kg, multiplier, target_price, markets, matched: bool) -> dict:
+    """DDP per kg = (FCA price + air fare) x (1 + tax multiplier), then the Market Level and the suggested sell price (the Shipment builder's own rules). A product with no match in
+    the target market is a niche market product by definition (`matched` False)."""
+    ddp = (source_price + airfare_per_kg) * (1 + multiplier) if None not in (source_price, airfare_per_kg, multiplier) else None
+    if not matched:
+        niche = next((market for market in markets if market.get('key') == UNMATCHED_MARKET_KEY), None)
+        sell = suggested_sell_price(UNMATCHED_MARKET_KEY, ddp, None, markets)
+        return {'ddp': ddp, 'fcaPerKg': source_price, 'multiplier': multiplier, 'level': (niche or {}).get('label') or 'Niche Markets', 'levelNote': '', 'sell': sell['value'], 'sellNote': sell['note']}
+    info = market_level_for(ddp, target_price, markets)
+    if info['share'] is None:
+        level, note = None, ''
+    elif not info['configured']:
+        level, note = None, f"DDP is {info['share']:.1f}% of the target price. Set the ranges in Settings ▸ Market Opportunity settings ▸ Destination Market."
+    else:
+        level, note = info['level'], f"DDP is {info['share']:.1f}% of the target price{'' if info['level'] else ' — outside every Destination Market range'}"
+    sell = suggested_sell_price(info['key'] if info['share'] is not None and info['configured'] else None, ddp, target_price, markets)
+    return {'ddp': ddp, 'fcaPerKg': source_price, 'multiplier': multiplier, 'level': level, 'levelNote': note, 'sell': sell['value'], 'sellNote': sell['note']}
+
+
+def pair_pricing(db, source_country: str, target_countries: list[str]) -> dict:
+    """For each target that has a built shipment: the air fare, and for every product — in the saved comparison (`rows`) or only in the source portfolio (`unmatched`) — its DDP
+    price, Market Level and suggested sell price. Keys are `target|product name lowercased`. -> {airfares, rows, unmatched}"""
+    airfares = built_shipment_airfares(db, source_country, target_countries)
+    markets = destination_markets(db) if airfares else []
+    portfolio = {finance.product_key(product['name']): product for product in mo_engine.country_prices(db, source_country)} if airfares else {}
+    from ..routers.tax_calculator import list_multipliers
+
+    rows, unmatched = {}, {}
+    for target, ship in airfares.items():
+        multipliers = {row['product_key']: row['tax_multiplier'] for row in list_multipliers(target, source_country, db)['multipliers']}
+        compared = set()
+        for row in db.query(models.MarketOpportunityComparison).filter_by(source_country=source_country, target_country=target).all():
+            key = finance.product_key(row.product_name)
+            compared.add(key)
+            rows[f'{target}|{key}'] = _pair_entry(row.source_price_normalized, ship['airfarePerKg'], multipliers.get(key), row.target_price_normalized, markets, True)
+        for key, product in portfolio.items():
+            if key not in compared:
+                unmatched[f'{target}|{key}'] = _pair_entry(product['priceUsdPerKg'], ship['airfarePerKg'], multipliers.get(key), None, markets, False)
+    return {'airfares': airfares, 'rows': rows, 'unmatched': unmatched}
 
 
 # ---------------------------------------------------------------- the Shipment builder's candidates

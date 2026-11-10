@@ -40,7 +40,7 @@ def build_comparison_row(source_product: dict, target_product: dict, match_tier:
 
     reasons: list[str] = []
     if match_tier == 'curated_override':
-        reasons.append('Matched via a curated name override, not an identical name after translation/normalization — see crossCountryMatchOverrides.js.')
+        reasons.append('Matched via a curated name override, not an identical name after translation/normalization — see backend/market_opportunities/data/cross_country_overrides.json.')
     if match_tier == 'hs_code':
         code = f"{source_product.get('hsCode')}{': ' + source_product['hsDescription'] if source_product.get('hsDescription') else ''}"
         reasons.append(
