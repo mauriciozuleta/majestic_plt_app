@@ -1,6 +1,10 @@
 """Saves what the JavaScript logic produces today, as the reference the Python port must reproduce (Phase 0 of the move to the backend).
 
-  python -m backend.tests.js_parity.capture [--refresh-inputs] [--compare] [--add-ai-variant]
+  python -m backend.tests.js_parity.capture [--refresh-inputs] [--compare] [--add-ai-variant] [--add-shipments]
+
+  --add-shipments   adds the shipment scenarios and the answers of the ORIGINAL JavaScript functions (allocation, market level, sale price, cost chain, route metrics, leg figures).
+                    Keep them: that JavaScript has moved to backend/shipments/ and is GONE from the front end, so this mode no longer works (it imported shipmentBuilder.js /
+                    shipmentFinance.js / useLegFinance.js as they were); the saved answers are the reference.
 
   --add-ai-variant  adds to outputs.json the comparison made with a stand-in AI judge (every source product matched to the first candidate of its group), keeping the rest.
                     It runs the JavaScript engine, so it only works while that engine is still in src/services/marketOpportunities.js.
@@ -63,6 +67,40 @@ JS_AI = """
 async () => {
   const opportunities = await import('/src/services/marketOpportunities.js')
   return await opportunities.computeMarketOpportunity('Colombia', ['Jamaica'])
+}
+"""
+
+
+JS_SHIPMENTS = """
+async (S) => {
+  const settings = await import('/src/services/marketOpportunitySettings.js')
+  const builder = await import('/src/components/company/tabs/FinancialTab/ShipmentBuilder/shipmentBuilder.js')
+  const fin = await import('/src/components/company/tabs/FinancialTab/ShipmentBuilder/shipmentFinance.js')
+  const rm = await import('/src/components/company/tabs/FinancialTab/routeMetrics.js')
+  const leg = await import('/src/components/company/tabs/FinancialTab/ShipmentBuilder/useLegFinance.js')
+  const maps = (c) => (c.prices ? { prices: new Map(Object.entries(c.prices)), multipliers: new Map(Object.entries(c.multipliers)) } : null)
+  const financeOf = (c) => {
+    const result = fin.financeForShipment(c.shipment, maps(c), c.airfare, c.markets)
+    return { items: c.shipment.items.map((item) => result.items.get(item)), ddpTotal: result.ddpTotal, saleTotal: result.saleTotal, result }
+  }
+  const out = {}
+  out.market_level = S.market_level.map((c) => settings.marketLevelFor(c.ddp, c.target, c.markets))
+  out.sell_price = S.sell_price.map((c) => settings.suggestedSellPrice(c.key, c.ddp, c.target, c.markets))
+  out.product_info = S.product_info.map((c) => builder.productMarketInfo(c.row, c.params))
+  out.allocate = S.allocate.map((c) => builder.allocateShipment(c.products, c.capacity, new Map(c.fixed)))
+  out.group = S.group.map((c) => builder.groupProductsByRating(c.rows, (row) => c.sam[row.hs_code] ?? null, c.ratings ?? undefined))
+  out.finance = S.finance.map((c) => { const f = financeOf(c); return { items: f.items, ddpTotal: f.ddpTotal, saleTotal: f.saleTotal } })
+  out.block_hours = S.block_hours.map((v) => rm.blockHoursFor(v))
+  out.distance = S.distance.map((c) => rm.distanceNm(...c))
+  out.metrics = S.metrics.map((c) => rm.computeRouteMetrics(c))
+  out.leg_price = S.leg_price.map((c) => rm.legPricePerKg(c.route, c.leg, c.context))
+  out.return_leg = S.return_leg.map((c) => leg.returnLegFinance(c.route, c.context))
+  out.outbound_leg = S.outbound_leg.map((c) => {
+    const base = S.finance[c.finance_case]
+    const f = financeOf(base)
+    return leg.outboundLegFinance(base.shipment, f.result, base.airfare, c.aircraft)
+  })
+  return out
 }
 """
 
@@ -172,6 +210,17 @@ def main() -> None:
             page.route('**/api/product-matches', lambda route: route.fulfill(status=502, json={'detail': 'stubbed in the parity capture'}))
             page.route('**/api/catalog-normalization/research', lambda route: route.fulfill(json={'status': 'nothing_to_do'}))
             page.goto(f'http://127.0.0.1:{VITE_PORT}/', wait_until='domcontentloaded')
+            if '--add-shipments' in sys.argv:
+                from backend.tests.js_parity import shipment_scenarios
+
+                scenarios = shipment_scenarios.build()
+                answers = page.evaluate(JS_SHIPMENTS, scenarios)
+                browser.close()
+                saved = json.loads(OUTPUTS_FILE.read_text(encoding='utf-8'))
+                saved['shipment_scenarios'], saved['shipments'] = scenarios, answers
+                OUTPUTS_FILE.write_text(json.dumps(saved, ensure_ascii=False, indent=None, sort_keys=True), encoding='utf-8')
+                print('shipment answers added:', {key: len(value) for key, value in answers.items()})
+                return
             if '--add-ai-variant' in sys.argv:
                 page.unroute('**/api/product-matches')
                 page.route('**/api/product-matches', stand_in_judge)
@@ -188,7 +237,7 @@ def main() -> None:
             compare(outputs)
             return
         previous = json.loads(OUTPUTS_FILE.read_text(encoding='utf-8')) if OUTPUTS_FILE.exists() else {}
-        for kept in ('opportunity', 'opportunity_ai'):  # captured from the original JavaScript engine, which is gone: never overwritten
+        for kept in ('opportunity', 'opportunity_ai', 'shipment_scenarios', 'shipments'):  # captured from the original JavaScript engine, which is gone: never overwritten
             if kept not in outputs and kept in previous:
                 outputs[kept] = previous[kept]
         outputs['_meta'] = {'rates': RATES, 'captured_at': time.strftime('%Y-%m-%d'), 'note': 'JavaScript output on the frozen inputs; AI matching stubbed to an error, research to nothing_to_do'}

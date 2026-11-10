@@ -612,6 +612,8 @@ ${label}`)) return
                   shownShipments.has(`${route.id}:${leg.key}`) &&
                   (
                     <ShipmentPanel
+                      routeId={route.id}
+                      legKey={leg.key}
                       shipment={leg.key === 'outbound' ? route.outbound_shipment : route.return_shipment}
                       legTitle={leg.title}
                       origin={leg.from}

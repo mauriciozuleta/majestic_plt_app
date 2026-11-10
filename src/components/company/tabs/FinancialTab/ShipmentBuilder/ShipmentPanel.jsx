@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { fetchMarketOpportunitySettings } from '../../../../../services/marketOpportunitySettings'
+import { fetchRouteFinance } from '../../../../../services/shipments'
 import { formatMultiplier } from '../../../../../services/taxMultipliers'
-import { financeForShipment, loadShipmentContext } from './shipmentFinance'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
 import './ShipmentPanel.css'
 
@@ -26,39 +25,45 @@ const marketOpportunitiesUrl = (countries, productName) => {
 // the leg's branches (their countries drive the price list and the tax multipliers); `airfarePerKg` is the
 // leg's Price x Kg.
 // `onSave(shipment)` stores an edited shipment (a weight typed in by hand) and rejects with the reason when it can't.
-function ShipmentPanel({ shipment, legTitle, origin, destination, airfarePerKg, airfareNote, onSave }) {
+function ShipmentPanel({ routeId, legKey, shipment, legTitle, origin, destination, airfarePerKg, airfareNote, onSave }) {
   const navigate = useNavigate()
-  const [context, setContext] = useState({ loading: true, error: '', countries: null, prices: null, multipliers: null })
   const [detailKey, setDetailKey] = useState(null)
   const detailItem = detailKey ? shipment.items.find((item) => `${item.product_name}|${item.hs_code ?? ''}` === detailKey) ?? null : null
-  const [destinationMarkets, setDestinationMarkets] = useState([])
-  useEffect(() => {
-    let cancelled = false
-    fetchMarketOpportunitySettings()
-      .then((data) => !cancelled && setDestinationMarkets(data.destination_markets || []))
-      .catch(() => !cancelled && setDestinationMarkets([]))
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const keyOf = (item) => `${item.product_name}|${item.hs_code ?? ''}`
 
+  // Each product's cost chain, market level and suggested sale price, and the shipment totals, come from the server (backend/shipments/finance.py), priced from the saved
+  // Market Opportunities comparison of the leg's countries.
+  const [data, setData] = useState({ loading: true, error: '', leg: null })
+  const version = JSON.stringify([shipment, airfarePerKg, origin?.id, destination?.id])
   useEffect(() => {
     let cancelled = false
-    loadShipmentContext(shipment, origin, destination)
-      .then((loaded) => !cancelled && setContext({ loading: false, error: '', ...loaded }))
-      .catch((err) => !cancelled && setContext({ loading: false, error: err?.message || 'Could not load the costs.', countries: null, prices: null, multipliers: null }))
+    setData((prev) => ({ ...prev, loading: true }))
+    fetchRouteFinance(routeId, version)
+      .then((result) => {
+        if (cancelled) return
+        const leg = result[legKey]
+        setData({ loading: false, error: leg.error || '', leg })
+      })
+      .catch((err) => !cancelled && setData({ loading: false, error: err?.message || 'Could not load the costs.', leg: null }))
     return () => {
       cancelled = true
     }
-  }, [origin, destination])
+  }, [routeId, legKey, version])
+  const context = {
+    loading: data.loading,
+    error: data.error,
+    countries: data.leg?.countries ? { source: data.leg.countries.source.name, target: data.leg.countries.target.name } : null,
+  }
+  const comparison = data.leg?.comparison ?? null
 
   const allocated = shipment.items.reduce((sum, item) => sum + item.kg, 0)
-  // each product's cost, market level and suggested sale price (shared with the route table: shipmentFinance.js)
-  const finance = useMemo(() => financeForShipment(shipment, context, airfarePerKg, destinationMarkets), [shipment, context, airfarePerKg, destinationMarkets])
-  const { ddpTotal, saleTotal } = finance
-  const costs = useMemo(() => new Map([...finance.items].map(([item, entry]) => [item, entry.cost])), [finance])
-  const levels = useMemo(() => new Map([...finance.items].map(([item, entry]) => [item, entry.level])), [finance])
-  const sales = useMemo(() => new Map([...finance.items].map(([item, entry]) => [item, entry.sale])), [finance])
+  const ddpTotal = data.leg?.shipment?.ddpTotal ?? null
+  const saleTotal = data.leg?.shipment?.saleTotal ?? null
+  const served = useMemo(() => new Map((data.leg?.shipment?.items || []).map((entry) => [keyOf(entry), entry])), [data.leg])
+  const emptyCost = { fcaPerKg: null, fca: null, dap: null, subtotal: null, multiplier: null, taxes: null, ddp: null }
+  const costs = useMemo(() => new Map(shipment.items.map((item) => [item, served.get(keyOf(item))?.cost ?? emptyCost])), [shipment, served]) // eslint-disable-line react-hooks/exhaustive-deps
+  const levels = useMemo(() => new Map(shipment.items.map((item) => [item, served.get(keyOf(item))?.level ?? { level: null, key: null, share: null, configured: false }])), [shipment, served])
+  const sales = useMemo(() => new Map(shipment.items.map((item) => [item, served.get(keyOf(item))?.sale ?? { perKg: null, total: null, note: '' }])), [shipment, served])
 
   const openMarketOpportunities = (productName) => navigate(marketOpportunitiesUrl(context.countries, productName))
 
@@ -74,6 +79,11 @@ function ShipmentPanel({ shipment, legTitle, origin, destination, airfarePerKg, 
         {saleTotal != null && ` · sale total ${usd0(saleTotal)}`}
       </div>
       {context.error && <div className="shipment-panel__error">{context.error}</div>}
+      {comparison?.stale && (
+        <div className="shipment-panel__warn">
+          The Market Opportunities comparison these prices come from is out of date: {comparison.stale_reasons.join(' ')} Recompute it in Market Analysis ▸ Market Opportunities.
+        </div>
+      )}
       <div className="revenue-streams-view__shipment-cards">
         {shipment.items.map((item) => {
           const cost = costs.get(item)

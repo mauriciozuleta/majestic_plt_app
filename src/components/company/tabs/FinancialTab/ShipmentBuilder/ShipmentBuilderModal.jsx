@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../../../../services/commercialStructure'
-import { fetchCountryProductPrices, fetchMarketOpportunityPriority, getOrComputeComparison } from '../../../../../services/marketOpportunities'
-import { fetchMarketOpportunitySettings, marketLevelFor, suggestedSellPrice, UNMATCHED_MARKET_KEY } from '../../../../../services/marketOpportunitySettings'
-import { fetchTaxMultipliers, productKey } from '../../../../../services/taxMultipliers'
-import { fetchProductSam } from '../../../../../services/globalTradeData'
+import { getOrComputeComparison } from '../../../../../services/marketOpportunities'
+import { allocateShipment, fetchShipmentCandidates } from '../../../../../services/shipments'
 import { formatCurrencyValue } from '../../../../../utils/currencyFormat'
-import { ALL_RATINGS, NO_SAM_CAP_KG, SAM_CAP_KG, allocateShipment, groupProductsByRating } from './shipmentBuilder'
+import { NO_SAM_CAP_KG, SAM_CAP_KG } from './shipmentBuilder'
 import './ShipmentBuilder.css'
 
 const STEP_LABELS = {
@@ -34,17 +32,14 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, a
   const [step, setStep] = useState('resolving')
   const [error, setError] = useState('')
   const [countries, setCountries] = useState(null)
+  // What the server (backend/shipments/service.py) worked out: the priority-list products found in the saved comparison, grouped by rating, each with its Country SAM, market
+  // level, cargo cap and margin; and how old that comparison is.
+  const [groups, setGroups] = useState([])
   const [comparison, setComparison] = useState(null)
-  const [productSam, setProductSam] = useState(null)
   const [samError, setSamError] = useState('')
   const [selected, setSelected] = useState(() => new Set())
   // Priority products no longer in the comparison (recomputed since they were added)
   const [missingPriority, setMissingPriority] = useState([])
-  // Settings ▸ Destination Market (ranges + cargo caps), the tax multipliers of the pair, and the priority-list products that have no
-  // match in the target market (they ship as niche market products)
-  const [destinationMarkets, setDestinationMarkets] = useState([])
-  const [multipliers, setMultipliers] = useState(() => new Map())
-  const [unmatchedProducts, setUnmatchedProducts] = useState([])
   const [building, setBuilding] = useState(false)
   const [buildError, setBuildError] = useState('')
 
@@ -69,60 +64,28 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, a
       setCountries({ source, target })
 
       setStep('priority')
-      const priority = await fetchMarketOpportunityPriority(source.name, [target.name])
+      let data = await fetchShipmentCandidates(source.name, target.name, airfarePerKg)
       if (cancelled) return
-      const priorityNames = new Set(priority.items.filter((item) => item.target_country === target.name).map((item) => item.product_name))
-      if (priorityNames.size === 0) {
+      if (data.status === 'no_priority') {
         setStep('no-priority')
         return
       }
-
-      setStep('checking')
-      const result = await getOrComputeComparison(source.name, [target.name], {
-        onStatus: (status) => !cancelled && status === 'computing' && setStep('computing'),
-      })
-      if (cancelled) return
-      const rows = result.rows.filter((row) => priorityNames.has(row.product_name))
-      const found = new Set(rows.map((row) => row.product_name))
-      const notInComparison = [...priorityNames].filter((name) => !found.has(name))
-      // Priority-list products with no match in the target market: from the source portfolio (price, HS code)
-      let noMatch = []
-      if (notInComparison.length) {
-        const portfolio = await fetchCountryProductPrices(source.name).catch(() => [])
-        const byKey = new Map(portfolio.map((product) => [productKey(product.name), product]))
-        noMatch = notInComparison.map((name) => byKey.get(productKey(name))).filter(Boolean)
+      if (data.status === 'no_comparison') {
+        // no saved comparison: run it now (a background job on the server), then ask again
+        setStep('computing')
+        await getOrComputeComparison(source.name, [target.name])
+        if (cancelled) return
+        data = await fetchShipmentCandidates(source.name, target.name, airfarePerKg)
+        if (cancelled) return
       }
-      const [settings, taxMap] = await Promise.all([
-        fetchMarketOpportunitySettings().catch(() => ({ destination_markets: [] })),
-        fetchTaxMultipliers(target.name, source.name).catch(() => new Map()),
-      ])
-      if (cancelled) return
-      setDestinationMarkets(settings.destination_markets || [])
-      setMultipliers(taxMap)
-      setUnmatchedProducts(noMatch)
-      const noMatchNames = new Set(noMatch.map((product) => product.name.toLowerCase()))
-      setMissingPriority(notInComparison.filter((name) => !noMatchNames.has(name.toLowerCase())))
-      setComparison({ ...result, rows })
+      setGroups(data.groups)
+      setMissingPriority(data.missingPriority || [])
+      setComparison(data.comparison)
+      setSamError(data.samError || '')
       // Every product starts ticked — or, when updating, the ones in the last shipment.
       const previousNames = new Set((previous?.items || []).map((item) => item.product_name))
-      setSelected(
-        new Set([
-          ...rows.filter((row) => !previousNames.size || previousNames.has(row.product_name)).map((row) => `${row.product_name}|${row.hs_code ?? ''}`),
-          ...noMatch.filter((product) => !previousNames.size || previousNames.has(product.name)).map((product) => `${product.name}|${product.hsCode ?? ''}`),
-        ]),
-      )
-
-      setStep('sam')
-      const codes = [...new Set([...rows.map((row) => row.hs_code), ...noMatch.map((product) => product.hsCode)].filter((code) => /^\d{6}$/.test(code || '')))]
-      if (codes.length) {
-        try {
-          const sam = await fetchProductSam(target.region, codes)
-          if (!cancelled) setProductSam(sam)
-        } catch (err) {
-          if (!cancelled) setSamError(err?.message || 'Could not load Country SAM.')
-        }
-      }
-      if (!cancelled) setStep('ready')
+      setSelected(new Set(data.groups.flatMap((group) => group.products).filter((item) => !previousNames.size || previousNames.has(item.productName)).map((item) => item.key)))
+      setStep('ready')
     }
     run().catch((err) => {
       if (cancelled) return
@@ -132,57 +95,8 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, a
     return () => {
       cancelled = true
     }
-  }, [origin, destination, previous])
+  }, [origin, destination, previous, airfarePerKg])
 
-  const cargoCapOf = (key) => destinationMarkets.find((market) => market.key === key)?.cargo_cap_kg ?? null
-  const marketLabelOf = (key) => destinationMarkets.find((market) => market.key === key)?.label ?? null
-  const groups = useMemo(() => {
-    if (!comparison || !countries) return []
-    const samFor = (hsCode) => productSam?.products?.[hsCode]?.countries?.[countries.target.name]?.value ?? null
-    // market level of a matched product: its DDP price per kg as a % of the target price, against the Destination Market ranges
-    const levelFor = (row) => {
-      const multiplier = multipliers.get(productKey(row.product_name))?.tax_multiplier ?? null
-      const ddp = airfarePerKg != null && multiplier != null && row.source_price_normalized != null ? (row.source_price_normalized + airfarePerKg) * (1 + multiplier) : null
-      const { key, level, cargoCapKg } = marketLevelFor(ddp, row.target_price_normalized, destinationMarkets)
-      // A wholesale product with a thin profit margin ((sale price - cost) / cost, the sale price being the suggested one) is shipped
-      // less: its cap loses the wholesalers' cap reduction (Settings ▸ Destination Market ▸ Min profit margin / Cap reduction).
-      const market = destinationMarkets.find((item) => item.key === key)
-      let capKg = cargoCapKg
-      let marginPct = null
-      let capReduced = false
-      if (key === 'wholesalers' && ddp != null) {
-        const sale = suggestedSellPrice(key, ddp, row.target_price_normalized, destinationMarkets).value
-        marginPct = sale != null && ddp > 0 ? ((sale - ddp) / ddp) * 100 : null
-        if (marginPct != null && market?.min_margin_pct != null && market?.cap_reduction_kg && marginPct < market.min_margin_pct) {
-          const sam = samFor(row.hs_code)
-          capKg = Math.max(0, (cargoCapKg ?? (sam > 0 ? SAM_CAP_KG : NO_SAM_CAP_KG)) - market.cap_reduction_kg)
-          capReduced = true
-        }
-      }
-      return { marketKey: key, marketLevel: level, capKg, marginPct, capReduced }
-    }
-    const list = groupProductsByRating(comparison.rows, (row) => samFor(row.hs_code), ALL_RATINGS, levelFor)
-    if (unmatchedProducts.length) {
-      const extra = unmatchedProducts.map((product) => ({
-        key: `${product.name}|${product.hsCode ?? ''}`,
-        hsCode: product.hsCode,
-        productName: product.name,
-        targetProductName: null,
-        diffPct: null,
-        opportunityRating: 'Unrated',
-        countrySam: samFor(product.hsCode),
-        marketKey: UNMATCHED_MARKET_KEY,
-        marketLevel: marketLabelOf(UNMATCHED_MARKET_KEY) ?? 'Niche Markets',
-        capKg: cargoCapOf(UNMATCHED_MARKET_KEY),
-        noMatch: true,
-      }))
-      const unrated = list.find((group) => group.rating === 'Unrated')
-      if (unrated) unrated.products.push(...extra)
-      else list.push({ rating: 'Unrated', products: extra })
-    }
-    return list
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers read destinationMarkets, listed here
-  }, [comparison, countries, productSam, multipliers, destinationMarkets, unmatchedProducts, airfarePerKg])
   const products = useMemo(() => groups.flatMap((group) => group.products), [groups])
 
   const toggle = (key) =>
@@ -206,11 +120,12 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, a
   const chosen = products.filter((item) => selected.has(item.key))
   const build = async () => {
     // weights typed in by hand (Details ▸ Edit) in the shipment being updated stay as they are
-    const fixed = new Map((previous?.items || []).filter((item) => item.manual).map((item) => [`${item.product_name}|${item.hs_code ?? ''}`, item.kg]))
-    const { items } = allocateShipment(chosen, capacityKg, fixed)
+    const fixed = Object.fromEntries((previous?.items || []).filter((item) => item.manual).map((item) => [`${item.product_name}|${item.hs_code ?? ''}`, item.kg]))
     setBuilding(true)
     setBuildError('')
     try {
+      // the kilos are shared on the server (backend/shipments/allocation.py): wholesalers, then premium, then niche
+      const { items } = await allocateShipment(chosen, capacityKg, fixed)
       await onBuild({
         capacity_kg: capacityKg,
         aircraft_name: aircraftName || null,
@@ -274,7 +189,7 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, a
           <>
             <p className="shipment-builder__meta">
               Priority list · {products.length} product{products.length === 1 ? '' : 's'} by rating, then Country SAM and Diff % · comparison
-              {comparison.calculatedAt && ` computed ${new Date(comparison.calculatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`}
+              {comparison?.calculated_at && ` computed ${new Date(comparison.calculated_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`}
               {selected.size > 0 && ` · ${selected.size} selected`}
               {' · '}
               <button type="button" className="shipment-builder__link" onClick={openMarketOpportunities}>
@@ -284,6 +199,11 @@ function ShipmentBuilderModal({ origin, destination, capacityKg, aircraftName, a
             {missingPriority.length > 0 && (
               <p className="shipment-builder__status">
                 Not in the latest comparison any more: {missingPriority.join(', ')}.
+              </p>
+            )}
+            {comparison?.stale && (
+              <p className="shipment-builder__error">
+                This comparison is out of date: {comparison.stale_reasons.join(' ')} Recompute it in Market Analysis ▸ Market Opportunities before relying on these prices.
               </p>
             )}
             {samError && <p className="shipment-builder__error">Country SAM didn’t load ({samError}).</p>}

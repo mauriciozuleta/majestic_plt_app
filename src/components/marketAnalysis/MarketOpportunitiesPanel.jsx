@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../services/commercialStructure'
 import { fetchBuiltShipmentAirfares } from '../../services/shipmentPricing'
 import { fetchMarketOpportunitySettings, marketLevelFor as destinationLevelFor, suggestedSellPrice, UNMATCHED_MARKET_KEY } from '../../services/marketOpportunitySettings'
-import { useAppStore } from '../../store/useAppStore'
 import { fetchProductSources } from '../../services/productSources'
 import {
   addToMarketOpportunityPriority,
@@ -299,14 +298,13 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   // DDP price + Market Level: for a target that has a built shipment (Financial ▸ Revenue ▸ route ▸ Shipment builder), every product's
   // DDP per kg = (FCA price + air fare) x (1 + tax multiplier) — the Shipment builder's own formula — and the level is the
   // Settings ▸ Market Opportunity settings ▸ Destination Market range that DDP, as a % of the target price, falls in.
-  const companies = useAppStore((state) => state.companies)
   const [airfares, setAirfares] = useState(() => new Map())
   const [destinationMarkets, setDestinationMarkets] = useState([])
   useEffect(() => {
     if (runStatus !== 'ready') return undefined
     let cancelled = false
     const targets = [...new Set([...targetCountries, ...rows.map((row) => row.target_country)])]
-    fetchBuiltShipmentAirfares(companies, sourceCountry, targets)
+    fetchBuiltShipmentAirfares(sourceCountry, targets)
       .then((map) => !cancelled && setAirfares(map))
       .catch(() => !cancelled && setAirfares(new Map()))
     fetchMarketOpportunitySettings()
@@ -316,7 +314,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rows/targets are summarised by runStatus + the keys below
-  }, [runStatus, sourceCountry, targetKey, rows.length, companies])
+  }, [runStatus, sourceCountry, targetKey, rows.length])
   const showDdp = rows.some((row) => airfares.has(row.target_country))
   const extraColumns = showDdp ? 3 : 0
   const ddpFor = (row) => {

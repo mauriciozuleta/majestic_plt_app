@@ -63,6 +63,7 @@ from .routers import (
     fuel_prices,
     hs_codes,
     portfolio,
+    shipments,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -623,6 +624,7 @@ app.include_router(fuel_prices.router)
 app.include_router(data_history.router)
 app.include_router(hs_codes.router)
 app.include_router(portfolio.router)
+app.include_router(shipments.router)
 
 
 @app.on_event('startup')

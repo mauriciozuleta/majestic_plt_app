@@ -457,3 +457,7 @@ Same columns as above in short form (all backend functions; none needs the brows
 | MO-08 | Compute and save a comparison | `POST /api/market-opportunities/compute` (`wait:true` or poll `GET /compute/status`) | W · replaces the pair's saved rows, records what it was built from | job; `allow_ai` / `allow_research` spend credits only when true | not yet versioned in the data history |
 | MO-09 | Is a saved comparison out of date | `GET /api/market-opportunities/comparisons/pairs` (`stale`, `stale_reasons`) | R | instant | names the catalog / HS / weight / translation change |
 | MO-10 | A country's prices in USD/kg | `GET /api/market-opportunities/country-prices?country=` | R | instant | the prices the tax-multiplier and shipment screens use |
+| SH-01 | Price a route / a built shipment | `GET /api/shipments/route-finance?route_id=` | R | instant | per leg: air fare per kg, revenue / COS / profit, each product's cost chain, market level, suggested sale price; says if the comparison is out of date |
+| SH-02 | Shipment candidates | `GET /api/shipments/candidates?source_country&target_country&airfare_per_kg` | R | instant (Country SAM may call Comtrade) | the priority list in the saved comparison, with rating, SAM, market level, cap |
+| SH-03 | Share the aircraft capacity | `POST /api/shipments/allocate` | S · saves nothing | instant | wholesalers, premium, niche; manual weights kept |
+| SH-04 | Built-shipment air fares | `GET /api/shipments/airfares?source_country&target_countries` | R | instant | what Market Opportunities shows beside a pair |
