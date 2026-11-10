@@ -593,6 +593,26 @@ class ProductHsCode(Base):
     description = Column(String, nullable=True)
 
 
+class ProductHsAssignment(Base):
+    """The HS code of one product AS SOLD IN ONE COUNTRY (catalog_normalization/hs.py). Keyed by country + the lowercased English product name, so the same
+    name in two countries can carry two codes. `hs_code` is always 6 digits; `hs_level` says whether it is a real 6-digit subheading (6) or a 4-digit heading padded
+    with '00' because the heading has no subheading to choose (4). `status`: 'suggested' (AI / rule / peer, not yet looked at by a person) | 'confirmed' (a person typed or
+    accepted it) | 'corrected' (a person changed an earlier code). The older name-only table above (product_hs_codes) is still read as 'suggested' where a
+    country has no row here."""
+    __tablename__ = 'product_hs_assignments'
+
+    country = Column(String, primary_key=True)
+    product_key = Column(String, primary_key=True)
+    hs_code = Column(String, nullable=False)
+    hs_level = Column(Integer, nullable=False, default=6)
+    status = Column(String, nullable=False, default='suggested')
+    method = Column(String, nullable=True)  # manual | ai | local_model | peer | rule
+    confidence = Column(String, nullable=True)
+    note = Column(String, nullable=True)
+    assigned_by = Column(String, nullable=True)
+    assigned_at = Column(String, nullable=True)
+
+
 class CatalogItemWeight(Base):
     """Web-researched weight of ONE item of a product ("pineapple", each = about 1.5 kg; "cilantro", bunch = about 70 g), the one fact the catalog
     normalization module (backend/catalog_normalization/) needs to convert BOTH ways between a count and a weight: a price per each -> $/kg, and a

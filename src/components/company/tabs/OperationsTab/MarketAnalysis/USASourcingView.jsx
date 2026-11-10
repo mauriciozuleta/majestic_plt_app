@@ -5,7 +5,7 @@ import { formatPriceLine } from './priceFormat'
 import { usaRowSignature } from './unitConversion'
 import { useWeightResearch } from './useWeightResearch'
 import { DeleteSelectedButton, RowCheckbox, SelectAllCheckbox, useCatalogSelection } from './CatalogDeleteControls'
-import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
+import HsCodeCell from '../../../../hsCodes/HsCodeCell'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
 import { missingResearchNames, resolveFromNorm } from '../../../../../services/catalogNorm'
 import './USASourcingView.css'
@@ -64,7 +64,7 @@ function SourceStatus({ label, sync }) {
 // HS code, regardless of the category chip currently selected. The parent
 // remounts this view (new key) on every new click, so a plain useState
 // seeded from the prop is enough — no effect needed to react to it changing.
-function USASourcingView({ companyId, highlightHsCode = null }) {
+function USASourcingView({ highlightHsCode = null }) {
   const [activeCategory, setActiveCategory] = useState('all')
   const [productsBySource, setProductsBySource] = useState(() => Object.fromEntries(USA_SOURCES.map((s) => [s.key, []])))
   const [highlightCleared, setHighlightCleared] = useState(false)
@@ -72,7 +72,6 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
   const [syncBySource, setSyncBySource] = useState(() => Object.fromEntries(USA_SOURCES.map((s) => [s.key, INITIAL_SYNC_STATE])))
   const [updating, setUpdating] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
-  const [productCodes, setProductCodes] = useState(new Map())
   const [snapshotVersion, setSnapshotVersion] = useState(0) // bumped after an item-weight research so the converted catalog is read again
   const weightResearch = useWeightResearch(() => setSnapshotVersion((version) => version + 1))
   const selection = useCatalogSelection()
@@ -126,21 +125,6 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
     }
   }, [snapshotVersion])
 
-  useEffect(() => {
-    if (!companyId) return undefined
-    let cancelled = false
-    buildProductCodeIndex()
-      .then((index) => {
-        if (!cancelled) setProductCodes(index)
-      })
-      .catch(() => {
-        // Non-fatal: the table still works without the reference codes.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [companyId, productsBySource])
-
   // each product carries the snapshot it is stored in (usa_beef, usa_retail_produce …), which is what a deletion needs
   const products = useMemo(
     () => USA_SOURCES.flatMap((s) => (productsBySource[s.key] ?? []).map((product) => ({ ...product, snapshotKey: `usa_${s.key}` }))),
@@ -177,10 +161,10 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
     // HS code as a prefix (a 6-digit highlight still matches a longer real
     // tariff code that starts with it).
     return sorted.filter((product) => {
-      const code = productCodes.get(product.product_en.toLowerCase())
+      const code = product.hs?.code
       return code && code.slice(2).startsWith(highlightHsCode)
     })
-  }, [products, activeCategory, highlightActive, highlightHsCode, productCodes])
+  }, [products, activeCategory, highlightActive, highlightHsCode])
 
   const isSeafoodSelected = activeCategory === 'Seafood (Gulf, domestic landings)'
 
@@ -445,7 +429,7 @@ function USASourcingView({ companyId, highlightHsCode = null }) {
                         <td className="catalog-select__col">
                           <RowCheckbox selection={selection} rowKey={usaRowKey(product)} label={product.product_en} />
                         </td>
-                        <td className="usa-sourcing__code-cell">{productCodes.get(product.product_en.toLowerCase()) || '—'}</td>
+                        <td className="usa-sourcing__code-cell"><HsCodeCell hs={product.hs} /></td>
                         <td className="usa-sourcing__category-cell">{product.category}</td>
                         <td className="usa-sourcing__product-name">{product.product_en}</td>
                         <td className="usa-sourcing__unit-cell">{product.unit}</td>

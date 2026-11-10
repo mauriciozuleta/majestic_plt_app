@@ -8,7 +8,6 @@ import {
   fetchProfiledCountries,
 } from '../../../../services/commercialStructure'
 import { runBackgroundJob } from '../../../../services/backgroundJobs'
-import { getCategorySummary } from '../../../../services/competitivenessInputs'
 import { exportCountryProfileToPdf } from './countryProfileExport'
 import './CountryCommercialProfile.css'
 
@@ -78,10 +77,11 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
     if (!sourceCountry?.id) return undefined
     let cancelled = false
     setCandidatesStatus('loading')
-    fetchProfiledCountries(resolvedCompanyId)
-      .then((rows) => {
+    // every company's profiled countries: the source can be sold into a country that belongs to another company, and a brief is filed under the TARGET's company
+    Promise.all(companies.map((item) => fetchProfiledCountries(item.id).then((rows) => rows.map((row) => ({ ...row, company_id: item.id, company_name: item.name }))).catch(() => [])))
+      .then((lists) => {
         if (cancelled) return
-        setCandidates(rows.filter((row) => row.country_id !== sourceCountry.id))
+        setCandidates(lists.flat().filter((row) => row.country_id !== sourceCountry.id))
         setCandidatesStatus('ready')
       })
       .catch(() => {
@@ -90,14 +90,18 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
     return () => {
       cancelled = true
     }
-  }, [resolvedCompanyId, sourceCountry?.id])
+  }, [companies, sourceCountry?.id])
+
+  // the company the selected target belongs to (the brief's route and file are keyed by it)
+  const targetCompanyId = candidates.find((row) => row.country_id === selectedTargetId)?.company_id ?? resolvedCompanyId
 
   useEffect(() => {
     if (!sourceCountry?.name) return undefined
     let cancelled = false
     setExistingStatus('loading')
     const normalizedName = sourceCountry.name.trim().toLowerCase()
-    fetchAllCompetitivenessAnalyses(resolvedCompanyId)
+    Promise.all(companies.map((item) => fetchAllCompetitivenessAnalyses(item.id).then((rows) => rows.map((row) => ({ ...row, company_id: item.id }))).catch(() => [])))
+      .then((lists) => lists.flat())
       .then((rows) => {
         if (cancelled) return
         setExistingAnalyses(
@@ -115,30 +119,30 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
     return () => {
       cancelled = true
     }
-  }, [resolvedCompanyId, sourceCountry?.name])
+  }, [companies, sourceCountry?.name])
 
   const existingRowKey = (row) => `${row.target_country_id}__${row.source_country_name}`
 
   const handleViewExisting = async (row) => {
-    const data = await fetchCompetitivenessAnalysis(resolvedCompanyId, row.target_country_id, row.source_country_name)
+    const data = await fetchCompetitivenessAnalysis(row.company_id ?? resolvedCompanyId, row.target_country_id, row.source_country_name)
     if (data.exists) {
-      setViewingExisting({ title: `${row.source_country_name} → ${row.target_country_name} — Competitiveness`, content: data.content })
+      setViewingExisting({ title: `${row.source_country_name} → ${row.target_country_name} — Market Access Brief`, content: data.content })
     }
   }
 
   const handleExportExistingPdf = async (row) => {
     setExportingExistingKey(existingRowKey(row))
     try {
-      const data = await fetchCompetitivenessAnalysis(resolvedCompanyId, row.target_country_id, row.source_country_name)
+      const data = await fetchCompetitivenessAnalysis(row.company_id ?? resolvedCompanyId, row.target_country_id, row.source_country_name)
       if (!data.exists) return
       await exportCountryProfileToPdf(
         data.content,
         {
           company,
-          title: `${row.source_country_name} → ${row.target_country_name} — Competitiveness Analysis`,
+          title: `${row.source_country_name} → ${row.target_country_name} — Market Access Brief`,
           exportedBy: currentUser?.name,
         },
-        `${row.source_country_name}-vs-${row.target_country_name}-competitiveness.pdf`.toLowerCase().replace(/[^a-z0-9.-]+/g, '-'),
+        `${row.source_country_name}-vs-${row.target_country_name}-market-access-brief.pdf`.toLowerCase().replace(/[^a-z0-9.-]+/g, '-'),
       )
     } catch (error) {
       window.alert(`Could not generate the PDF: ${error.message}`)
@@ -154,7 +158,7 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
     }
     let cancelled = false
     setState({ status: 'checking', content: null, generatedAt: null, quickFacts: [], error: null })
-    fetchCompetitivenessAnalysis(resolvedCompanyId, selectedTargetId, sourceCountry.name)
+    fetchCompetitivenessAnalysis(targetCompanyId, selectedTargetId, sourceCountry.name)
       .then((data) => {
         if (cancelled) return
         if (data.exists) {
@@ -169,7 +173,7 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
     return () => {
       cancelled = true
     }
-  }, [resolvedCompanyId, selectedTargetId, sourceCountry?.name])
+  }, [targetCompanyId, selectedTargetId, sourceCountry?.name])
 
   const handleAnalyze = () => {
     if (!selectedTargetId || state.status === 'building') return
@@ -183,15 +187,10 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
     const sourceName = sourceCountry.name
 
     runBackgroundJob({
-      start: async () => {
-        const categorySummary = await getCategorySummary(sourceName)
-        if (!categorySummary || !categorySummary.length) {
-          throw new Error(`No Product Analysis data loaded for ${sourceName} yet — click Update on its Product Analysis tab first.`)
-        }
-        return buildCompetitivenessAnalysis(resolvedCompanyId, targetId, sourceName, categorySummary)
-      },
-      poll: () => fetchCompetitivenessAnalysis(resolvedCompanyId, targetId, sourceName),
-      label: `${sourceName} → ${targetName} Competitiveness Analysis`,
+      // the server builds the portfolio by HS heading itself (country_profile/access_pack.py), so only the pair is sent
+      start: () => buildCompetitivenessAnalysis(targetCompanyId, targetId, sourceName),
+      poll: () => fetchCompetitivenessAnalysis(targetCompanyId, targetId, sourceName),
+      label: `${sourceName} → ${targetName} Market Access Brief`,
     })
       .then((data) => {
         setState({ status: 'ready', content: data.content, generatedAt: data.generated_at, quickFacts: data.quick_facts ?? [], error: null })
@@ -215,10 +214,10 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
         state.content,
         {
           company,
-          title: `${sourceCountry.name} → ${targetCountry?.country_name ?? ''} — Competitiveness Analysis`,
+          title: `${sourceCountry.name} → ${targetCountry?.country_name ?? ''} — Market Access Brief`,
           exportedBy: currentUser?.name,
         },
-        `${sourceCountry.name.toLowerCase()}-vs-${(targetCountry?.country_name ?? 'target').toLowerCase()}-competitiveness.pdf`.replace(
+        `${sourceCountry.name.toLowerCase()}-vs-${(targetCountry?.country_name ?? 'target').toLowerCase()}-market-access-brief.pdf`.replace(
           /[^a-z0-9.-]+/g,
           '-',
         ),
@@ -243,7 +242,7 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
           {existingAnalyses.map((row) => (
             <div key={existingRowKey(row)} className="country-profile__existing-row">
               <span className="country-profile__existing-name">
-                {row.source_country_name} → {row.target_country_name} — Competitiveness
+                {row.source_country_name} → {row.target_country_name} — Market Access Brief
               </span>
               <div className="country-profile__existing-actions">
                 <button type="button" className="country-profile__btn country-profile__btn--secondary" onClick={() => handleViewExisting(row)}>
@@ -264,15 +263,15 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
       )}
 
       <p style={{ margin: 0, color: '#8ea3c2', fontSize: '0.85rem' }}>
-        Pick a country to benchmark {sourceCountry.name}'s Product Analysis portfolio against. Only countries with a Country Commercial
-        Profile already built can be used — a benchmark needs that context.
+        Pick the country {sourceCountry.name}'s products would be sold into. The brief says whether they can enter it and what restricts them (bans, permits, seasonal rules,
+        agreements), by HS heading. It does not judge prices. Only countries with a Country Commercial Profile already built can be used.
       </p>
 
       {candidatesStatus === 'loading' && <p style={{ color: '#8ea3c2', margin: 0 }}>Loading countries…</p>}
       {candidatesStatus === 'error' && <p style={{ color: '#fca5a5', margin: 0 }}>Could not load the list of countries.</p>}
       {candidatesStatus === 'ready' && candidates.length === 0 && (
         <p style={{ color: '#8ea3c2', margin: 0 }}>
-          No other country has a Country Commercial Profile yet. Build one first (in that country's own tab) before you can benchmark
+          No other country has a Country Commercial Profile yet. Build one first (in that country's own tab) before you can build a brief for it
           against it.
         </p>
       )}
@@ -291,17 +290,18 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
               fontSize: '0.85rem',
             }}
           >
-            <option value="">-- Select a country to benchmark against --</option>
+            <option value="">-- Select the country to sell into --</option>
             {candidates.map((c) => (
               <option key={c.country_id} value={c.country_id}>
                 {c.country_name}
+                {c.company_name ? ` (${c.company_name})` : ''}
               </option>
             ))}
           </select>
 
           {selectedTargetId && !hasAnalysis && (
             <button type="button" className="country-profile__btn" onClick={handleAnalyze} disabled={isBusy}>
-              {state.status === 'building' ? 'Analyzing…' : state.status === 'checking' ? 'Loading…' : 'Analyze Competitiveness'}
+              {state.status === 'building' ? 'Analyzing…' : state.status === 'checking' ? 'Loading…' : 'Build Market Access Brief'}
             </button>
           )}
           {selectedTargetId && hasAnalysis && (
@@ -351,7 +351,7 @@ function CountryCompetitivenessAnalysis({ companyId, sourceCountry, onBuilt }) {
             <header className="country-profile-view__header">
               <div>
                 <h3>
-                  {sourceCountry.name} → {targetCountry?.country_name} — Competitiveness
+                  {sourceCountry.name} → {targetCountry?.country_name} — Market Access Brief
                 </h3>
                 {state.generatedAt && (
                   <span className="country-profile-view__meta">

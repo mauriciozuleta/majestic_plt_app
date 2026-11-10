@@ -1,4 +1,4 @@
-"""Applies the normalization module to the catalogs the app stores (price_comparison_snapshots): every product gets a `norm` dict next to its raw fields —
+"""Applies the normalization module to the catalogs the app stores (price_comparison_snapshots): every product gets a `norm` dict (and an `hs` block, see hs.py) next to its raw fields —
 {price_per_kg, pack_weight_kg, items_per_pack, item_kg, price_per_item, method, confidence, note, sources} — in the product's OWN currency. The raw fields
 are never changed, so the legacy frontend conversions keep working until they are retired.
 
@@ -88,10 +88,27 @@ def researchable(name: str, unit_text: str, hs_chapters: dict[str, str] | None, 
 def hs_chapters_from_db(db) -> dict[str, str]:
     from .. import models
 
-    return {row.product_key: (row.hs_code or '')[:2] for row in db.query(models.ProductHsCode.product_key, models.ProductHsCode.hs_code).all() if row.hs_code}
+    chapters = {row.product_key: (row.hs_code or '')[:2] for row in db.query(models.ProductHsCode.product_key, models.ProductHsCode.hs_code).all() if row.hs_code}
+    for row in db.query(models.ProductHsAssignment.product_key, models.ProductHsAssignment.hs_code).all():  # a code a country's row has wins over the name-only cache
+        chapters[row.product_key] = row.hs_code[:2]
+    return chapters
 
 
-def annotate(source_key: str, products: list[dict], store, hs_chapters: dict[str, str] | None = None, overrides: dict[str, str] | None = None) -> list[dict]:
+def country_of_source(db, source_key: str) -> str | None:
+    """The country a snapshot key belongs to (the USDA reports are the United States; a custom source carries its own country)."""
+    if source_key in ('la_mayorista', 'corabastos'):
+        return 'Colombia'
+    if source_key.startswith('usa_'):
+        return 'United States'
+    if source_key.startswith('custom_'):
+        from .. import models
+
+        row = db.get(models.ProductSource, source_key[len('custom_'):])
+        return row.country_name if row else None
+    return None
+
+
+def annotate(source_key: str, products: list[dict], store, hs_chapters: dict[str, str] | None = None, overrides: dict[str, str] | None = None, hs_index=None, country: str | None = None) -> list[dict]:
     """Adds `norm` to every product (in place) using only what is known: the text, the researched store and the HS chapter — no web call."""
     if not is_catalog_source(source_key):
         return products
@@ -100,15 +117,15 @@ def annotate(source_key: str, products: list[dict], store, hs_chapters: dict[str
         from ..usa_sources.retail_produce import consolidate
 
         details = [product for product in products if product.get('detail')]
-        annotate_rows(source_key, details, store, hs_chapters, overrides)
+        annotate_rows(source_key, details, store, hs_chapters, overrides, hs_index, country)
         consolidated = consolidate(details)
-        annotate_rows(source_key, consolidated, store, hs_chapters, overrides)
+        annotate_rows(source_key, consolidated, store, hs_chapters, overrides, hs_index, country)
         products[:] = details + consolidated
         return products
-    return annotate_rows(source_key, products, store, hs_chapters, overrides)
+    return annotate_rows(source_key, products, store, hs_chapters, overrides, hs_index, country)
 
 
-def annotate_rows(source_key: str, products: list[dict], store, hs_chapters: dict[str, str] | None = None, overrides: dict[str, str] | None = None) -> list[dict]:
+def annotate_rows(source_key: str, products: list[dict], store, hs_chapters: dict[str, str] | None = None, overrides: dict[str, str] | None = None, hs_index=None, country: str | None = None) -> list[dict]:
     for product in products:
         name, unit, price = fields_for(source_key, product, overrides)
         norm = normalize_price(name, unit, price, store, researchable=researchable(name, unit, hs_chapters, product.get('category'))).to_dict()
@@ -119,6 +136,8 @@ def annotate_rows(source_key: str, products: list[dict], store, hs_chapters: dic
             if KG_PACKAGE_RE.match((product.get('unitLabel') or '').strip()):
                 norm['note'] = f"{KG_PACKAGE_NOTE} {norm['note']}"
         product['norm'] = norm
+        if hs_index is not None:  # the product's HS code AS SOLD IN ITS COUNTRY (catalog_normalization/hs.py): looked up, never guessed here
+            product['hs'] = hs_index.block(country, name)
     return products
 
 
@@ -172,4 +191,6 @@ def import_legacy_estimates(db) -> int:
 
 
 def annotate_with_db(db, source_key: str, products: list[dict]) -> list[dict]:
-    return annotate(source_key, products, DbStore(db), hs_chapters_from_db(db), overrides_from_db(db))
+    from .hs import build_index
+
+    return annotate(source_key, products, DbStore(db), hs_chapters_from_db(db), overrides_from_db(db), build_index(db), country_of_source(db, source_key))

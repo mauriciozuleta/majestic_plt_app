@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import CountryCommercialProfile from '../company/tabs/OperationsTab/CountryCommercialProfile'
+import CountryCompetitivenessAnalysis from '../company/tabs/OperationsTab/CountryCompetitivenessAnalysis'
 import MarketAnalysisPanel from '../company/tabs/OperationsTab/MarketAnalysis/MarketAnalysisPanel'
 import GlobalTradeDataView from '../globalTradeData/GlobalTradeDataView'
 import TaxCalculatorView from '../taxCalculator/TaxCalculatorView'
@@ -13,6 +14,7 @@ const HIDDEN_TOURISM_COLUMNS = ['TOURISM_GDP_TOTAL_PCT', 'TOURISM_EMPLOYMENT']
 // The documents of the dashboard table's header, one entry each; `available(country context)` says whether this country has it.
 const DOCUMENTS = [
   { key: 'profile', label: 'Commercial Profile', available: () => true },
+  { key: 'access', label: 'Market access brief', available: () => true },
   { key: 'products', label: 'Country Product Portfolio', available: () => true },
   { key: 'trade-import', label: 'Global Trade Data — Import', available: (ctx) => ctx.reporterCode != null },
   { key: 'trade-export', label: 'Global Trade Data — Export', available: (ctx) => ctx.reporterCode != null },
@@ -95,6 +97,7 @@ function CountryInformationPanel({ countries, selection, onSelect, tradeCountryC
   const renderDocument = () => {
     if (!country) return <p className="country-info__hint">Choose a country to see its documents.</p>
     if (documentKey === 'profile') return <CountryCommercialProfile key={country.id} companyId={country.company_id} country={country} onBuilt={onBuilt} />
+    if (documentKey === 'access') return <CountryCompetitivenessAnalysis key={country.id} companyId={country.company_id} sourceCountry={country} onBuilt={onBuilt} />
     if (documentKey === 'products') {
       return <MarketAnalysisPanel key={`${country.id}:${selection.hsCode || ''}`} companyId={country.company_id} country={country} initialTabKey="products" initialHsCode={selection.hsCode || null} hideTabs onBuilt={onBuilt} />
     }

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { buildProductPortfolio } from '../../services/productPortfolio'
-import { fetchProductHsCodes } from '../../services/productHsCodes'
 import { fetchProductSources } from '../../services/productSources'
 import { fetchReferenceCountries } from '../../services/commercialStructure'
 import {
@@ -81,12 +80,12 @@ function matchExplanationSentences(fieldBreakdown) {
 // actually selected (see selectProduct below), so listing this group never
 // depends on GBIF/LangSearch and never silently drops an unclassified
 // product from view the way a required-resolution step would.
-function buildGroupedProducts(portfolio, hsByName, originCountry) {
+function buildGroupedProducts(portfolio, originCountry) {
   const inCountry = portfolio.filter((product) => product.countries.includes(originCountry))
   const groups = new Map()
   inCountry.forEach((product) => {
-    const hs = hsByName[product.name.toLowerCase()]
-    if (!hs || !hs.hs_code) return
+    const hs = product.hs?.hs6 ? { hs_code: product.hs.hs6, description: product.hs.description } : null
+    if (!hs) return
     if (!groups.has(hs.hs_code)) {
       groups.set(hs.hs_code, { hsCode: hs.hs_code, description: hs.description || null, category: product.category, productNames: [] })
     }
@@ -183,7 +182,6 @@ export default function SpeciesGalleryPanel() {
   const [langsearchConfigured, setLangsearchConfigured] = useState(null)
 
   const [portfolio, setPortfolio] = useState([])
-  const [hsByName, setHsByName] = useState({})
   const [loadStatus, setLoadStatus] = useState('loading')
 
   // Step 1 — origin country. Same "has a real Country Product Portfolio"
@@ -225,13 +223,11 @@ export default function SpeciesGalleryPanel() {
     fetchConfigStatus().then((r) => setLangsearchConfigured(r.langsearch_configured)).catch(() => setLangsearchConfigured(false))
     Promise.all([
       buildProductPortfolio().catch(() => []),
-      fetchProductHsCodes().catch(() => ({ results: {} })),
       fetchProductSources().catch(() => ({ built_in: [], custom: [] })),
       fetchReferenceCountries().catch(() => []),
     ])
-      .then(([portfolioRows, hs, sources, referenceCountries]) => {
+      .then(([portfolioRows, sources, referenceCountries]) => {
         setPortfolio(portfolioRows)
-        setHsByName(hs.results || {})
         const allSources = [...(sources.built_in || []), ...(sources.custom || [])]
         const withPortfolio = [...new Set(allSources.filter((row) => row.product_count > 0).map((row) => row.country_name))].sort((a, b) =>
           a.localeCompare(b),
@@ -261,7 +257,7 @@ export default function SpeciesGalleryPanel() {
   function selectOriginCountry(name) {
     setOriginCountry(name)
     setSelectedGroup(null)
-    setGroups(name ? buildGroupedProducts(portfolio, hsByName, name) : [])
+    setGroups(name ? buildGroupedProducts(portfolio, name) : [])
     setExpandedGroups(new Set())
     setGroupSearch('')
     setVarieties([])

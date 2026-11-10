@@ -61,6 +61,7 @@ from .routers import (
     catalog_products,
     data_history,
     fuel_prices,
+    hs_codes,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -619,6 +620,7 @@ app.include_router(catalog_normalization.router)
 app.include_router(catalog_products.router)
 app.include_router(fuel_prices.router)
 app.include_router(data_history.router)
+app.include_router(hs_codes.router)
 
 
 @app.on_event('startup')
@@ -638,6 +640,9 @@ def _record_data_history_baseline():
 
     db = SessionLocal()
     try:
+        from .catalog_normalization import hs_store
+
+        hs_store.ensure_annotated(db)  # catalogs stored before the HS block existed get it once, before the baseline records them
         result = history_service.baseline(db)
         logging.getLogger('data_history').info('data history: %d new versions, %d unchanged', len(result['added']), result['unchanged'])
     except Exception:  # noqa: BLE001

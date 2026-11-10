@@ -112,6 +112,11 @@ def subheading_description(hs6: str) -> str:
     return hs_name(hs6)
 
 
+def reference_codes() -> dict[str, str]:
+    """{code -> official name} for every HS code of the reference (2/4/6 digits); empty if it could never be loaded."""
+    return _load_reference()
+
+
 def list_searchable_hs_codes() -> list[dict]:
     """Every 4-digit (heading) and 6-digit (subheading) HS code, as
     [{hs_code, level, chapter, heading, description}] — the catalog the

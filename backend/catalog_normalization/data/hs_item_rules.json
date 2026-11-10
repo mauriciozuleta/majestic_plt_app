@@ -1,0 +1,4 @@
+{
+  "_about": "Curated HS rules: an exact English product name (lowercase) -> a 4- or 6-digit HS code from Comtrade's reference. Used first by hs.suggest, never applied automatically; a person still confirms. Add a rule only for a name that always means the same commodity everywhere.",
+  "rules": {}
+}

@@ -171,11 +171,11 @@ class ProductSourceTests(HistoryTestCase):
 
     def test_a_site_read_that_shrinks_is_held_and_the_source_keeps_its_products(self):
         source = self.make_source()
-        with mock.patch.object(product_sources, 'analyze_url', return_value=(products(20), 'first')), mock.patch.object(product_sources, 'classify_source_products_in_background'):
+        with mock.patch.object(product_sources, 'analyze_url', return_value=(products(20), 'first')):
             product_sources._analyze(self.db, source)
             self.db.commit()
         self.assertEqual(source.product_count, 20)
-        with mock.patch.object(product_sources, 'analyze_url', return_value=(products(3), 'second')), mock.patch.object(product_sources, 'classify_source_products_in_background'):
+        with mock.patch.object(product_sources, 'analyze_url', return_value=(products(3), 'second')):
             outcome = product_sources._analyze(self.db, source)
             self.db.commit()
         self.assertEqual(outcome, 'held')
@@ -183,23 +183,20 @@ class ProductSourceTests(HistoryTestCase):
         self.assertIn('held for approval', source.status_message)
         self.assertEqual(len(self.live('custom_s1')), 20)
         held = store.held_updates()[0]
-        with mock.patch.object(product_sources, 'classify_source_products_in_background'):
-            service.approve(self.db, held['id'])
+        service.approve(self.db, held['id'])
         self.assertEqual(len(self.live('custom_s1')), 3)
         self.assertEqual(self.db.get(models.ProductSource, 's1').product_count, 3)
 
     def test_a_file_loaded_by_a_person_is_not_held(self):
         source = self.make_source()
-        with mock.patch.object(product_sources, 'classify_source_products_in_background'):
-            product_sources._store(self.db, source, products(20), 'file', 'one')
-            product_sources._store(self.db, source, products(2), 'file', 'two')
+        product_sources._store(self.db, source, products(20), 'file', 'one')
+        product_sources._store(self.db, source, products(2), 'file', 'two')
         self.assertEqual(store.held_updates(), [])
         self.assertEqual(len(self.live('custom_s1')), 2)
 
     def test_a_deleted_source_can_be_restored_with_its_settings(self):
         source = self.make_source()
-        with mock.patch.object(product_sources, 'classify_source_products_in_background'):
-            product_sources._store(self.db, source, products(15), 'site', 'read')
+        product_sources._store(self.db, source, products(15), 'site', 'read')
         self.db.commit()
         product_sources.delete_product_source('s1', self.db)
         self.assertIsNone(self.db.get(models.ProductSource, 's1'))

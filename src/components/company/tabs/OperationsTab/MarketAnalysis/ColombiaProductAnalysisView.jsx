@@ -18,7 +18,7 @@ import { colombiaRowSignature } from './unitConversion'
 import { useWeightResearch } from './useWeightResearch'
 import { DeleteSelectedButton, RowCheckbox, SelectAllCheckbox, useCatalogSelection } from './CatalogDeleteControls'
 import { fetchExchangeRate } from '../../../../../services/exchangeRate'
-import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
+import HsCodeCell from '../../../../hsCodes/HsCodeCell'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
 import { missingResearchNames, resolveFromNorm } from '../../../../../services/catalogNorm'
 import './ColombiaProductAnalysisView.css'
@@ -127,9 +127,8 @@ function SourceStatus({ label, sync }) {
 // HS code, regardless of the category chip currently selected. The parent
 // remounts this view (new key) on every new click, so a plain useState
 // seeded from the prop is enough — no effect needed to react to it changing.
-function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
+function ColombiaProductAnalysisView({ highlightHsCode = null }) {
   const [activeCategory, setActiveCategory] = useState('all')
-  const [productCodes, setProductCodes] = useState(new Map())
   const [highlightCleared, setHighlightCleared] = useState(false)
   const highlightActive = Boolean(highlightHsCode) && !highlightCleared
   const [snapshotVersion, setSnapshotVersion] = useState(0) // bumped after an item-weight research so the converted catalogs are read again
@@ -248,21 +247,6 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
     }
   }, [])
 
-  useEffect(() => {
-    if (!companyId) return undefined
-    let cancelled = false
-    buildProductCodeIndex()
-      .then((index) => {
-        if (!cancelled) setProductCodes(index)
-      })
-      .catch(() => {
-        // Non-fatal: the table still works without the reference codes.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [companyId, laMayoristaProducts, corabastosProducts])
-
   const products = useMemo(() => mergeSources(laMayoristaProducts, corabastosProducts), [laMayoristaProducts, corabastosProducts])
 
   // A row merges the product of both sources: deleting it removes it from each snapshot that has it (same id).
@@ -296,10 +280,10 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
     // HS code as a prefix, since a 6-digit highlight should still match a
     // longer real tariff code that starts with it.
     return sorted.filter((product) => {
-      const code = productCodes.get(translateProductName(product.nameEs, translationOverrides).text.toLowerCase())
+      const code = product.hs?.code
       return code && code.slice(2).startsWith(highlightHsCode)
     })
-  }, [products, activeCategory, translationOverrides, highlightActive, highlightHsCode, productCodes])
+  }, [products, activeCategory, translationOverrides, highlightActive, highlightHsCode])
 
   const stats = useMemo(
     () => ({
@@ -775,7 +759,6 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
                   const isEditingTranslation = openTranslationKeys.has(translationKey)
                   const suggestion = translationSuggestions.get(translationKey)
                   const isResolvingSuggestion = resolvingSuggestionKey === translationKey
-                  const code = productCodes.get(translation.text.toLowerCase())
                   const sourceEntries = resolveEntries(product, buildSourceEntries(product), customOverrides)
                   const referenceEntry = pickReferenceEntry(sourceEntries)
                   return (
@@ -783,7 +766,7 @@ function ColombiaProductAnalysisView({ companyId, highlightHsCode = null }) {
                       <td className="catalog-select__col">
                         <RowCheckbox selection={selection} rowKey={product.id} label={product.nameEs} />
                       </td>
-                      <td className="price-comparison__code-cell">{code || '—'}</td>
+                      <td className="price-comparison__code-cell"><HsCodeCell hs={product.hs} /></td>
                       <td className="price-comparison__category-cell">
                         {categoryMeta ? `${categoryMeta.es} / ${categoryMeta.en}` : product.category}
                       </td>

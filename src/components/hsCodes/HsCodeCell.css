@@ -1,0 +1,29 @@
+.hs-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.hs-cell__badge {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hs-cell__badge--none {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.hs-cell__badge--heading {
+  background: rgba(217, 119, 6, 0.14);
+  color: #b45309;
+}
+
+.hs-cell__mark {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+}

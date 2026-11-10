@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchCustomSourceProducts, refreshProductSource } from '../../../../../services/productSources'
 import { fetchExchangeRate } from '../../../../../services/exchangeRate'
 import { fetchReferenceCountries } from '../../../../../services/commercialStructure'
-import { buildProductCodeIndex } from '../../../../../services/productPortfolio'
+import HsCodeCell from '../../../../hsCodes/HsCodeCell'
 import { clearCustomOverride, fetchCustomOverrides, saveCustomOverride } from '../../../../../services/productOverrides'
 import { downloadCsv } from '../../../../../utils/exportCsv'
 import { formatOneUsdEquals, formatPriceLine } from './priceFormat'
@@ -75,13 +75,12 @@ function rowSignature(row) {
 // `highlightHsCode` filters to products whose reference code (country ISO2 +
 // HS code, see productPortfolio.js) falls under that HS code; the parent
 // remounts this view on every new click, so seeding state from it is enough.
-function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true, highlightHsCode = null }) {
+function CustomSourceProductsView({ countryName, showEmptyHint = true, highlightHsCode = null }) {
   const [sources, setSources] = useState([])
   const [status, setStatus] = useState('loading')
   const [syncBySource, setSyncBySource] = useState({})
   const [countryCurrency, setCountryCurrency] = useState(null)
   const [usdRates, setUsdRates] = useState({})
-  const [productCodes, setProductCodes] = useState(new Map())
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
   const [highlightCleared, setHighlightCleared] = useState(false)
@@ -143,17 +142,6 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when the country changes
   }, [countryName])
 
-  useEffect(() => {
-    if (!companyId) return undefined
-    let cancelled = false
-    buildProductCodeIndex()
-      .then((index) => !cancelled && setProductCodes(index))
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [companyId, sources])
-
   const products = useMemo(
     () =>
       sources.flatMap((source) =>
@@ -200,11 +188,11 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
       .filter((row) => !needle || row.name.toLowerCase().includes(needle) || row.category.toLowerCase().includes(needle))
       .filter((row) => {
         if (!highlightActive) return true
-        const code = productCodes.get(row.name.toLowerCase())
+        const code = row.hs?.code
         return code && code.slice(2).startsWith(highlightHsCode)
       })
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [products, activeCategory, search, highlightActive, highlightHsCode, productCodes])
+  }, [products, activeCategory, search, highlightActive, highlightHsCode])
 
   // The catalog normalization module's figure (backend/catalog_normalization) with a custom override on top — the same for every table.
   const resolvePerKg = (row) => {
@@ -330,7 +318,7 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
       const resolved = resolvePerKg(row)
       const rate = row.currency === 'USD' ? 1 : usdRates[row.currency]
       return [
-        productCodes.get(row.name.toLowerCase()) || '',
+        row.hs?.code || '',
         row.category,
         row.name,
         row.unit,
@@ -514,7 +502,7 @@ function CustomSourceProductsView({ countryName, companyId, showEmptyHint = true
                   <td className="catalog-select__col">
                     <RowCheckbox selection={selection} rowKey={rowSignature(row)} label={row.name} />
                   </td>
-                  <td className="price-comparison__code-cell">{productCodes.get(row.name.toLowerCase()) || '—'}</td>
+                  <td className="price-comparison__code-cell"><HsCodeCell hs={row.hs} /></td>
                   <td className="price-comparison__category-cell">{row.category}</td>
                   <td>
                     <div className="price-comparison__product-name">{row.name}</div>

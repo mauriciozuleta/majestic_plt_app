@@ -84,6 +84,11 @@ def baseline(db: Session) -> dict:
         put(snapshot_scope(row.source), 'json', products, stats)
     for row in db.query(models.MarketSizeSnapshot).all():
         put(market_size_scope(row.kind), 'json', {'flow': row.flow, 'chapters': json.loads(row.chapters_json), 'data': json.loads(row.data_json)}, {})
+    from ..catalog_normalization import hs_store
+
+    assignments = hs_store.export_assignments(db)
+    if assignments:
+        put(hs_store.HISTORY_SCOPE, 'json', assignments, {'assignments': len(assignments)})
     for path in tracked_files():
         put(file_scope(path), 'file', path.read_bytes(), {'size': path.stat().st_size})
     return {'added': added, 'unchanged': unchanged}
@@ -132,6 +137,13 @@ def restore(db: Session, scope: str, version: int, actor: str = 'user') -> dict:
         if scope.startswith('market_size:'):
             market_size_store.save_snapshot(db, scope.split(':', 1)[1], data['flow'], data['chapters'], data['data'], force=True, reason=reason, computed_at=data['data'].get('computed_at'))
             return {'scope': scope, 'restored_version': version}
+        if scope == 'hs:assignments':
+            from ..catalog_normalization import hs_store
+
+            hs_store.replace_assignments(db, data)
+            hs_store.record_history(db, reason)
+            hs_store.reannotate_catalogs(db, reason)
+            return {'scope': scope, 'restored_version': version, 'assignments': len(data)}
         if scope.startswith('file:'):
             path = (BACKEND / scope[len('file:'):]).resolve()
             if BACKEND not in path.parents:
@@ -223,6 +235,8 @@ def scope_label(db: Session, scope: str) -> str:
             if meta:
                 return f'{meta.get("country_name")} · {meta.get("name")} (deleted)'
         return {'la_mayorista': 'Colombia · La Mayorista', 'corabastos': 'Colombia · Corabastos'}.get(source, source)
+    if scope == 'hs:assignments':
+        return 'HS codes · assignments (all countries)'
     if scope.startswith('market_size:'):
         return f'Market size · {scope.split(":", 1)[1].upper()}'
     if scope.startswith('file:'):

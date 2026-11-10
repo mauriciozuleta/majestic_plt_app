@@ -1,11 +1,8 @@
-"""Country Competitiveness Analysis — assesses how competitive a source
-country's product portfolio (summarized by category, computed on the
-frontend from whatever Product Analysis data already exists for that
-country) would be if sold into a target country, using that target's
-already-built Country Commercial Profile as context. Requires the target
-country to have a profile already (see country_profile.py) — this is
-explicitly a second step built on top of that first one, not an
-independent research pipeline."""
+"""Market Access Brief (formerly the Competitiveness Analysis; the route, the files and the listings keep their old names) — assesses whether a source country's
+products can ENTER a target country and what restricts them (bans, permits, seasonal rules, agreements), per HS heading, from the target's already-built Country
+Commercial Profile. It does not judge price competitiveness: prices, taxes and freight are computed numerically by Market Opportunities, the tax calculators and the
+Shipment Builder. The portfolio is built on the server from the stored catalogs (country_profile/access_pack.py), so a person, the Assistant or an agent can start it.
+Requires the target country to have a profile already (see country_profile.py)."""
 
 import re
 from datetime import datetime, timezone
@@ -16,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..background_jobs import clear_building, get_error, is_building, mark_building, mark_error
+from ..country_profile import access_pack
 from ..country_profile.claude_client import build_competitiveness_analysis, extract_quick_facts
 from ..data_history import service as data_history_service
 from ..database import get_db
@@ -95,16 +93,16 @@ def get_competitiveness_analysis(
 
 
 def _run_competitiveness_build(
-    path: Path, source_country_name: str, category_summary: list, target_name: str, target_profile: str,
-    extra_prompt: str = '', document_names: tuple = (),
+    path: Path, source_country_name: str, access_pack: str, target_name: str, target_profile: str,
+    extra_prompt: str = '', document_names: tuple = (), web_search: bool = False,
 ):
     try:
-        body = build_competitiveness_analysis(source_country_name, category_summary, target_name, target_profile, extra_prompt)
+        body = build_competitiveness_analysis(source_country_name, access_pack, target_name, target_profile, extra_prompt, web_search)
         generated_at = datetime.now(timezone.utc)
         based_on = f' Based on our documents: {", ".join(document_names)}.' if document_names else ''
         header = f'AI-generated — {generated_at.strftime("%B %d, %Y")}.{based_on}\n\n'
         path.write_text(header + body, encoding='utf-8')
-        data_history_service.record_file(path, 'competitiveness analysis built')
+        data_history_service.record_file(path, 'market access brief built')
     except Exception as exc:
         mark_error(path, str(exc))
     finally:
@@ -117,7 +115,8 @@ def build_competitiveness(
     target_country_id: str,
     background_tasks: BackgroundTasks,
     source_country_name: str = Body(...),
-    category_summary: list[dict] = Body(...),
+    category_summary: list[dict] | None = Body(None),  # no longer used: the server builds the portfolio itself; accepted so older callers keep working
+    web_search: bool = Body(False),
     db: Session = Depends(get_db),
 ):
     target = db.query(models.CommercialCountry).filter_by(id=target_country_id, company_id=company_id).first()
@@ -128,8 +127,10 @@ def build_competitiveness(
     if not profile_path.exists():
         raise HTTPException(status_code=400, detail=f'{target.name} needs a Country Commercial Profile before it can be used as a benchmark')
 
-    if not category_summary:
-        raise HTTPException(status_code=400, detail='No product data available for the source country to analyze')
+    pack = access_pack.portfolio_by_heading(db, source_country_name)
+    if not pack['product_count']:
+        raise HTTPException(status_code=400, detail=f'No product data is stored for {source_country_name} yet — load or update its Product Analysis source first.')
+    access_text = access_pack.render(pack, access_pack.comparison_facts(db, source_country_name, target.name))
 
     path = _analysis_path(target_country_id, source_country_name)
     if is_building(path):
@@ -139,7 +140,7 @@ def build_competitiveness(
     mark_building(path)
     context, document_names = business_context(db, f'{target.name} {source_country_name}')
     background_tasks.add_task(
-        _run_competitiveness_build, path, source_country_name, category_summary, target.name, target_profile,
-        context_prompt_section(context), tuple(document_names),
+        _run_competitiveness_build, path, source_country_name, access_text, target.name, target_profile,
+        context_prompt_section(context), tuple(document_names), web_search,
     )
     return {'status': 'started'}

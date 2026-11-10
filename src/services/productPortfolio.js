@@ -1,35 +1,18 @@
-// General Portfolio Directory — every distinct product name across every
-// country's product portfolio, deduplicated (the same product sourced from
-// 3 countries appears once), alphabetized, with a reference code. Recomputed
-// fresh from the live snapshot data each time it's needed — deliberately
-// not cached/persisted, since that's the simplest way to keep it "always
-// current" without a separate update-trigger mechanism. Shared (not tab-
-// specific) because three places need it: Documentation's own directory
-// listing, and each country's own Product Analysis table showing its own
-// products' codes.
+// General Portfolio Directory — every product of every country's portfolio, ONE ROW PER COUNTRY AND PRODUCT, alphabetized. A product's code is
+// "<ISO2 of the country it is sold in><6-digit HS code>" (e.g. Jamaica tomato -> "JM070200"), taken from the `hs` block the backend's normalization module puts on
+// every stored product (backend/catalog_normalization/hs.py). There are NO placeholder codes: a product without an HS code has code null and the label "no_code",
+// a code that is only a 4-digit heading padded with zeros has the label "heading_only". Opening this never starts a classification (that is an explicit step:
+// routers/hs_codes.py), so viewing a page never spends credits.
 //
-// Built on the frontend, not the backend, because product names need to be
-// in English for this to be useful as a single cross-country reference —
-// Colombia's raw data is Spanish, and the Spanish->English dictionary
-// (productTranslations.js) is a frontend-only concern by design (see its
-// own header comment). Duplicating that dictionary server-side would be a
-// second copy that could drift from the real one.
-//
-// A product's code is its country's ISO2 code + its real UN Comtrade HS
-// code (e.g. onions from Colombia -> "CO070310") — classified once per
-// product name and cached permanently server-side (see
-// backend/comtrade/product_classification.py), not recomputed here. A
-// product that couldn't be confidently classified falls back to the old
-// country+category+sequence scheme instead of guessing a wrong HS code.
+// Recomputed from the live snapshot data each time it is needed — deliberately not cached or persisted. Built on the frontend for now only because Colombia's
+// Spanish names are translated by the dictionary (productTranslations.js) before display; the codes themselves come from the backend.
 
 import { mergeSources } from '../components/company/tabs/OperationsTab/MarketAnalysis/priceComparisonData'
 import { translateProductName } from '../components/company/tabs/OperationsTab/MarketAnalysis/productTranslations'
 import { fetchPriceComparisonSnapshot, fetchTranslationOverrides } from '../components/company/tabs/OperationsTab/MarketAnalysis/priceComparisonFetchers'
 import { fetchUsaSourcingSnapshot } from '../components/company/tabs/OperationsTab/MarketAnalysis/usaSourcingFetchers'
 import { fetchCustomSourceProducts, fetchProductSources } from './productSources'
-import { fetchProductHsCodes, startProductClassification } from './productHsCodes'
-import { fetchCommercialCountries, fetchReferenceCountries } from './commercialStructure'
-import { useAppStore } from '../store/useAppStore'
+import { fetchReferenceCountries } from './commercialStructure'
 
 // Same category concept gets the same 2-letter code regardless of which
 // country/source uses which name for it (Colombia's "Carnicos" and the
@@ -92,12 +75,13 @@ async function collectColombiaProducts() {
     name: translateProductName(p.nameEs, overridesByKey).text,
     category: p.category,
     sourceIds: [p.laMayorista != null ? 'la_mayorista' : null, p.corabastos != null ? 'corabastos' : null].filter(Boolean),
+    hs: p.hs ?? null,
   }))
 }
 
 async function collectUsaProducts() {
   const snapshots = await fetchUsaSourcingSnapshot()
-  return snapshots.flatMap((s) => s.products.map((p) => ({ name: p.product_en, category: p.category, sourceIds: [s.source] })))
+  return snapshots.flatMap((s) => s.products.map((p) => ({ name: p.product_en, category: p.category, sourceIds: [s.source], hs: p.hs ?? null })))
 }
 
 // Each product-portfolio source contributes {countryName, products}: the
@@ -112,7 +96,7 @@ async function collectAllSources() {
   // Sources added in Settings: each one's products join its country's list.
   const customSources = custom.map((source) => ({
     countryName: source.country_name,
-    products: source.products.map((p) => ({ name: p.name, category: p.category, sourceIds: [source.source_id] })),
+    products: source.products.map((p) => ({ name: p.name, category: p.category, sourceIds: [source.source_id], hs: p.hs ?? null })),
   }))
   return [
     { countryName: 'Colombia', products: colombia },
@@ -121,94 +105,33 @@ async function collectAllSources() {
   ]
 }
 
-// A country's ISO2 code, across EVERY company — not just whichever
-// company's tab this happens to be viewed from. The old per-company lookup
-// (only that company's own commercial countries) silently fell back to
-// "XX" for a product sourced from a country a DIFFERENT company owns (e.g.
-// viewing Documentation from FRESH24, whose own commercial structure
-// doesn't include Colombia — that belongs to FRESH24-Colombia).
-async function buildGlobalCountryCodeMap() {
-  const companies = useAppStore.getState().companies
-  const lists = await Promise.all(companies.map((company) => fetchCommercialCountries(company.id).catch(() => [])))
-  const map = new Map()
-  lists.flat().forEach((country) => {
-    if (country.country_code) map.set(country.name.toLowerCase(), country.country_code)
-  })
-  return map
-}
-
+/** One row per country and product: { code, name, category, country, countries: [country], hs, label } — `code` and `hs` are null when the product has no HS code
+ * ("label" is then 'no_code'); `label` is 'heading_only' for a padded 4-digit heading and 'ok' otherwise. */
 export async function buildProductPortfolio() {
-  const [sources, countryCodeByName] = await Promise.all([collectAllSources(), buildGlobalCountryCodeMap()])
+  const sources = await collectAllSources()
 
   const byKey = new Map()
   sources.forEach(({ countryName, products }) => {
-    products.forEach(({ name, category }) => {
+    products.forEach(({ name, category, hs }) => {
       const trimmed = (name || '').trim()
       if (!trimmed) return
-      const key = trimmed.toLowerCase()
-      if (!byKey.has(key)) {
-        byKey.set(key, { name: trimmed, category, countries: [] })
-      }
-      const entry = byKey.get(key)
-      if (!entry.countries.includes(countryName)) entry.countries.push(countryName)
+      const key = `${countryName.toLowerCase()}|${trimmed.toLowerCase()}`
+      if (!byKey.has(key)) byKey.set(key, { name: trimmed, category, country: countryName, hs: hs ?? null })
+      else if (!byKey.get(key).hs?.hs6 && hs?.hs6) byKey.get(key).hs = hs
     })
   })
 
-  const rows = Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name))
-
-  // Whatever's already been classified is instant (a table read); anything
-  // new is queued for background classification and shown with the old
-  // fallback code THIS time — never blocked on here, since classifying a
-  // large new batch can take minutes (see productHsCodes.js). It'll have
-  // its real HS code the next time this loads.
-  let hsByName = {}
-  try {
-    const { results } = await fetchProductHsCodes()
-    hsByName = results
-    const uncached = rows.filter((row) => !(row.name.toLowerCase() in hsByName))
-    if (uncached.length > 0) {
-      // Category and country go along as context: a cut name alone ("Primal
-      // Belly", "Drumsticks") doesn't say which animal it is, and a regional
-      // name ("coco" in Jamaica = cocoyam) depends on where it's sold.
-      startProductClassification(
-        uncached.map((row) => ({
-          key: row.name.toLowerCase(),
-          name: row.name,
-          context: `${categoryInfo(row.category).label}; sold in ${row.countries.join(', ')}`,
-        })),
-      ).catch(() => {})
-    }
-  } catch {
-    // Couldn't even read the cache (offline, etc.) — every row falls back
-    // to the old scheme below rather than blocking the directory.
-  }
-
-  return rows.map((row, index) => {
-    const primaryCountry = row.countries[0]
-    const countryCode = countryCodeByName.get(primaryCountry.toLowerCase()) || 'XX'
-    const hs = hsByName[row.name.toLowerCase()]
-    const { code: categoryCode, label: categoryLabel } = categoryInfo(row.category)
-    const sequence = String(index + 1).padStart(3, '0')
-    return {
-      // A real HS code when one was confidently assigned (e.g. onions from
-      // Colombia -> "CO070310"); the old country+category+sequence scheme
-      // for anything that couldn't be classified, so every product still
-      // gets a stable, unique code either way.
-      code: hs ? `${countryCode}${hs.hs_code}` : `${countryCode}${categoryCode}${sequence}`,
+  return Array.from(byKey.values())
+    .sort((a, b) => a.name.localeCompare(b.name) || a.country.localeCompare(b.country))
+    .map((row) => ({
+      code: row.hs?.code ?? null,
       name: row.name,
-      category: categoryLabel,
-      countries: row.countries,
-    }
-  })
-}
-
-/** Convenience for a single country's Product Analysis table: the same
- * portfolio, as a lookup from normalized (lowercase, trimmed) product name
- * straight to its code — so a table doesn't need to hold the whole
- * portfolio just to look up its own rows' codes. */
-export async function buildProductCodeIndex() {
-  const portfolio = await buildProductPortfolio()
-  return new Map(portfolio.map((row) => [row.name.toLowerCase(), row.code]))
+      category: categoryInfo(row.category).label,
+      country: row.country,
+      countries: [row.country],
+      hs: row.hs,
+      label: row.hs?.label ?? 'no_code',
+    }))
 }
 
 function emptyBucketPair() {
@@ -257,11 +180,10 @@ function addToBucketPair(pair, analysisType, countryCode) {
  * country coverage lives one or more levels deeper instead.
  */
 export async function buildCategoryCoverage() {
-  const [sources, referenceCountries, productSources, hsCache] = await Promise.all([
+  const [sources, referenceCountries, productSources] = await Promise.all([
     collectAllSources(),
     fetchReferenceCountries().catch(() => []),
     fetchProductSources().catch(() => ({ built_in: [], custom: [] })),
-    fetchProductHsCodes().catch(() => ({ results: {} })),
   ])
 
   const countryCodeByName = new Map(referenceCountries.map((c) => [c.name.toLowerCase(), c.country_code]))
@@ -274,22 +196,21 @@ export async function buildCategoryCoverage() {
     ...productSources.built_in.map((s) => [s.id, s.analysis_type]),
     ...productSources.custom.map((s) => [s.id, s.analysis_type]),
   ])
-  const hsByName = hsCache.results || {}
 
   const chapters = new Map()
 
   sources.forEach(({ countryName, products }) => {
     const countryCode = countryCodeByName.get((countryName || '').toLowerCase())
     if (!countryCode) return
-    products.forEach(({ name, sourceIds }) => {
+    products.forEach(({ name, sourceIds, hs }) => {
       const trimmed = (name || '').trim()
       if (!trimmed) return
-      const hs = hsByName[trimmed.toLowerCase()]
-      if (!hs || !hs.hs_code) return
-      const code = hs.hs_code
+      if (!hs?.hs6) return // no HS code yet: not part of any category
+      const code = hs.hs6
       const chapterCode = code.slice(0, 2)
       const headingCode = code.slice(0, 4)
-      const subheadingCode = code.length >= 6 ? code.slice(0, 6) : null
+      // a code that is only a padded 4-digit heading belongs to the heading, not to a made-up subheading
+      const subheadingCode = hs.level === 4 ? null : code.slice(0, 6)
 
       if (!chapters.has(chapterCode))
         chapters.set(chapterCode, { ...emptyBucketPair(), headings: new Map(), products: new Set(), countries: new Set() })

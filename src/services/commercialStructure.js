@@ -113,15 +113,17 @@ export async function fetchCompetitivenessAnalysis(companyId, targetCountryId, s
   return response.json()
 }
 
-export async function buildCompetitivenessAnalysis(companyId, targetCountryId, sourceCountryName, categorySummary) {
+// Starts the Market Access Brief (the old Competitiveness Analysis): the server builds the source portfolio by HS heading itself, so only the country name is sent
+// (a fourth argument from older callers is ignored).
+export async function buildCompetitivenessAnalysis(companyId, targetCountryId, sourceCountryName, _ignoredSummary, { webSearch = false } = {}) {
   const response = await fetch(`${API_BASE}/companies/${companyId}/commercial-countries/${targetCountryId}/competitiveness`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source_country_name: sourceCountryName, category_summary: categorySummary }),
+    body: JSON.stringify({ source_country_name: sourceCountryName, web_search: webSearch }),
   })
   if (!response.ok) {
     const detail = await response.json().catch(() => null)
-    throw new Error(detail?.detail || 'Failed to build the competitiveness analysis')
+    throw new Error(detail?.detail || 'Failed to build the market access brief')
   }
   return response.json()
 }

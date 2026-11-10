@@ -289,61 +289,49 @@ def extract_quick_facts(body):
     ]
 
 
-def _build_competitiveness_prompt(source_country_name, category_summary, target_country_name, target_profile):
-    summary_lines = '\n'.join(
-        f"- {row['category']}: avg price {row['avg_price']} {row['unit']}, {row['product_count']} products "
-        f"(examples: {', '.join(row['sample_products'][:5])})"
-        for row in category_summary
-    )
-    return f"""We run a food/agricultural import-export business. You are a member of our own team, writing our \
-internal assessment of whether the {source_country_name}-sourced food/agricultural products we handle would be \
-competitive if we sold them into {target_country_name}.
+def _build_competitiveness_prompt(source_country_name, access_pack, target_country_name, target_profile):
+    return f"""We run a food/agricultural import-export business. You are a member of our own team, writing our internal MARKET ACCESS BRIEF: can the {source_country_name}-sourced food/agricultural products we handle legally and practically enter {target_country_name}, and what restricts them?
 
-Voice: write in the first person plural — "we", "our", "us" — as the company itself, never about "the client" \
-or "the company" in the third person (for example "our {source_country_name} products", "we would be priced \
-out", "we could compete"). Keep a friendly, conversational tone, clear and concrete rather than a dry filing.
+This brief is about ACCESS only. Do NOT judge price competitiveness and do NOT compute or restate any price: our system measures prices, taxes, freight and margins elsewhere (Market Opportunities, the tax calculators, the Shipment Builder). Tariff rates may be quoted only as the profile below states them.
 
-Here is our current {source_country_name} wholesale product portfolio, summarized by category:
-{summary_lines}
+Voice: first person plural — "we", "our", "us" — as the company itself, never "the client" or "the company". Friendly, conversational, concrete rather than a dry filing.
 
-Here is our own commercial import/export profile of {target_country_name} (tariffs, taxes, FTAs, protected \
-products, seasonal restrictions), which we already researched:
+Our {source_country_name} portfolio, grouped by HS heading (a product with no HS code cannot be assessed and is listed at the end):
+{access_pack}
+
+Here is our own commercial import/export profile of {target_country_name} (tariffs, taxes, FTAs, protected products, seasonal restrictions), which we already researched:
 ---
 {target_profile}
 ---
 
-You may use web search for anything not already covered above (e.g. current {target_country_name} wholesale/ \
-retail price benchmarks for these same categories, to compare against). Use it if it would materially improve \
-the assessment.
-
-Write a Markdown document titled "# {source_country_name} → {target_country_name} — Product Competitiveness \
-Analysis" with this structure:
+Write a Markdown document titled "# {source_country_name} → {target_country_name} — Market Access Brief" with this structure:
 
 ## Quick Facts
-Use this exact "- Label: Value" format, one per line, plain text only — no bold/markdown emphasis \
-anywhere in this section, and keep each value to one short line:
-- Most competitive category: <category — brief why>
-- Least competitive category: <category — brief why>
-- Categories blocked or restricted: <list, or "None found">
-- Overall competitiveness: <High/Medium/Low — brief why>
+Use this exact "- Label: Value" format, one per line, plain text only — no bold/markdown emphasis anywhere in this section, one short line each:
+- Overall access: <Open / Conditional / Restricted — brief why>
+- Headings blocked or restricted: <HS headings, or "None found">
+- Seasonal restrictions: <headings and months, or "None found">
+- Agreements that help: <agreement and the headings it covers, or "None found">
+- Data gaps: <what the profile does not say about our headings, or "None">
 
-## Category-by-Category Assessment
-For each category in the portfolio above, a short paragraph covering: does {target_country_name}'s tariff/tax \
-treatment for this category make {source_country_name} product price-competitive there once landed; does any \
-protected-product, seasonal-restriction, or FTA rule from the profile above help or hurt this category \
-specifically; and an overall verdict (Competitive / Competitive with caveats / Not competitive) for that category.
+## Access by HS Heading
+For each HS heading in the portfolio above, a short paragraph: the access verdict (Open / Conditional / Restricted / Prohibited / Not covered by the profile), and the reason — import licences or permits, sanitary or phytosanitary rules, bans, quotas, seasonal windows, protected products, or an agreement that helps. Say "the profile does not cover this heading" rather than guessing. Where a heading is flagged as coded to the heading only or not yet reviewed, mention that the verdict may change once the code is confirmed.
+
+## Not Assessed
+The products with no HS code, and why they cannot be assessed yet.
 
 ## Sources
-MANDATORY if you used web search — list every source (with URL) you used beyond the profile already provided.
+List the sections of the profile you relied on (and any other source you were able to use).
 
 Formatting rules:
-- Every claim about a tariff, tax, or restriction must trace back to the profile provided above or a cited \
-source — do not invent figures.
+- Every claim about a restriction, permit, tariff or agreement must trace back to the profile provided above or a cited source — do not invent facts or figures.
 - Output ONLY the Markdown document, starting with the title line — no preamble or research narration.
 """
 
 
-def build_competitiveness_analysis(source_country_name, category_summary, target_country_name, target_profile, extra_prompt=''):
+def build_competitiveness_analysis(source_country_name, access_pack, target_country_name, target_profile, extra_prompt='', web_search=False):
+    """Writes the Market Access Brief (the document type that used to be the Competitiveness Analysis; the route, the files and the listings keep their names).
+    `access_pack` is the text built by country_profile/access_pack.py. Web search is off unless asked for: the profile is the source."""
     api_key = _get_api_key()
     if not api_key:
         raise RuntimeError('No Claude API key configured (set claude_api_key in the backend .env file)')
@@ -351,14 +339,10 @@ def build_competitiveness_analysis(source_country_name, category_summary, target
     payload = {
         'model': MODEL,
         'max_tokens': MAX_TOKENS,
-        'tools': [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': 5}],
-        'messages': [
-            {
-                'role': 'user',
-                'content': _build_competitiveness_prompt(source_country_name, category_summary, target_country_name, target_profile) + extra_prompt,
-            }
-        ],
+        'messages': [{'role': 'user', 'content': _build_competitiveness_prompt(source_country_name, access_pack, target_country_name, target_profile) + extra_prompt}],
     }
+    if web_search:
+        payload['tools'] = [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': 5}]
     headers = {
         'x-api-key': api_key,
         'anthropic-version': ANTHROPIC_VERSION,
@@ -372,6 +356,8 @@ def build_competitiveness_analysis(source_country_name, category_summary, target
 
     body = _strip_preamble(_join_text_blocks(data.get('content', [])))
     if not body:
-        raise RuntimeError('Claude returned no text content for the competitiveness analysis')
+        raise RuntimeError('Claude returned no text content for the market access brief')
 
     return body
+
+

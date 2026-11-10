@@ -1,4 +1,6 @@
-"""Assigns our own wholesale products a real UN Comtrade HS code — what the
+"""LEGACY name-only classifier (explicit call only: nothing starts it automatically any more — see routers/hs_codes.py for the per-country HS codes with review).
+
+Assigns our own wholesale products a real UN Comtrade HS code — what the
 General Portfolio Directory's product code is built from (see
 backend/comtrade/product_classification.py for how). Global, not scoped to
 Global Trade Data's own UI, but built on that module's classification

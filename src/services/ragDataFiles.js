@@ -44,7 +44,7 @@ function portfolioDocument(country, rows) {
       lines.push(`## ${category} (${items.length} products)`, '')
       items.forEach((item) => {
         const others = item.countries.filter((name) => name.toLowerCase() !== country.toLowerCase())
-        lines.push(`- ${item.name} — code ${item.code}${others.length > 0 ? ` — also in: ${others.join(', ')}` : ''}`)
+        lines.push(`- ${item.name} — ${item.code ? `code ${item.code}${item.label === 'heading_only' ? ' (heading only)' : ''}` : 'NO HS CODE yet'}${others.length > 0 ? ` — also in: ${others.join(', ')}` : ''}`)
       })
       lines.push('')
     })

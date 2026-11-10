@@ -4,6 +4,16 @@
 
 Status key: **recommended** = my proposal unless you say otherwise · **open** = needs your decision · **blocked** = cannot be tested yet.
 
+## IMPLEMENTED 2026-11-10 (uncommitted)
+
+**T1 (HS assignment in the normalization module) and T2 option B (market access brief) are built.** Where: `backend/catalog_normalization/hs.py` (parse/pad, per-country lookup, validation, suggestion tiers), `hs_store.py` (save, queue, status, history), `data/hs_item_rules.json` (curated rules, empty), table `product_hs_assignments`, API `/api/hs-codes/*` (`routers/hs_codes.py`); `backend/country_profile/access_pack.py` + new prompt in `claude_client.py`; UI: `HsCodeCell` (labels), `HsCodesModal` + the "N need HS" pill, Country Information ▸ "Market access brief". 62 new tests (362 in total) and a browser run on a throwaway copy of the database.
+
+**Answers I applied by default (your recommended column) because you asked to implement what was discussed — tell me which to change:** T1.4 free-first order (rule → same product in another country → local model → Claude → person); T1.6 existing 6,744 name-only codes kept and read as "AI-suggested, not reviewed"; T1.7 an old name-only code applies to every country until a person saves one for that country; T1.8 review in a popup like the weights one (plus the pill); T1.9 opening a page or storing a source never starts a classification (both automatic triggers removed); T1.10 anyone can confirm, every change records the name (`saved_by`, currently "user"); T1.2b a padded heading keeps its real level (4) and is labelled "Heading only" (when the padded code is itself a real subheading, e.g. 0702.00, it is level 6); T1.3b labels "No HS code" (red), "Heading only" (amber), small neutral "AI" mark; T2.0 = B; T2.10 web search in the brief is off unless asked for.
+
+**T1.5 measured (free, 40 random existing names, agreement with Claude's unreviewed codes):** qwen2.5:3b 8% same heading / 0% same 6-digit; gemma3:12b 35% / 30% overall — 52% / 43% on fresh food (chapters 01-14) and 16% / 16% on processed goods. Not good enough to trust: the local model is offered only as a low-confidence suggestion the person checks.
+
+**Not done / still open:** the Claude suggestion step is built and unit-tested with a mock but NOT run live (no credits); the curated rules file is empty (rules need a person to add them); T2.0b (stale comparison in the shipment builder) and T2.0c (move shipment finance to the backend) are unanswered; the Assistant's own `build_competitiveness_analysis` tool and `chat.js` still send a (now ignored) summary and still say "competitiveness" — left for the Assistant redo; `competitivenessInputs.js` is now only used by that Assistant path.
+
 Related: `docs/agent_tool_inventory.md` (what exists today), diary entry "Data history" (the version/undo system the items below use).
 
 ---

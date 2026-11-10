@@ -47,7 +47,6 @@ import { fetchUsaSourcingSnapshot } from '../components/company/tabs/OperationsT
 import { commentWithFallback, isReferenceConversion, isResearchedConversion, normPerKg } from './catalogNorm'
 import { convertCatalogRow, researchProductWeights } from './catalogNormalization'
 import { lookupCrossCountryOverride } from '../data/crossCountryMatchOverrides'
-import { fetchProductHsCodes } from './productHsCodes'
 import { requestProductMatches } from './productMatches'
 
 async function fetchJson(path, options) {
@@ -216,6 +215,7 @@ async function collectColombiaComparisonProducts() {
         perKgLocal: normPerKg(norm),
         unitComment: commentWithFallback(norm, 'This price could not be converted to a price per kg.'),
         norm,
+        hs: p.hs ?? null,
         ...researchedFields(norm),
         translated: isTranslated,
         // The raw (untranslated-shape) unit fields, kept next to the merged display string priceUnit above.
@@ -240,6 +240,7 @@ async function collectUsaComparisonProducts() {
       perKgLocal: normPerKg(p.norm),
       unitComment: commentWithFallback(p.norm, 'This price could not be converted to a price per kg.'),
       norm: p.norm,
+      hs: p.hs ?? null,
       ...researchedFields(p.norm),
       translated: false,
     })),
@@ -280,6 +281,7 @@ async function collectCustomComparisonProducts(countryName) {
         perKgLocal: normPerKg(product.norm),
         unitComment: commentWithFallback(product.norm, 'This price could not be converted to a price per kg.'),
         norm: product.norm,
+        hs: product.hs ?? null,
         ...researchedFields(product.norm),
         translated: false,
         rawUnit: product.unit,
@@ -613,24 +615,13 @@ function oneRowPerSourceProduct(pairs, rows) {
 
 export async function computeMarketOpportunity(sourceCountry, targetCountries) {
   const allCountries = [sourceCountry, ...targetCountries.filter((name) => name !== sourceCountry)]
-  const [productsByCountry, hsCache] = await Promise.all([
-    Promise.all(allCountries.map(async (name) => [name, await collectCountryComparisonProducts(name)])).then(
-      (entries) => new Map(entries),
-    ),
-    fetchProductHsCodes().catch(() => ({ results: {} })),
-  ])
-  // Same cache key format the classification pipeline itself uses
-  // everywhere else (buildProductPortfolio/buildCategoryCoverage): the
-  // product's plain display name, trimmed and lowercased — NOT matchName,
-  // which additionally strips accents/parentheticals for the name-join
-  // above and so would miss real cache entries (e.g. "tomato (deli) (a)"
-  // is cached under that exact string, parentheses and all).
-  const hsByExactName = hsCache.results || {}
+  const productsByCountry = new Map(await Promise.all(allCountries.map(async (name) => [name, await collectCountryComparisonProducts(name)])))
+  // The HS code is the one the normalization module gave the product AS SOLD IN ITS COUNTRY (product.hs, backend/catalog_normalization/hs.py): looked up there, never
+  // guessed here. A product without a code has hsCode null and is matched by name only.
   productsByCountry.forEach((products) => {
     products.forEach((p) => {
-      const hit = hsByExactName[p.displayName.trim().toLowerCase()]
-      p.hsCode = hit?.hs_code || null
-      p.hsDescription = hit?.description || null
+      p.hsCode = p.hs?.hs6 || null
+      p.hsDescription = p.hs?.description || null
     })
   })
   const sourceProducts = productsByCountry.get(sourceCountry) || []
@@ -717,7 +708,7 @@ export async function computeMarketOpportunity(sourceCountry, targetCountries) {
  * and its cached HS code: [{ name, category, hsCode, priceUsdPerKg, source }]. Matched in another market or not — the same
  * collectors the comparison uses, so a price here is the price the comparison would use. */
 export async function fetchCountryProductPrices(countryName) {
-  const [products, hsCache] = await Promise.all([collectCountryComparisonProducts(countryName), fetchProductHsCodes().catch(() => ({ results: {} }))])
+  const products = await collectCountryComparisonProducts(countryName)
   const currencies = new Set(products.map((p) => p.priceCurrency).filter(Boolean))
   const rates = new Map()
   await Promise.all(
@@ -735,7 +726,7 @@ export async function fetchCountryProductPrices(countryName) {
     const rate = p.priceCurrency ? rates.get(p.priceCurrency) : null
     const usd = p.perKgLocal != null && rate?.available ? p.perKgLocal / rate.rate : null
     const original = p.priceValue != null ? { value: p.priceValue, unit: p.priceUnit, currency: p.priceCurrency } : null
-    const entry = { name: p.displayName.trim(), category: p.category || null, hsCode: hsCache.results?.[key]?.hs_code || null, priceUsdPerKg: usd, original, source: p.sourceLabel }
+    const entry = { name: p.displayName.trim(), category: p.category || null, hsCode: p.hs?.hs6 || null, priceUsdPerKg: usd, original, source: p.sourceLabel }
     if (!byName.has(key) || (byName.get(key).priceUsdPerKg == null && usd != null)) byName.set(key, entry)
   })
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))

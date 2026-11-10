@@ -12,6 +12,7 @@ import { downloadCsv } from '../../../../utils/exportCsv'
 import { buildStartupInvestmentPdfSpec } from '../FinancialTab/startupInvestmentPdfSpec'
 import { exportCountryProfileToPdf } from '../OperationsTab/countryProfileExport'
 import { buildProductPortfolio } from '../../../../services/productPortfolio'
+import HsCodeCell from '../../../hsCodes/HsCodeCell'
 import ExportPdfButton from '../../../shared/PdfExport/ExportPdfButton'
 import KnowledgeBaseSections from './KnowledgeBaseSections'
 import UploadDocumentModal from './UploadDocumentModal'
@@ -300,8 +301,8 @@ function ProductPortfolioCategory({ companyId }) {
   const handleExportCsv = () => {
     downloadCsv(
       'general-portfolio-directory.csv',
-      ['Code', 'Product', 'Category', 'Countries'],
-      rows.map((row) => [row.code, row.name, row.category, row.countries.join(', ')]),
+      ['Code', 'Product', 'Category', 'Country', 'HS note'],
+      rows.map((row) => [row.code || '', row.name, row.category, row.country, row.label === 'no_code' ? 'No HS code' : row.label === 'heading_only' ? 'Heading only' : '']),
     )
   }
 
@@ -341,16 +342,18 @@ function ProductPortfolioCategory({ companyId }) {
                 <th>Code</th>
                 <th>Product</th>
                 <th>Category</th>
-                <th>Countries</th>
+                <th>Country</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.code}>
-                  <td className="documentation__portfolio-code">{row.code}</td>
+                <tr key={`${row.country}|${row.name}`}>
+                  <td className="documentation__portfolio-code">
+                    <HsCodeCell hs={row.hs} />
+                  </td>
                   <td>{row.name}</td>
                   <td className="documentation__portfolio-muted">{row.category}</td>
-                  <td className="documentation__portfolio-muted">{row.countries.join(', ')}</td>
+                  <td className="documentation__portfolio-muted">{row.country}</td>
                 </tr>
               ))}
             </tbody>

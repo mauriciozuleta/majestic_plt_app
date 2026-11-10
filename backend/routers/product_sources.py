@@ -21,7 +21,6 @@ from ..custom_sources.extract import SourceError, analyze_url, parse_file
 from ..data_history import HeldForApproval
 from ..database import get_db
 from ..snapshot_store import list_snapshots, record_current, save_snapshot
-from .product_classification import classify_source_products_in_background
 
 router = APIRouter()
 
@@ -122,7 +121,7 @@ def _store(db: Session, source: models.ProductSource, products: list[dict], orig
     source.origin = origin
     source.product_count = len(products)
     source.last_loaded_at = _now()
-    classify_source_products_in_background(products, source.country_name)
+    # HS codes are never assigned here: a product without a code shows "No HS code" until someone asks for suggestions (routers/hs_codes.py)
 
 
 def _restamp_currency(db: Session, source: models.ProductSource) -> None:

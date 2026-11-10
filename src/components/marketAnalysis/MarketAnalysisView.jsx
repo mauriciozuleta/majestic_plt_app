@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import MissingDataModal from './MissingDataModal'
+import HsCodesModal from './HsCodesModal'
 import { IconCheck } from '@tabler/icons-react'
 import { fetchCountryProfile, fetchMarketAnalysisRegions, fetchReferenceCountries, fetchRegionAssignments } from '../../services/commercialStructure'
 import { fetchTradeCountries } from '../../services/globalTradeData'
@@ -324,6 +325,7 @@ function MarketAnalysisView() {
       })
   }, [])
 
+  const [hsFor, setHsFor] = useState(null) // the country whose HS codes form is open
   const [missingFor, setMissingFor] = useState(null) // the country whose missing product data the form is open for
 
   const refreshStatus = useCallback((countryList) => {
@@ -639,6 +641,16 @@ function MarketAnalysisView() {
                                           {rowStatus.missingCount} need data
                                         </button>
                                       )}
+                                      {rowStatus.hsMissingCount > 0 && (
+                                        <button
+                                          type="button"
+                                          className="market-analysis__pill is-missing"
+                                          onClick={() => setHsFor(country.name)}
+                                          title={`${rowStatus.hsMissingCount} product${rowStatus.hsMissingCount === 1 ? '' : 's'} of ${country.name} ${rowStatus.hsMissingCount === 1 ? 'has' : 'have'} no HS code (or only the 4-digit heading) and cannot be traded yet. Click to add the codes.`}
+                                        >
+                                          {rowStatus.hsMissingCount} need HS
+                                        </button>
+                                      )}
                                     </div>
                                   </td>
                                 )
@@ -661,6 +673,7 @@ function MarketAnalysisView() {
           </>
         )}
 
+        {hsFor && <HsCodesModal country={hsFor} onClose={() => setHsFor(null)} onSaved={() => refreshStatus(countries)} />}
         {missingFor && <MissingDataModal country={missingFor} onClose={() => setMissingFor(null)} onSaved={() => refreshStatus(countries)} />}
 
         {viewingDoc && (
