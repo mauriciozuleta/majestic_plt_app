@@ -21,7 +21,7 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 > **How this works.** Read this block, do the work, add entries under "Entries", then **delete this block** and write a fresh one as the last step. Never leave a stale handout. (`CLAUDE.md` makes reading this diary and the graphify files mandatory at session start — say so in the first reply.)
 
 **State of the code**
-- **Last commit: `0792b72` (pushed to origin/main)** = data history + Agents tab + EIA scheduling + docs. **Uncommitted:** everything of the 2026-11-10 entry below (HS assignment, market access brief, table/portfolio changes).
+- **Last code commit: `e59211a` (pushed to origin/main)** = HS code assignment + market access brief (see the "Commit log" section for every commit id and how to reverse it). Anything after it is in the newest entry.
 - **Direction:** move computation from the browser to the backend (callable by agents/schedulers); React only shows. Done so far: data history (versions/restore/approval of suspicious refreshes), HS codes in the normalization module. Plan for the rest (portfolio + category coverage, Market Opportunities engine, tax-multiplier inputs, shipment finance, status endpoint; payroll tax deferred) is in `docs/todo_before_coding.md` (T3-T7 not yet detailed) and `docs/agent_tool_inventory.md`. JS has no tests: save current JS outputs as fixtures before porting.
 - **HS codes (new):** every stored catalog product has an `hs` block next to `norm` (`catalog_normalization/hs.py`): code = `<ISO2><6-digit HS>`, per COUNTRY + English name (table `product_hs_assignments`; the old name-only `product_hs_codes` is read as "suggested"); no placeholders ("No HS code" red, "Heading only" amber for a padded 4-digit heading, small "AI" mark = unreviewed). Suggestions (`/api/hs-codes/suggest`) never save: rule -> same product in another country -> local Ollama model (weak: 52% heading agreement on fresh food) -> Claude (credits, NOT tested live). A person saves via the "N need HS" pill popup (`HsCodesModal`) or `/api/hs-codes/save`; saves are versioned in the data history (`hs:assignments`) and re-annotate every catalog. Nothing starts a classification automatically any more. `ensure_annotated` at start-up gives old catalogs the block.
 - **Market access brief (T2 option B):** the competitiveness document is now a brief about ACCESS by HS heading (bans, permits, seasonal rules, agreements), no price verdict; the server builds the portfolio itself (`country_profile/access_pack.py`), web search off by default; reachable in Market Analysis ▸ Country Information ▸ "Market access brief" (targets from every company). Route/files keep the old "competitiveness" names. The Assistant tool and `chat.js` still use the old name (Assistant is to be redone).
@@ -91,6 +91,20 @@ user's prompt (verbatim, trimmed only if very long), and a summary of what chang
 | Knowledge base (company documents, chat) | `routers/knowledge_base.py`, `knowledge_base/` | Documentation tab |
 
 
+
+## Commit log (newest first) — to find what to reverse
+
+Add a line here after EVERY commit (id, date, what it holds, what reversing it undoes). To undo one commit safely: `git revert <id>` (makes a new commit, keeps history). **Careful:** `majestic_plt.db` (the database) is tracked, so a revert also puts back the database as it was in that commit; the separate history file `majestic_history.db` is git-ignored and is NOT touched by git (use Settings ▸ Data history to restore datasets).
+
+| Commit | Date | Holds | Notes for reversing |
+| --- | --- | --- | --- |
+| `e59211a` | 2026-11-10 | HS code assignment in the normalization module (`hs.py`, `hs_store.py`, table `product_hs_assignments`, `/api/hs-codes/*`, HS popup + pill, labels), portfolio rewrite (one row per country+product, no fallback codes), market access brief (`access_pack.py`, new prompt, Country Information entry), 62 tests | Reverting removes the HS block from new annotations (stored catalogs keep the `hs` field until re-annotated) and brings back the old fallback codes and the automatic classification; the table `product_hs_assignments` stays in the database file unless the db is also reverted |
+| `0792b72` | 2026-11-09 | Data history (`backend/data_history/`, `majestic_history.db`, Settings ▸ Data history), Agents tab, EIA scheduling, tool inventory, to-do docs | Reverting removes the history hooks; the history file stays on disk |
+| `6e161e5` | 2026-11-09 | Multi-select delete of catalog products + Modification Reports card | — |
+| `162e4ba` | 2026-11-09 | Catalog normalization wired into the app, MARS retail source, USDA reference weights, need-data form, Dashboard/Country Information tabs, central tab style | — |
+| `f1ab4c4` | 2026-11-07 | Catalog normalization module: unit parser, researched item weights, conversions, tests | — |
+| `43fc19f` | earlier | Documentation View button and viewer, shipment builder allocation document, diary entries | — |
+| `1ada281` | earlier | Rebuilt country profiles (Turks and Caicos, Sint Maarten, Grenada), agent summary docs, runtime data | — |
 
 ## Entries
 
