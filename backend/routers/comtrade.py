@@ -507,9 +507,14 @@ def refresh_sam_overview(db: Session, chapters: str | None = None, flow: str = '
         stored = market_size_store.get_snapshot(db, 'sam')
         chapter_list = stored['chapters'] if stored and stored['chapters'] else []
     if not chapter_list:
+        # no stored scope and none given: the server's own category coverage says which chapters qualify (it used to take the browser opening the tab to ask for them)
+        from ..portfolio import qualifying_chapters
+
+        chapter_list = qualifying_chapters(db)
+    if not chapter_list:
         raise HTTPException(
             status_code=400,
-            detail='SAM has never been computed yet — view the SAM Overview tab once first, or pass chapters explicitly.',
+            detail='SAM has never been computed yet and no product has an HS code, so there are no qualifying categories — add HS codes first, or pass chapters explicitly.',
         )
     data = _compute_sam_overview_data(db, chapter_list, flow)
     try:
@@ -859,9 +864,14 @@ def refresh_tam_overview(db: Session, chapters: str | None = None, flow: str = '
         stored = market_size_store.get_snapshot(db, 'tam')
         chapter_list = stored['chapters'] if stored and stored['chapters'] else []
     if not chapter_list:
+        # no stored scope and none given: the server's own category coverage says which chapters qualify (it used to take the browser opening the tab to ask for them)
+        from ..portfolio import qualifying_chapters
+
+        chapter_list = qualifying_chapters(db)
+    if not chapter_list:
         raise HTTPException(
             status_code=400,
-            detail='TAM has never been computed yet — view the TAM Overview tab once first, or pass chapters explicitly.',
+            detail='TAM has never been computed yet and no product has an HS code, so there are no qualifying categories — add HS codes first, or pass chapters explicitly.',
         )
     data = _compute_tam_overview_data(db, chapter_list, flow)
     try:

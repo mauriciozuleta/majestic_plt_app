@@ -432,3 +432,24 @@ Nothing else runs by itself: **no product source, SAM/TAM figure, tariff file, p
 | 14 | Which Ollama models are installed and is `OLLAMA_HOST` reachable (LM rows, BI-07 tier 3)? | `GET /local-models` (not called), `local_models/ollama_client.py` |
 | 15 | `POST /api/product-matches` and `POST /species-gallery/resolve`: exact cache writes and failure behaviour. | `routers/product_matches.py`, `product_matching/claude_client.py`, `species_gallery/resolver.py` |
 | 16 | Graphify: `wiki/index.md` is a generic overview and `GRAPH_REPORT.md` lists only community hubs, so no module boundaries came from them; this inventory is built from router/AST and file reads. The graph was built from `6e161e54` and does not cover the uncommitted fuel/Agents code until `graphify update .` runs. | `graphify-out/` |
+
+---
+
+## Addendum 2026-11-10 — capabilities added after this inventory was written
+
+Same columns as above in short form (all backend functions; none needs the browser). Counts in the summary above were not updated.
+
+| ID | Capability | Where | Tier · side effects | Runs | Notes |
+| --- | --- | --- | --- | --- | --- |
+| DH-01 | List datasets / versions / diff | `GET /api/data-history/datasets`, `/log`, `/diff` | R | instant | |
+| DH-02 | Restore a version | `POST /api/data-history/restore` | W · becomes a new version | instant | restorable by restoring again |
+| DH-03 | Approve / reject a held refresh | `POST /api/data-history/held/{id}/approve|reject`, `GET /held` | W · approve saves the held data | instant | a refresh that is empty or loses 50%+ of the rows (SAM/TAM -25%) waits here |
+| DH-04 | Pin a version | `POST /api/data-history/pin` | W | instant | |
+| HC-01 | HS status / review queue / lookup | `GET /api/hs-codes/status`, `/queue`, `/lookup` | R | instant | |
+| HC-02 | Validate HS codes | `POST /api/hs-codes/validate` | S | instant | against Comtrade's HS reference + category + other countries |
+| HC-03 | Suggest HS codes | `POST /api/hs-codes/suggest` | S · saves nothing | instant; local model slow; Claude needs credits | rule, same product elsewhere, local model, Claude (each only when allowed) |
+| HC-04 | Save HS codes | `POST /api/hs-codes/save` | W · rewrites every catalog, versioned (`hs:assignments`) | instant | confirmed / corrected by a person |
+| PF-01 | Product directory | `GET /api/portfolio/directory` | R | instant | one row per country and product with its HS code |
+| PF-02 | Category coverage / qualifying chapters | `GET /api/portfolio/category-coverage`, `/qualifying-chapters` | R | instant | the chapters SAM and TAM cover |
+| PF-03 | Products of one country / merged Colombia table | `GET /api/portfolio/products?country=`, `/colombia` | R | instant | English names, HS blocks, comparison fields |
+| MB-01 | Build a market access brief | `POST /companies/{c}/commercial-countries/{target}/competitiveness` | W · overwrites the brief file (versioned) | job, `credits` | only the source country name is needed; replaces the browser-built summary |
