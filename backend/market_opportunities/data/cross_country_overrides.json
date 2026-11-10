@@ -1,0 +1,6 @@
+{
+  "_about": "Curated SOURCE-country -> TARGET-country product-name overrides for the Market Opportunities comparison (moved from src/data/crossCountryMatchOverrides.js). Keyed by '<Source Country>|<Target Country>': { normalizedSourceName: normalizedTargetName } — the names after translation and normalization (lowercase, accents and (parentheses) removed). Only add an entry when a person comparing both real product lists confirmed it is the same product under a different name; identical names already match by themselves. A match made through this table is flagged 'curated_override' and is never treated as more certain than what a human verified.",
+  "overrides": {
+    "Colombia|Jamaica": { "bell pepper": "sweet pepper" }
+  }
+}

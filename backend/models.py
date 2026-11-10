@@ -945,6 +945,22 @@ class MarketOpportunityComparison(Base):
     calculated_at = Column(String, nullable=False)
 
 
+class MarketOpportunityRun(Base):
+    """What a saved Market Opportunities comparison of one (source, target) pair was built FROM (market_opportunities/staleness.py): the fetch dates of the involved catalogs, the
+    HS codes, the researched item weights, the translations and the price levels at that moment, plus how it was run. Comparing it with the data now says whether the saved
+    comparison is out of date and why. Comparisons saved before this table existed have no row; they are judged by their calculation date against the catalogs' fetch dates."""
+    __tablename__ = 'market_opportunity_runs'
+
+    source_country = Column(String, primary_key=True)
+    target_country = Column(String, primary_key=True)
+    calculated_at = Column(String, nullable=False)
+    inputs_json = Column(String, nullable=False)
+    params_json = Column(String, nullable=False)
+    row_count = Column(Integer, nullable=False, default=0)
+    ai_error = Column(String, nullable=True)
+    weight_error = Column(String, nullable=True)
+
+
 class MarketOpportunityPriority(Base):
     """A source product the user put on the priority list of one
     (source_country, target_country) comparison in Market Opportunities.

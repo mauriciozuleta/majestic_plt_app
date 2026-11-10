@@ -119,7 +119,7 @@ If the answer to T2.0 is **A** or **B**, questions T2.3–T2.12 below mostly fal
 ## Not yet detailed (to be turned into todos after T1 and T2)
 
 - T3 — Product portfolio and category coverage on the backend (also gives SAM/TAM a server-side scope). **DONE 2026-11-10 (Phase 0 + 1, uncommitted until the next commit):** `backend/portfolio/`, `routers/portfolio.py`, parity fixtures in `backend/tests/fixtures/js_parity/`.
-- T4 — Market Opportunities engine on the backend (matching, comparison rows, job, staleness fingerprint).
+- T4 — Market Opportunities engine on the backend (matching, comparison rows, job, staleness fingerprint). **DONE 2026-11-10 (Phase 2, uncommitted until the next commit):** `backend/market_opportunities/`, parity tests `test_market_opportunities_parity.py`. Data-history recording and the held-update guard for comparisons are still to do.
 - T5 — Tax multiplier inputs on the backend (a country instead of a browser-built product list).
 - T6 — Market Analysis status endpoint; shipment airfares.
 - T7 — Payroll tax calculators (decide whether an agent ever needs them).

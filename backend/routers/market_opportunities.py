@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..currency.usd_rates import get_usd_rate
 from ..database import get_db
+from ..market_opportunities import engine, jobs, staleness
 from .market_opportunity_settings import get_margin_tiers, rating_for
 
 router = APIRouter()
@@ -221,11 +222,49 @@ def list_comparison_pairs(db: Session = Depends(get_db)):
         .all()
     )
     pairs = [
-        {'source_country': source, 'target_country': target, 'row_count': count, 'calculated_at': calculated_at}
+        {'source_country': source, 'target_country': target, 'row_count': count, 'calculated_at': calculated_at,
+         # is it out of date? (market_opportunities/staleness.py): True / False, and in words what changed after it was calculated
+         **(lambda status: {'stale': status['stale'], 'stale_reasons': status['reasons']})(staleness.pair_status(db, source, target, calculated_at))}
         for source, target, count, calculated_at in rows
     ]
     pairs.sort(key=lambda pair: pair['calculated_at'] or '', reverse=True)
     return {'pairs': pairs}
+
+
+class ComputeIn(BaseModel):
+    source_country: str
+    target_countries: list[str]
+    force: bool = False  # recompute even when every target already has a saved comparison
+    allow_ai: bool = True  # the AI judge of the matching (Claude, cached; credits). Off: shared-HS-code pairing, free
+    allow_research: bool = True  # web research of the weight of one item for per-unit prices (Claude; credits). Off: those prices stay unconverted
+    save: bool = True  # False: a simulation — computes and returns the rows, saves nothing
+    wait: bool = False  # True: run in this request and answer with the result instead of starting a background job
+
+
+@router.post('/api/market-opportunities/compute')
+def compute_comparison(payload: ComputeIn, db: Session = Depends(get_db)):
+    """Computes the comparison of one source country against target countries on the server. A simulation (`save: false`) answers at once with the rows. Otherwise it saves
+    the comparison (replacing the pair's earlier one) as a background job — poll /compute/status — or in this request with `wait: true`."""
+    targets = [name for name in payload.target_countries if name.strip()]
+    if not payload.source_country.strip() or not targets:
+        raise HTTPException(status_code=400, detail='Give the source country and at least one target country.')
+    if not payload.save:
+        result = engine.compute(db, payload.source_country, targets, allow_ai=payload.allow_ai, allow_research=payload.allow_research)
+        return {'simulated': True, **result}
+    return jobs.start(payload.source_country, targets, force=payload.force, allow_ai=payload.allow_ai, allow_research=payload.allow_research, wait=payload.wait)
+
+
+@router.get('/api/market-opportunities/compute/status')
+def compute_status(source_country: str = Query(...), target_countries: str = Query(...)):
+    """{status: idle | building | done | error, result?, error?} of the comparison job for these countries (in memory: a backend restart forgets a running job)."""
+    return jobs.status(source_country, [name for name in target_countries.split(',') if name])
+
+
+@router.get('/api/market-opportunities/country-prices')
+def country_prices(country: str, db: Session = Depends(get_db)):
+    """Every product of a country's portfolio with its price per kg in USD (null where the unit or currency could not be converted), its HS code and the original quote:
+    the prices the tax-multiplier and shipment-cost screens use."""
+    return {'country': country, 'products': engine.country_prices(db, country)}
 
 
 class PriorityItem(BaseModel):

@@ -1,53 +1,11 @@
-// Market Opportunities' real engine: cross-country wholesale price
-// comparison + opportunity scoring, replacing MarketOpportunitiesPanel.jsx's
-// original "coming soon" placeholder. Product matching (curated overrides +
-// translated/exact normalized-name join + a shared-HS-code fallback) and
-// unit/currency normalization happen HERE, on the frontend — composing
-// pieces this app already built for exactly this rather than inventing a
-// new mechanism:
-//   - priceComparisonData.js's mergeSources() shape (full outer join,
-//     unmatched never dropped) and productTranslations.js's
-//     translateProductName()/normalizeProductName() for Colombia, both
-//     frontend-only by design (Colombia's raw names are Spanish).
-//   - the catalog normalization module (backend/catalog_normalization): every
-//     catalog product is converted to a price per kg when its catalog is
-//     stored, and arrives here with its `norm` block (catalogNorm.js); a unit
-//     that needs the weight of one item is researched on the web by the module.
-//   - crossCountryMatchOverrides.js — match_table.py's own curated-dict
-//     pattern, generalized to arbitrary country pairs.
-//   - productHsCodes.js's own classification cache (the same one
-//     buildProductPortfolio()/buildCategoryCoverage() already read) as a
-//     THIRD, lower-confidence matching tier: two products with completely
-//     different display names (e.g. Colombia's "chonto tomato" and
-//     Jamaica's "tomato [plummy] (local)") but the same already-classified
-//     HS code are still the same real product type, and an exact-name-only
-//     join was silently excluding every one of them — confirmed live
-//     against this app's own real data before building this (many Colombia
-//     and Jamaica tomato variants all classify to HS 070200 under
-//     completely different names). Never a NEW classification mechanism —
-//     this only reads the cache the existing background pipeline already
-//     populates; a product not yet classified simply isn't eligible for
-//     this tier yet, same as everywhere else in this app that reads it.
-// The backend (routers/market_opportunities.py) only ever does two things:
-// a free/keyless FX rate with its own date, every currency converting
-// independently to a common USD basis (open.er-api.com, see
-// backend/currency/usd_rates.py), and persisting + scoring (the
-// opportunity-rating scale) the final rows this module builds.
-
+// Market Opportunities: the cross-country wholesale price comparison and its opportunity rating. The ENGINE runs on the server now (backend/market_opportunities/, routers/
+// market_opportunities.py): product collection, translation, name / curated / AI / shared-HS-code matching, currency and unit conversion, item-weight research, the comparison
+// rows and the saving. This file only starts it, follows it and reads the saved results. A parity test (backend/tests/test_market_opportunities_parity.py) holds the Python to
+// exactly what the old 740-line JavaScript engine produced on the same data.
 import { API_BASE } from './apiBase'
-import { fetchReferenceCountries } from './commercialStructure'
-import { fetchCustomSourceProducts, fetchProductSources } from './productSources'
-import { mergeSources } from '../components/company/tabs/OperationsTab/MarketAnalysis/priceComparisonData'
-import { translateProductName, normalizeProductName } from '../components/company/tabs/OperationsTab/MarketAnalysis/productTranslations'
-import {
-  fetchPriceComparisonSnapshot,
-  fetchTranslationOverrides,
-} from '../components/company/tabs/OperationsTab/MarketAnalysis/priceComparisonFetchers'
-import { fetchUsaSourcingSnapshot } from '../components/company/tabs/OperationsTab/MarketAnalysis/usaSourcingFetchers'
-import { commentWithFallback, isReferenceConversion, isResearchedConversion, normPerKg } from './catalogNorm'
-import { convertCatalogRow, researchProductWeights } from './catalogNormalization'
-import { lookupCrossCountryOverride } from '../data/crossCountryMatchOverrides'
-import { requestProductMatches } from './productMatches'
+
+const POLL_MS = 2000
+const MAX_WAIT_MS = 30 * 60 * 1000 // the AI judge and the web research can take minutes
 
 async function fetchJson(path, options) {
   const response = await fetch(`${API_BASE}${path}`, options)
@@ -58,46 +16,17 @@ async function fetchJson(path, options) {
   return response.json()
 }
 
-// { rate, date, from, available } — every currency converts independently
-// to a common USD basis (never source-currency straight to target-currency
-// — see buildComparisonRow below), via open.er-api.com (backend/currency/
-// usd_rates.py), which — unlike this feature's original Frankfurter/ECB
-// source — actually covers COP/JMD/XCD/TTD, this app's own real
-// tracked-country currencies (confirmed live). `rate` is how many units of
-// `fromCurrency` equal 1 USD — DIVIDE a local price by it to get USD, never
-// multiply (see usd_rates.py's own docstring for why this direction is
-// deliberate). `available: false` only if the currency truly has no rate
-// anywhere (not a real 3-letter code, or genuinely unsupported) — never
-// thrown as an error, the caller shows the affected side as unresolved,
-// same as an unconvertible unit.
+const postJson = (path, body) => fetchJson(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+// { rate, date, from, available } — how many units of `fromCurrency` equal 1 USD (DIVIDE a local price by it); `available: false` when the currency has no rate anywhere.
 export async function fetchMarketOpportunityExchangeRate(fromCurrency) {
   const params = new URLSearchParams({ from: fromCurrency })
   return fetchJson(`/api/market-opportunities/exchange-rate?${params.toString()}`)
 }
 
-// `unmatchedByTarget` ({target country: [source products]}) is saved with
-// the rows — just each product's name and category — so a saved comparison
-// reopens complete.
-export async function saveMarketOpportunityComparisons(rows, unmatchedByTarget = {}) {
-  const unmatched = Object.fromEntries(
-    Object.entries(unmatchedByTarget).map(([target, products]) => [
-      target,
-      products.map(({ displayName, matchName, category }) => ({ displayName, matchName, category })),
-    ]),
-  )
-  return fetchJson('/api/market-opportunities/comparisons', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rows, unmatched_by_target: unmatched }),
-  })
-}
-
-// A comparison of one source country against target countries: the saved
-// one when every target already has one (no recompute, no AI calls),
-// otherwise — or with `force` — a fresh run, saved before it's returned.
-// `onStatus('checking' | 'computing')` reports which is happening.
-// -> { rows (with _target_display_name), unmatchedByTarget, unmatchedUnknown,
-//      calculatedAt, origin: 'saved' | 'computed', aiMatchErrors }
+// A comparison of one source country against target countries: the saved one when every target already has one (no recompute, no AI calls), otherwise — or with `force` — a
+// fresh run on the server, saved before it is returned. `onStatus('checking' | 'computing')` reports which is happening.
+// -> { rows (with _target_display_name), unmatchedByTarget, unmatchedUnknown, calculatedAt, origin: 'saved' | 'computed', aiMatchErrors, weightError }
 export async function getOrComputeComparison(sourceCountry, targetCountries, { force = false, onStatus } = {}) {
   const withDisplayName = (rows) => rows.map((row) => ({ ...row, _target_display_name: row.target_product_name }))
   if (!force) {
@@ -119,38 +48,35 @@ export async function getOrComputeComparison(sourceCountry, targetCountries, { f
     }
   }
   onStatus?.('computing')
-  const { rows: computedRows, unmatchedByTarget, aiMatchErrors, weightError } = await computeMarketOpportunity(sourceCountry, targetCountries)
-  const result = { unmatchedByTarget, unmatchedUnknown: false, origin: 'computed', aiMatchErrors: aiMatchErrors || {}, weightError: weightError || null }
-  if (computedRows.length === 0) return { ...result, rows: [], calculatedAt: new Date().toISOString() }
-  const payload = computedRows.map(({ _target_display_name, ...rest }) => ({ ...rest, target_product_name: _target_display_name ?? null }))
-  const saved = await saveMarketOpportunityComparisons(payload, unmatchedByTarget)
-  return { ...result, rows: withDisplayName(saved.rows), calculatedAt: saved.calculated_at }
+  const body = { source_country: sourceCountry, target_countries: targetCountries, force: true, allow_ai: true, allow_research: true, save: true }
+  let state = await postJson('/api/market-opportunities/compute', body)
+  const begun = Date.now()
+  while (state.status === 'building') {
+    if (Date.now() - begun > MAX_WAIT_MS) throw new Error('The comparison is taking longer than expected; it keeps running on the server — open it again in a few minutes.')
+    // eslint-disable-next-line no-await-in-loop -- polls until the job is done
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+    // eslint-disable-next-line no-await-in-loop
+    state = await fetchJson(`/api/market-opportunities/compute/status?${new URLSearchParams({ source_country: sourceCountry, target_countries: targetCountries.join(',') })}`)
+  }
+  if (state.status === 'error') throw new Error(state.error || 'The comparison failed.')
+  const result = state.result
+  const shared = { unmatchedByTarget: result.unmatched_by_target, unmatchedUnknown: false, origin: 'computed', aiMatchErrors: result.ai_errors || {}, weightError: result.weight_error || null }
+  if (!result.row_count) return { ...shared, rows: [], calculatedAt: new Date().toISOString() }
+  const saved = await fetchMarketOpportunityComparisons(sourceCountry, targetCountries)
+  return { ...shared, rows: withDisplayName(saved.rows), calculatedAt: result.calculated_at }
 }
 
-// Priority list of one source country's comparisons: items are
-// { source_country, target_country, product_name }.
+// Priority list of one source country's comparisons: items are { source_country, target_country, product_name }.
 export async function fetchMarketOpportunityPriority(sourceCountry, targetCountries) {
   const params = new URLSearchParams({ source_country: sourceCountry, target_countries: targetCountries.join(',') })
   return fetchJson(`/api/market-opportunities/priority?${params.toString()}`)
 }
 
-export async function addToMarketOpportunityPriority(items) {
-  return fetchJson('/api/market-opportunities/priority', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items }),
-  })
-}
+export const addToMarketOpportunityPriority = (items) => postJson('/api/market-opportunities/priority', { items })
+export const removeFromMarketOpportunityPriority = (items) => postJson('/api/market-opportunities/priority/remove', { items })
 
-export async function removeFromMarketOpportunityPriority(items) {
-  return fetchJson('/api/market-opportunities/priority/remove', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items }),
-  })
-}
-
-// Every saved source -> target comparison: [{source_country, target_country, row_count, calculated_at}]
+// Every saved source -> target comparison: [{ source_country, target_country, row_count, calculated_at, stale, stale_reasons }] — `stale` says whether the catalogs, HS codes,
+// item weights or translations changed after it was calculated, `stale_reasons` says what in words.
 export async function fetchMarketOpportunityPairs() {
   return fetchJson('/api/market-opportunities/comparisons/pairs')
 }
@@ -160,574 +86,9 @@ export async function fetchMarketOpportunityComparisons(sourceCountry, targetCou
   return fetchJson(`/api/market-opportunities/comparisons?${params.toString()}`)
 }
 
-// ---------------------------------------------------------------- collectors
-//
-// Every collector returns the same shape regardless of country, so the
-// matching/scoring code below never needs to know which pipeline a product
-// came from:
-//   { matchName, displayName, category, sourceLabel, priceValue, priceUnit,
-//     priceCurrency, perKgLocal, unitComment, translated }
-// `perKgLocal` is the price per kilogram in the product's OWN currency
-// (null if its unit couldn't be converted — the discipline every existing
-// conversion path in this app already follows); `translated` is only ever
-// true for a Colombia product whose Spanish name resolved through
-// productTranslations.js.
-
-// A conversion that rests on a web-researched item weight is flagged like the older AI estimates (conversionMethod/conversionNote), so the comparison row
-// says so and asks for a check; every other norm method (a weight written in the data, an official factor) needs no flag.
-function researchedFields(norm) {
-  return isResearchedConversion(norm) || isReferenceConversion(norm) ? { conversionMethod: norm.method, conversionNote: norm.note, conversionConfidence: norm.confidence } : {}
-}
-
-async function collectColombiaComparisonProducts() {
-  const [snapshots, overrides] = await Promise.all([
-    fetchPriceComparisonSnapshot(),
-    fetchTranslationOverrides().catch(() => []),
-  ])
-  const overridesByKey = Object.fromEntries(overrides.map((row) => [row.product_key, row.translation_en]))
-  const bySource = Object.fromEntries(snapshots.map((s) => [s.source, s.products]))
-  if (!bySource.la_mayorista && !bySource.corabastos) return []
-  const merged = mergeSources(bySource.la_mayorista || [], bySource.corabastos || [])
-
-  return merged
-    .filter((p) => p.laMayorista != null || p.corabastos != null)
-    .map((p) => {
-      const { text, isTranslated } = translateProductName(p.nameEs, overridesByKey)
-      // Colombia has two independent wholesalers; a cross-country
-      // comparison needs ONE real recorded price per product, never an
-      // average blended into a fake "original" figure — La Mayorista's own
-      // row is preferred when both have this product (arbitrary but
-      // disclosed via sourceLabel, not hidden), otherwise whichever exists.
-      const useLaMayorista = p.laMayorista != null
-      const value = useLaMayorista ? p.laMayorista : p.corabastos
-      const unit = useLaMayorista ? p.laMayoristaUnit : p.corabastosUnit
-      const unitLabel = useLaMayorista ? p.laMayoristaUnitLabel : p.corabastosUnitLabel
-      const norm = useLaMayorista ? p.laMayoristaNorm : p.corabastosNorm
-      return {
-        matchName: normalizeProductName(text),
-        displayName: text,
-        category: p.category,
-        sourceLabel: useLaMayorista ? 'La Mayorista' : 'Corabastos',
-        sourceId: useLaMayorista ? 'la_mayorista' : 'corabastos',
-        priceValue: value,
-        priceUnit: unit === 'kg' ? 'kg' : unitLabel || unit,
-        priceCurrency: 'COP',
-        perKgLocal: normPerKg(norm),
-        unitComment: commentWithFallback(norm, 'This price could not be converted to a price per kg.'),
-        norm,
-        hs: p.hs ?? null,
-        ...researchedFields(norm),
-        translated: isTranslated,
-        // The raw (untranslated-shape) unit fields, kept next to the merged display string priceUnit above.
-        rawUnit: unit,
-        rawUnitLabel: unitLabel,
-      }
-    })
-}
-
-async function collectUsaComparisonProducts() {
-  const snapshots = await fetchUsaSourcingSnapshot()
-  return snapshots.flatMap((s) =>
-    s.products.map((p) => ({
-      matchName: normalizeProductName(p.product_en),
-      displayName: p.product_en,
-      category: p.category,
-      sourceLabel: s.source,
-      sourceId: s.source,
-      priceValue: p.price,
-      priceUnit: p.unit,
-      priceCurrency: 'USD',
-      perKgLocal: normPerKg(p.norm),
-      unitComment: commentWithFallback(p.norm, 'This price could not be converted to a price per kg.'),
-      norm: p.norm,
-      hs: p.hs ?? null,
-      ...researchedFields(p.norm),
-      translated: false,
-    })),
-  )
-}
-
-async function buildCountryCurrencyMap() {
-  const rows = await fetchReferenceCountries().catch(() => [])
-  return new Map(rows.map((row) => [row.name.trim().toLowerCase(), row.currency_code]))
-}
-
-const ISO_CURRENCY_RE = /^[A-Z]{3}$/
-
-async function collectCustomComparisonProducts(countryName) {
-  const [sources, currencyByCountry] = await Promise.all([fetchCustomSourceProducts(), buildCountryCurrencyMap()])
-  const mine = sources.filter((row) => row.country_name.trim().toLowerCase() === countryName.trim().toLowerCase())
-  // A product/source's own stated currency when it's a real ISO code;
-  // otherwise the country's own official currency (already stored in this
-  // app's reference catalog — a real, non-guessed fact, not an invented
-  // one) — needed for real rows seen live where the source recorded no
-  // currency at all (Trinidad and Tobago's namdevco feed) or a bare "$"
-  // that isn't itself a valid ISO code (Saint Lucia's Massy Stores feed).
-  const fallbackCurrency = currencyByCountry.get(countryName.trim().toLowerCase()) || null
-
-  return mine.flatMap((source) =>
-    source.products.map((product) => {
-      const rawCurrency = (product.currency || source.currency || '').trim().toUpperCase()
-      const currency = ISO_CURRENCY_RE.test(rawCurrency) ? rawCurrency : fallbackCurrency
-      return {
-        matchName: normalizeProductName(product.name),
-        displayName: product.name,
-        category: product.category,
-        sourceLabel: source.source_name,
-        sourceId: source.source_id,
-        priceValue: product.price,
-        priceUnit: product.unit,
-        priceCurrency: currency,
-        perKgLocal: normPerKg(product.norm),
-        unitComment: commentWithFallback(product.norm, 'This price could not be converted to a price per kg.'),
-        norm: product.norm,
-        hs: product.hs ?? null,
-        ...researchedFields(product.norm),
-        translated: false,
-        rawUnit: product.unit,
-      }
-    }),
-  )
-}
-
-// A source that reports the same product many times — Jamaica's Ministry of
-// Agriculture report has a row per parish/market, 680 rows for 154 products
-// — would otherwise turn every match into one comparison row per listing.
-// Listings of the same product from the same source, at the same price level
-// (category), unit and currency become one product: the MEDIAN listing's own
-// recorded price (the lower middle one for an even count — never an average,
-// the same "one real recorded price" rule collectColombiaComparisonProducts
-// follows), keeping how many listings there were and their price range for
-// the row's note.
-function consolidateListings(products) {
-  const groups = new Map()
-  products.forEach((product) => {
-    const key = [product.sourceId, product.displayName.trim().toLowerCase(), product.category ?? '', product.priceUnit ?? '', product.priceCurrency ?? ''].join('|')
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push(product)
-  })
-  return [...groups.values()].map((listings) => {
-    if (listings.length === 1) return listings[0]
-    const sorted = [...listings].sort((a, b) => (a.priceValue ?? Infinity) - (b.priceValue ?? Infinity))
-    const prices = sorted.map((product) => product.priceValue).filter((value) => value != null)
-    return {
-      ...sorted[Math.floor((sorted.length - 1) / 2)],
-      listingCount: listings.length,
-      listingLow: prices[0] ?? null,
-      listingHigh: prices.at(-1) ?? null,
-    }
-  })
-}
-
-// A country's built-in pipeline and any sources added for it in Settings are
-// combined — an added source never replaces, or is hidden by, the built-in one.
-async function collectCountryComparisonProducts(countryName) {
-  const builtIn =
-    countryName === 'Colombia' ? collectColombiaComparisonProducts() : countryName === 'United States' ? collectUsaComparisonProducts() : []
-  const [builtInProducts, customProducts] = await Promise.all([builtIn, collectCustomComparisonProducts(countryName)])
-  return consolidateListings([...builtInProducts, ...customProducts])
-}
-
-// ---------------------------------------------------------------- matching + scoring
-
-function buildComparisonRow(sourceProduct, targetProduct, matchTier, sourceCountry, targetCountry, rates, aiNote = null) {
-  const sourceRate = sourceProduct.priceCurrency ? rates.get(sourceProduct.priceCurrency) : null
-  const targetRate = targetProduct.priceCurrency ? rates.get(targetProduct.priceCurrency) : null
-  // Both sides convert independently to USD — DIVIDE by the stored rate
-  // (units of that currency per 1 USD), never multiply, and never convert
-  // source currency straight to target currency; see
-  // fetchMarketOpportunityExchangeRate's own doc-comment for why.
-  const sourceNormalized =
-    sourceProduct.perKgLocal != null && sourceRate?.available ? sourceProduct.perKgLocal / sourceRate.rate : null
-  const targetNormalized =
-    targetProduct.perKgLocal != null && targetRate?.available ? targetProduct.perKgLocal / targetRate.rate : null
-
-  const reviewReasons = []
-  if (matchTier === 'curated_override') {
-    reviewReasons.push('Matched via a curated name override, not an identical name after translation/normalization — see crossCountryMatchOverrides.js.')
-  }
-  if (matchTier === 'hs_code') {
-    const code = `${sourceProduct.hsCode}${sourceProduct.hsDescription ? `: ${sourceProduct.hsDescription}` : ''}`
-    reviewReasons.push(
-      aiNote
-        ? `Shares HS code ${code}, and AI confirmed it as the same product — ${aiNote}`
-        : `Matched by shared HS code (${code}) only — the AI check couldn't run, and other products on either side may share this same code, so this pairing is one of possibly several.`,
-    )
-  }
-  if (matchTier === 'ai_match') {
-    reviewReasons.push(
-      `Matched by AI as the same product${aiNote ? ` — ${aiNote}` : ''}. Not an identical name or a shared HS code; check the pairing before relying on it.`,
-    )
-  }
-  if (sourceProduct.priceLevel && targetProduct.priceLevel && sourceProduct.priceLevel !== targetProduct.priceLevel) {
-    const label = (level) => (level === 'retail' ? 'retail' : 'wholesale')
-    reviewReasons.push(
-      `Different price levels — ${sourceCountry} is a ${label(sourceProduct.priceLevel)} price, ${targetCountry} is a ${label(targetProduct.priceLevel)} price. Part of the gap is packing, freight and retail margin, not an opportunity in itself.`,
-    )
-  }
-  if (sourceProduct.perKgLocal == null) reviewReasons.push(`Source (${sourceCountry}): ${sourceProduct.unitComment}`)
-  if (targetProduct.perKgLocal == null) reviewReasons.push(`Target (${targetCountry}): ${targetProduct.unitComment}`)
-  if (sourceProduct.priceCurrency && !sourceRate?.available) {
-    reviewReasons.push(`No USD exchange rate available for ${sourceProduct.priceCurrency} (source).`)
-  }
-  if (targetProduct.priceCurrency && !targetRate?.available) {
-    reviewReasons.push(`No USD exchange rate available for ${targetProduct.priceCurrency} (target).`)
-  }
-  if (!sourceProduct.priceCurrency) reviewReasons.push(`Source (${sourceCountry}): no currency could be determined for this product.`)
-  if (!targetProduct.priceCurrency) reviewReasons.push(`Target (${targetCountry}): no currency could be determined for this product.`)
-
-  // A count-based unit converted to $/kg with a researched item weight (the catalog normalization module) is never presented with the same confidence as an
-  // exact-name match, and an egg conversion that had to assume a default USDA size
-  // class is flagged too, even though the underlying dozen-weight figure
-  // itself is a real, official standard — the ASSUMPTION is what's
-  // uncertain, not the reference table (see resolveEggPriceViaUsdaStandard).
-  const conversionNotes = []
-  ;[
-    ['source', sourceProduct, sourceCountry],
-    ['target', targetProduct, targetCountry],
-  ].forEach(([side, product, countryName]) => {
-    if (product.listingCount > 1) {
-      const amount = (value) => Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })
-      const range = product.listingLow != null ? ` (${product.priceCurrency ?? ''} ${amount(product.listingLow)}–${amount(product.listingHigh)} / ${product.priceUnit ?? '—'})` : ''
-      conversionNotes.push(`${side === 'source' ? 'Source' : 'Target'} (${countryName}): median of ${product.listingCount} listings${range}.`)
-    }
-    if (!product.conversionNote) return
-    conversionNotes.push(`${side === 'source' ? 'Source' : 'Target'} (${countryName}): ${product.conversionNote}`)
-    if (product.conversionMethod === 'reference_item_weight') {
-      reviewReasons.push(
-        `${side === 'source' ? 'Source' : 'Target'} (${countryName}): converted from a count-based unit using USDA's published item weight (${product.conversionConfidence ?? 'medium'} confidence) — an average item, check it before relying on this price.`,
-      )
-    }
-    if (product.conversionMethod === 'researched_item_weight') {
-      reviewReasons.push(
-        `${side === 'source' ? 'Source' : 'Target'} (${countryName}): converted from a count-based unit using a web-researched item weight (${product.conversionConfidence ?? 'unknown'} confidence) — check the weight before relying on this price.`,
-      )
-    }
-  })
-  const conversionNote = conversionNotes.length > 0 ? conversionNotes.join(' ') : null
-
-  return {
-    product_name: sourceProduct.displayName,
-    source_country: sourceCountry,
-    target_country: targetCountry,
-    hs_code: sourceProduct.hsCode || null,
-    source_price_value: sourceProduct.priceValue,
-    source_price_unit: sourceProduct.priceUnit,
-    source_price_currency: sourceProduct.priceCurrency,
-    target_price_value: targetProduct.priceValue,
-    target_price_unit: targetProduct.priceUnit,
-    target_price_currency: targetProduct.priceCurrency,
-    source_price_normalized: sourceNormalized,
-    target_price_normalized: targetNormalized,
-    exchange_rate_source_used: sourceRate?.rate ?? null,
-    exchange_rate_source_date: sourceRate?.date ?? null,
-    exchange_rate_target_used: targetRate?.rate ?? null,
-    exchange_rate_target_date: targetRate?.date ?? null,
-    match_tier: matchTier,
-    review_reasons: reviewReasons,
-    conversion_note: conversionNote,
-    // Display-only fields the backend doesn't need to persist but the
-    // results table wants without re-deriving:
-    _target_display_name: targetProduct.displayName,
-  }
-}
-
-// -------------------------------------------------- count-vs-weight conversion
-//
-// A matched product whose price is per unit ("each", "per bunch", a counted bag) cannot be compared with the other side's $/kg until the weight of one item is
-// known. That weight is the catalog normalization module's job (backend/catalog_normalization): it is researched on the web once per product, cached for the whole
-// app, and every catalog is converted with it. This only asks the module to research the products of the MATCHED pairs that still need it (one side unconvertible,
-// the other side already a $/kg price: never every count-based product), then converts those rows again with what was found. -> an error message, or null.
-async function resolveCountWeightConversions(pairs) {
-  const wanted = new Map() // module name -> products waiting for it
-  pairs.forEach(({ sp, tp }) => {
-    ;[sp, tp].forEach((product, index) => {
-      const counterpart = index === 0 ? tp : sp
-      if (product.perKgLocal != null || counterpart.perKgLocal == null) return
-      if (product.norm?.method !== 'needs_research' || !product.norm.read_name) return
-      if (!wanted.has(product.norm.read_name)) wanted.set(product.norm.read_name, [])
-      wanted.get(product.norm.read_name).push(product)
-    })
-  })
-  if (wanted.size === 0) return null
-
-  const { error } = await researchProductWeights([...wanted.keys()], { limit: wanted.size })
-  const products = [...wanted.values()].flat()
-  await Promise.all(
-    products.map(async (product) => {
-      try {
-        const converted = await convertCatalogRow(product.norm.read_name, product.norm.read_unit, product.priceValue)
-        if (normPerKg(converted) == null) return
-        product.norm = { ...product.norm, ...converted }
-        product.perKgLocal = converted.price_per_kg
-        product.unitComment = converted.note
-        if (isResearchedConversion(converted) || isReferenceConversion(converted)) {
-          product.conversionMethod = converted.method
-          product.conversionNote = converted.note
-          product.conversionConfidence = converted.confidence
-        }
-      } catch {
-        // the row stays unconverted, with its own explanation
-      }
-    }),
-  )
-  return error
-}
-
-// Computes (but does not yet persist) every source->target comparison row
-// for one source country against one or more target countries — a Target =
-// "By Region" run passes every qualifying country in that region, each run
-// as its own independent source->target pair (spec's own natural extension
-// of the one-source-vs-one-target case). Returns matched rows (ready to
-// POST to saveMarketOpportunityComparisons) and, separately, every source
-// product that found no match in a given target market — never dropped,
-// never blended into the matched table, per spec.
-// Tiers 3/4 — AI-judged matching. A shared HS code is a customs category, not
-// product identity: every USA chicken cut shares 020713 with Jamaica's necks,
-// feet and backs, and every beef primal shares 020130 with beef mince. Codes
-// can also sit at different depths on each side or be wrong. So beyond an
-// exact/curated name match, each source product is put to an AI judge (Claude) with
-// the target products in its HS chapter (plus any the classifier couldn't
-// code; every target product when the source has no code yet), and only the
-// ones it judges to be the same product are paired — labelled 'hs_code' when
-// they also share the exact code, 'ai_match' otherwise. Cached server-side per
-// source product × target country × candidate list.
-function aiMatchKey(sourceCountry, product) {
-  return `${sourceCountry}|${product.category}|${product.displayName}`.toLowerCase()
-}
-
-function aiMatchDescription(sourceCountry, product) {
-  return `"${product.displayName}" — category: ${product.category}; priced ${product.priceUnit}; source: ${product.sourceLabel} (${sourceCountry})`
-}
-
-// `pairedBySource`: Map(source product -> Set of target display names it was
-// already paired with by name), so the AI never re-emits those.
-async function resolveAiMatches(sourceCountry, targetCountry, sources, pairedBySource, targetProducts) {
-  const targetsByName = new Map()
-  targetProducts.forEach((tp) => {
-    const name = tp.displayName.trim()
-    if (!targetsByName.has(name)) targetsByName.set(name, [])
-    targetsByName.get(name).push(tp)
-  })
-  // A target product the classifier couldn't code (Jamaica's "Chilled Leg
-  // Quarter", say) could belong to any chapter, so it joins every chapter's
-  // candidate list rather than being invisible to coded source products.
-  const namesByChapter = new Map()
-  const uncodedNames = []
-  targetsByName.forEach((products, name) => {
-    const chapter = products[0].hsCode?.slice(0, 2)
-    if (!chapter) {
-      uncodedNames.push(name)
-      return
-    }
-    if (!namesByChapter.has(chapter)) namesByChapter.set(chapter, [])
-    namesByChapter.get(chapter).push(name)
-  })
-
-  const groups = new Map()
-  sources.forEach((sp) => {
-    const chapter = sp.hsCode?.slice(0, 2) || null
-    const candidates = chapter ? [...(namesByChapter.get(chapter) || []), ...uncodedNames] : [...targetsByName.keys()]
-    if (!candidates.length) return
-    const groupKey = chapter || 'unclassified'
-    if (!groups.has(groupKey)) groups.set(groupKey, { candidates, sources: [] })
-    groups.get(groupKey).sources.push({ key: aiMatchKey(sourceCountry, sp), description: aiMatchDescription(sourceCountry, sp) })
-  })
-  if (!groups.size) return { pairs: [], unjudged: [], error: null }
-
-  const { results, errors } = await requestProductMatches(targetCountry, [...groups.values()])
-  const pairs = []
-  const unjudged = []
-  sources.forEach((sp) => {
-    const result = results[aiMatchKey(sourceCountry, sp)]
-    if (!result) {
-      // Part of a batch whose AI call failed — handled by the caller's fallback.
-      unjudged.push(sp)
-      return
-    }
-    const already = pairedBySource.get(sp) || new Set()
-    ;(result?.matches || [])
-      .filter((name) => !already.has(name))
-      .flatMap((name) => targetsByName.get(name) || [])
-      .forEach((tp) => {
-        const matchTier = sp.hsCode && tp.hsCode === sp.hsCode ? 'hs_code' : 'ai_match'
-        pairs.push({ sp, tp, matchTier, targetCountry, aiNote: result.note })
-      })
-  })
-  return { pairs, unjudged, error: errors?.length ? errors[0] : null }
-}
-
-// Only when the AI judge can't run: the old "every target product sharing the
-// exact HS code" pairing, so a comparison still shows what it can.
-function hsCodeFallbackPairs(sources, pairedBySource, targetProducts, targetCountry) {
-  const byCode = new Map()
-  targetProducts.forEach((tp) => {
-    if (!tp.hsCode) return
-    if (!byCode.has(tp.hsCode)) byCode.set(tp.hsCode, [])
-    byCode.get(tp.hsCode).push(tp)
-  })
-  const pairs = []
-  sources.forEach((sp) => {
-    const already = pairedBySource.get(sp) || new Set()
-    ;(byCode.get(sp.hsCode) || []).forEach((tp) => {
-      if (already.has(tp.displayName.trim())) return
-      pairs.push({ sp, tp, matchTier: 'hs_code', targetCountry })
-    })
-  })
-  return pairs
-}
-
-// The comparison is directional — which SOURCE products have a market in
-// the target country — so it has one row per source product per target
-// country. A source product matched to several target prices (several
-// target products, price levels or sources) gets one reference price: the
-// median matched price by USD/kg, the matched row's own real recorded price
-// (the lower middle one for an even count — never an average). The row's
-// note lists what it was drawn from.
-function referenceRow(candidates) {
-  if (candidates.length === 1) return candidates[0]
-  const priced = candidates
-    .filter((row) => row.target_price_normalized != null)
-    .sort((a, b) => a.target_price_normalized - b.target_price_normalized)
-  const pool = priced.length ? priced : candidates
-  const chosen = pool[Math.floor((pool.length - 1) / 2)]
-  const usd = (value) => `USD ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  const names = [...new Set(candidates.map((row) => row._target_display_name))]
-  const range = priced.length > 1 ? ` (${usd(priced[0].target_price_normalized)}–${usd(priced.at(-1).target_price_normalized)}/kg)` : ''
-  const note = `Target (${chosen.target_country}): reference price is the median of ${candidates.length} matched prices${range}, from ${names.length} product${names.length === 1 ? '' : 's'}: ${names.join('; ')}.`
-  return { ...chosen, conversion_note: [chosen.conversion_note, note].filter(Boolean).join(' ') }
-}
-
-// `rows[i]` is `pairs[i]`'s comparison row. Grouped by the source product's
-// name, as the portfolio shows it: two source listings that end up with the
-// same name (Colombia's two "Red Tilapia" entries) are one product here.
-function oneRowPerSourceProduct(pairs, rows) {
-  const groups = new Map()
-  pairs.forEach((pair, index) => {
-    const key = pair.sp.displayName.trim().toLowerCase()
-    if (!groups.has(key)) groups.set(key, new Map())
-    const byTarget = groups.get(key)
-    if (!byTarget.has(pair.targetCountry)) byTarget.set(pair.targetCountry, [])
-    byTarget.get(pair.targetCountry).push(rows[index])
-  })
-  return [...groups.values()].flatMap((byTarget) => [...byTarget.values()].map(referenceRow))
-}
-
-export async function computeMarketOpportunity(sourceCountry, targetCountries) {
-  const allCountries = [sourceCountry, ...targetCountries.filter((name) => name !== sourceCountry)]
-  const productsByCountry = new Map(await Promise.all(allCountries.map(async (name) => [name, await collectCountryComparisonProducts(name)])))
-  // The HS code is the one the normalization module gave the product AS SOLD IN ITS COUNTRY (product.hs, backend/catalog_normalization/hs.py): looked up there, never
-  // guessed here. A product without a code has hsCode null and is matched by name only.
-  productsByCountry.forEach((products) => {
-    products.forEach((p) => {
-      p.hsCode = p.hs?.hs6 || null
-      p.hsDescription = p.hs?.description || null
-    })
-  })
-  const sourceProducts = productsByCountry.get(sourceCountry) || []
-
-  // Each product's price level is its own source's Wholesaler/Retail setting
-  // (Settings ▸ Product analysis sources), so a comparison can say when it's
-  // wholesale against retail rather than like against like.
-  const sourceSettings = await fetchProductSources().catch(() => ({ built_in: [], custom: [] }))
-  const priceLevelBySourceId = new Map([...sourceSettings.built_in, ...sourceSettings.custom].map((row) => [row.id, row.analysis_type]))
-  productsByCountry.forEach((products) => {
-    products.forEach((p) => {
-      p.priceLevel = priceLevelBySourceId.get(p.sourceId) || null
-    })
-  })
-
-  const currencies = new Set()
-  productsByCountry.forEach((products) => products.forEach((p) => p.priceCurrency && currencies.add(p.priceCurrency)))
-  const rates = new Map()
-  await Promise.all(
-    [...currencies].map(async (code) => {
-      try {
-        rates.set(code, await fetchMarketOpportunityExchangeRate(code))
-      } catch {
-        rates.set(code, { rate: null, date: null, available: false })
-      }
-    }),
-  )
-
-  const matchedPairs = []
-  const unmatchedByTarget = {}
-  // A failed AI call never fails the whole comparison — that target falls
-  // back to shared-HS-code pairing, and the reason is returned for the panel.
-  const aiMatchErrors = {}
-  await Promise.all(
-    targetCountries.map(async (targetCountry) => {
-      const targetProducts = productsByCountry.get(targetCountry) || []
-      const targetByName = new Map(targetProducts.map((p) => [p.matchName, p]))
-
-      // Tiers 1/2: an exact (or translated-exact) name, or a curated override.
-      const namePairs = []
-      const pairedBySource = new Map()
-      sourceProducts.forEach((sp) => {
-        const overrideName = lookupCrossCountryOverride(sourceCountry, targetCountry, sp.matchName)
-        const nameMatch = (overrideName && targetByName.get(overrideName)) || targetByName.get(sp.matchName)
-        if (!nameMatch) return
-        const matchTier = overrideName ? 'curated_override' : sp.translated ? 'translated_exact' : 'exact'
-        namePairs.push({ sp, tp: nameMatch, matchTier, targetCountry })
-        pairedBySource.set(sp, new Set([nameMatch.displayName.trim()]))
-      })
-
-      // Products the AI couldn't judge (a failed batch, or the whole call
-      // failing) fall back to shared-HS-code pairing; everything else keeps
-      // its AI judgement.
-      let extraPairs
-      try {
-        const { pairs, unjudged, error } = await resolveAiMatches(sourceCountry, targetCountry, sourceProducts, pairedBySource, targetProducts)
-        if (error) aiMatchErrors[targetCountry] = error
-        extraPairs = [...pairs, ...hsCodeFallbackPairs(unjudged, pairedBySource, targetProducts, targetCountry)]
-      } catch (error) {
-        aiMatchErrors[targetCountry] = error.message
-        extraPairs = hsCodeFallbackPairs(sourceProducts, pairedBySource, targetProducts, targetCountry)
-      }
-
-      const allPairs = [...namePairs, ...extraPairs]
-      const matchedSources = new Set(allPairs.map((pair) => pair.sp))
-      matchedPairs.push(...allPairs)
-      unmatchedByTarget[targetCountry] = sourceProducts.filter((sp) => !matchedSources.has(sp))
-    }),
-  )
-
-  // The item-weight research for per-unit prices runs AFTER matching, on the real matched pairs only — never speculatively on every count-based product,
-  // which would be wasted research spend (see resolveCountWeightConversions).
-  const weightError = await resolveCountWeightConversions(matchedPairs)
-
-  const pairRows = matchedPairs.map(({ sp, tp, matchTier, targetCountry, aiNote }) =>
-    buildComparisonRow(sp, tp, matchTier, sourceCountry, targetCountry, rates, aiNote),
-  )
-  const rows = oneRowPerSourceProduct(matchedPairs, pairRows)
-
-  return { rows, unmatchedByTarget, sourceProductCount: sourceProducts.length, aiMatchErrors, weightError }
-}
-
-/** Every product of a country's portfolio with its price per kg in USD (null where the unit or currency couldn't be converted)
- * and its cached HS code: [{ name, category, hsCode, priceUsdPerKg, source }]. Matched in another market or not — the same
- * collectors the comparison uses, so a price here is the price the comparison would use. */
+/** Every product of a country's portfolio with its price per kg in USD (null where the unit or currency couldn't be converted) and its HS code:
+ * [{ name, category, hsCode, priceUsdPerKg, original: { value, unit, currency } | null, source }]. Matched in another market or not — the same prices the comparison uses. */
 export async function fetchCountryProductPrices(countryName) {
-  const products = await collectCountryComparisonProducts(countryName)
-  const currencies = new Set(products.map((p) => p.priceCurrency).filter(Boolean))
-  const rates = new Map()
-  await Promise.all(
-    [...currencies].map(async (code) => {
-      try {
-        rates.set(code, await fetchMarketOpportunityExchangeRate(code))
-      } catch {
-        rates.set(code, { available: false })
-      }
-    }),
-  )
-  const byName = new Map()
-  products.forEach((p) => {
-    const key = p.displayName.trim().toLowerCase()
-    const rate = p.priceCurrency ? rates.get(p.priceCurrency) : null
-    const usd = p.perKgLocal != null && rate?.available ? p.perKgLocal / rate.rate : null
-    const original = p.priceValue != null ? { value: p.priceValue, unit: p.priceUnit, currency: p.priceCurrency } : null
-    const entry = { name: p.displayName.trim(), category: p.category || null, hsCode: p.hs?.hs6 || null, priceUsdPerKg: usd, original, source: p.sourceLabel }
-    if (!byName.has(key) || (byName.get(key).priceUsdPerKg == null && usd != null)) byName.set(key, entry)
-  })
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
+  const { products } = await fetchJson(`/api/market-opportunities/country-prices?${new URLSearchParams({ country: countryName })}`)
+  return products
 }

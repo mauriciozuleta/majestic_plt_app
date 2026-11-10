@@ -1,6 +1,9 @@
 """Saves what the JavaScript logic produces today, as the reference the Python port must reproduce (Phase 0 of the move to the backend).
 
-  python -m backend.tests.js_parity.capture [--refresh-inputs] [--compare]
+  python -m backend.tests.js_parity.capture [--refresh-inputs] [--compare] [--add-ai-variant]
+
+  --add-ai-variant  adds to outputs.json the comparison made with a stand-in AI judge (every source product matched to the first candidate of its group), keeping the rest.
+                    It runs the JavaScript engine, so it only works while that engine is still in src/services/marketOpportunities.js.
 
   --compare  runs the CURRENT front end on the frozen inputs and checks it against the saved outputs.json instead of overwriting it (use it after changing the JavaScript
              or moving more of it to the backend: the screens must still receive exactly what the original JavaScript produced).
@@ -9,6 +12,7 @@
 2. a throwaway backend + Vite dev server over a database built from those inputs
 3. a headless browser imports the real modules and saves their output to outputs.json:
      portfolio, category coverage, the Colombia two-source merge with its translations, and the Market Opportunities comparison Colombia -> Jamaica
+   (The Market Opportunities comparison was captured from the original JavaScript engine before it moved to backend/market_opportunities/; it is kept, not re-captured.)
    Paid and external calls are stubbed so the output is repeatable: exchange rates are fixed, the AI product matcher answers an error (the engine then falls back to
    shared-HS-code pairing, as it does without credits), the item-weight research answers "nothing to do".
 Needs Playwright (the project's .venv has it) and the dev dependencies of the front end."""
@@ -48,10 +52,29 @@ async () => {
   out.colombia_merged = data.mergeSources(bySource.la_mayorista || [], bySource.corabastos || []).map((row) => ({
     ...row, _translation: translations.translateProductName(row.nameEs, overrides),
   }))
-  out.opportunity = await opportunities.computeMarketOpportunity('Colombia', ['Jamaica'])
+  // the comparison engine moved to the server (Phase 2): the saved 'opportunity' / 'opportunity_ai' outputs come from the ORIGINAL JavaScript engine and are kept as they are
+  if (typeof opportunities.computeMarketOpportunity === 'function') out.opportunity = await opportunities.computeMarketOpportunity('Colombia', ['Jamaica'])
   return out
 }
 """
+
+
+JS_AI = """
+async () => {
+  const opportunities = await import('/src/services/marketOpportunities.js')
+  return await opportunities.computeMarketOpportunity('Colombia', ['Jamaica'])
+}
+"""
+
+
+def stand_in_judge(route):
+    """A deterministic AI judge: every source product of a group is judged to be the group's FIRST candidate, with a fixed note. Python's test uses the same rule."""
+    body = json.loads(route.request.post_data)
+    results = {}
+    for group in body['groups']:
+        for source in group['sources']:
+            results[source['key']] = {'matches': group['candidates'][:1], 'note': 'stand-in judge', 'cached': False}
+    route.fulfill(json={'results': results, 'errors': [], 'cache_hit_count': 0, 'cache_miss_count': len(results)})
 
 
 def wait_for(url: str, seconds: int = 120) -> None:
@@ -94,8 +117,9 @@ def compare(outputs: dict) -> None:
         'portfolio': _differences(sorted(outputs['portfolio'], key=key), sorted(saved['portfolio'], key=key)),
         'coverage': _differences(outputs['coverage'], saved['coverage']),
         'colombia_merged': _differences(outputs['colombia_merged'], saved['colombia_merged']),
-        'opportunity': _differences(outputs['opportunity'], saved['opportunity']),
     }
+    if 'opportunity' in outputs:  # only while the JavaScript engine still exists
+        results['opportunity'] = _differences(outputs['opportunity'], saved['opportunity'])
     for name, problems in results.items():
         print(f"{name:16}", 'MATCH' if not problems else f'{len(problems)} differences, first: {problems[:3]}')
     if any(results.values()):
@@ -148,11 +172,25 @@ def main() -> None:
             page.route('**/api/product-matches', lambda route: route.fulfill(status=502, json={'detail': 'stubbed in the parity capture'}))
             page.route('**/api/catalog-normalization/research', lambda route: route.fulfill(json={'status': 'nothing_to_do'}))
             page.goto(f'http://127.0.0.1:{VITE_PORT}/', wait_until='domcontentloaded')
+            if '--add-ai-variant' in sys.argv:
+                page.unroute('**/api/product-matches')
+                page.route('**/api/product-matches', stand_in_judge)
+                variant = page.evaluate(JS_AI)
+                browser.close()
+                saved = json.loads(OUTPUTS_FILE.read_text(encoding='utf-8'))
+                saved['opportunity_ai'] = variant
+                OUTPUTS_FILE.write_text(json.dumps(saved, ensure_ascii=False, indent=1, sort_keys=True), encoding='utf-8')
+                print('ai variant added:', len(variant['rows']), 'rows; tiers', sorted({row['match_tier'] for row in variant['rows']}), '; errors', variant['aiMatchErrors'])
+                return
             outputs = page.evaluate(JS)
             browser.close()
         if '--compare' in sys.argv:
             compare(outputs)
             return
+        previous = json.loads(OUTPUTS_FILE.read_text(encoding='utf-8')) if OUTPUTS_FILE.exists() else {}
+        for kept in ('opportunity', 'opportunity_ai'):  # captured from the original JavaScript engine, which is gone: never overwritten
+            if kept not in outputs and kept in previous:
+                outputs[kept] = previous[kept]
         outputs['_meta'] = {'rates': RATES, 'captured_at': time.strftime('%Y-%m-%d'), 'note': 'JavaScript output on the frozen inputs; AI matching stubbed to an error, research to nothing_to_do'}
         OUTPUTS_FILE.write_text(json.dumps(outputs, ensure_ascii=False, indent=1, sort_keys=True), encoding='utf-8')
         print('outputs written', OUTPUTS_FILE, {key: (len(value) if hasattr(value, '__len__') else value) for key, value in outputs.items()})

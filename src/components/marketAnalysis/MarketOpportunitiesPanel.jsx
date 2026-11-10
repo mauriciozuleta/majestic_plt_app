@@ -1039,12 +1039,18 @@ function MarketOpportunitiesPanel() {
                   disabled={!selectable}
                   title={
                     selectable
-                      ? `${pair.row_count} products compared — computed ${formatDateTime(pair.calculated_at)}`
+                      ? `${pair.row_count} products compared — computed ${formatDateTime(pair.calculated_at)}${pair.stale ? `. OUT OF DATE: ${pair.stale_reasons.join(' ')} Use Recompute.` : ''}`
                       : 'No longer selectable: the country is no longer an active source or target'
                   }
                 >
                   {pair.source_country} › {pair.target_country}
                   <span className="market-opportunities__saved-date">{new Date(pair.calculated_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
+                  {pair.stale && (
+                    <span className="market-opportunities__saved-date" style={{ color: '#b45309', fontWeight: 600 }}>
+                      {' '}
+                      · out of date
+                    </span>
+                  )}
                 </button>
               )
             })}
