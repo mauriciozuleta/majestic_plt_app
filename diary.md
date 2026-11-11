@@ -118,6 +118,10 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 ## Entries
 
+### 2026-11-10 — Phase 5 finished: route metrics, Colombia table and Market Analysis status from the server
+**Prompt:** "finish phase 5 now that we know it is safe, then we will focus on the other stuff"
+
+Checked first: the Python translator (normalization module) and the browser's `translateProductName` give identical English names for all 270 distinct names of the latest La Mayorista + Corabastos snapshots (refreshed 2026-11-11 01:38 UTC, saved as history version 3, nothing held). Then: (1) `RevenueStreamsView.jsx` takes distance / flight time / block hours from `route-finance` through the new `RouteLegMetrics.jsx`; `routeMetrics.js` deleted (the `priceFor` arithmetic of the leg cost % stays in the view as display). (2) `ColombiaProductAnalysisView.jsx` reads the merged table with English names from `GET /api/portfolio/colombia` (`fetchColombiaProducts` in `productPortfolio.js`), reloading after an Update, a delete and a translation edit; it no longer merges or translates in the browser. (3) New `GET /api/portfolio/market-analysis-status` (`backend/portfolio/status.py`) replaces the seven-endpoint join in `marketAnalysisStatus.js`; 3 new tests. Suite 415 passed / 1 skipped, oxlint clean, build ok. Left on purpose: `competitivenessInputs.js` (used by `chat.js`, goes with the Assistant redo); `mergeSources` / `productTranslations.js` still exist in the front end for that file and for the key normalization. NOT checked in a browser: the Colombia table, the route leg cards and the Market Analysis status columns.
 ### 2026-11-10 — Phase 5 (first part): Market Opportunities DDP / level / sell price from the server
 **Prompt:** "yes, go for it" (commit Phase 4 as `93a22e9`, start Phase 5)
 

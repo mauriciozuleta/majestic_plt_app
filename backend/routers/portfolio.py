@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import portfolio
+from ..portfolio.status import market_analysis_status
 from ..database import get_db
 
 router = APIRouter(prefix='/api/portfolio', tags=['portfolio'])
@@ -44,3 +45,10 @@ def get_colombia(db: Session = Depends(get_db)):
     """The Colombia table: La Mayorista and Corabastos merged by product id, each row with its English name (`name_en`, `translated`, `translation_tier`) and the
     comparison fields (`matched`, `comparable`, `diffPct`, `cheaperAt` ...)."""
     return {'rows': portfolio.colombia_merged(db)}
+
+
+@router.get('/market-analysis-status')
+def get_market_analysis_status(db: Session = Depends(get_db)):
+    """Tier R. Per commercial country (by id): its profile, the competitiveness analyses it is part of, the products still lacking an item weight or an HS code, and whether it
+    has product data — the status columns of the Market Analysis table."""
+    return {'countries': market_analysis_status(db)}

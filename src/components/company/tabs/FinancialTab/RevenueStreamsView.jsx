@@ -20,9 +20,9 @@ import ShipmentBuilderModal from './ShipmentBuilder/ShipmentBuilderModal'
 import ShipmentPanel from './ShipmentBuilder/ShipmentPanel'
 import RouteFinanceCells from './ShipmentBuilder/RouteFinanceCells'
 import LegFinanceCards from './ShipmentBuilder/LegFinanceCards'
+import RouteLegMetrics from './ShipmentBuilder/RouteLegMetrics'
 import { revenueProductFormFor } from './companyRevenueForms'
 import { RETURN_TYPES, aircraftLabel, branchCode, branchLabel } from './branchLabel'
-import { computeRouteMetrics } from './routeMetrics'
 import { formatCurrencyValue } from '../../../../utils/currencyFormat'
 import { usePersistentSet } from '../../../../utils/usePersistentSet'
 import './RevenueStreamsView.css'
@@ -296,12 +296,12 @@ ${label}`)) return
   }
 
   // Each leg — origin → destination, then destination → return — is
-  // calculated on its own (see routeMetrics.js, ported from AI_FRESH24's
+  // calculated on its own (on the server: backend/shipments/finance.py, ported from AI_FRESH24's
   // Routes module) and laid out as one row of cards in the leg's colour; the
   // columns line up across both rows and scroll sideways when there isn't
   // room. Each leg opens its own sub-row: Shipment distribution, Leg cost %,
   // Leg cost, Target Cargo %, Available cargo and Price x Kg.
-  const renderRouteDetails = (route) => {
+  const renderRouteDetails = (route, routeMetrics) => {
     const origin = branchById.get(route.origin_branch_id)
     const destination = branchById.get(route.destination_branch_id)
     const returnBranch = route.return_branch_id ? branchById.get(route.return_branch_id) : null
@@ -311,7 +311,7 @@ ${label}`)) return
     const legs = [
       { key: 'outbound', title: 'Outbound', from: origin, to: destination, pctField: 'outbound_target_cargo_pct' },
       { key: 'return', title: 'Return', from: destination, to: returnBranch, pctField: 'return_target_cargo_pct' },
-    ].map((leg) => ({ ...leg, metrics: computeRouteMetrics({ origin: leg.from, destination: leg.to, aircraft, provider }) }))
+    ].map((leg) => ({ ...leg, metrics: routeMetrics[leg.key] }))
     // Available cargo = target cargo % × the aircraft's max payload.
     const capacityKg = aircraft?.max_payload_kg ?? null
     const availableKg = (leg) => {
@@ -768,7 +768,18 @@ ${label}`)) return
                             </tr>
                             {expanded && (
                               <tr className="revenue-streams-view__details-row">
-                                <td colSpan={11}>{renderRouteDetails(route)}</td>
+                                <td colSpan={11}>
+                                  <RouteLegMetrics
+                                    route={route}
+                                    origin={branchById.get(route.origin_branch_id)}
+                                    destination={branchById.get(route.destination_branch_id)}
+                                    returnBranch={route.return_branch_id ? branchById.get(route.return_branch_id) : null}
+                                    aircraft={aircraftById.get(route.aircraft_id)}
+                                    provider={providerById.get(route.charter_provider_id)}
+                                  >
+                                    {(routeMetrics) => renderRouteDetails(route, routeMetrics)}
+                                  </RouteLegMetrics>
+                                </td>
                               </tr>
                             )}
                           </Fragment>

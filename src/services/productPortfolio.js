@@ -30,3 +30,10 @@ export async function buildProductPortfolio() {
 export async function buildCategoryCoverage() {
   return fetchJson('/api/portfolio/category-coverage')
 }
+
+/** The Colombia product table: La Mayorista and Corabastos merged (one row per product id, each side's price / unit / norm and the comparison fields), each row with its
+ * English name worked out by the normalization module (user override > dictionary > fuzzy): { ...row, name_en, translated, translation_tier }. */
+export async function fetchColombiaProducts() {
+  const { rows } = await fetchJson('/api/portfolio/colombia')
+  return rows
+}

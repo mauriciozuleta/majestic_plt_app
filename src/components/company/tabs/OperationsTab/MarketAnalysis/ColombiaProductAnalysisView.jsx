@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CANONICAL_CATEGORIES, mergeSources } from './priceComparisonData'
+import { CANONICAL_CATEGORIES } from './priceComparisonData'
 import {
   confirmTranslationSuggestion,
   fetchCorabastosPrices,
   fetchLaMayoristaPrices,
   fetchPriceComparisonSnapshot,
-  fetchTranslationOverrides,
   fetchTranslationSuggestions,
   rejectTranslationSuggestion,
   requestTranslationSuggestions,
   saveTranslationOverride,
 } from './priceComparisonFetchers'
-import { normalizeProductName, translateProductName } from './productTranslations'
+import { normalizeProductName } from './productTranslations'
+import { fetchColombiaProducts } from '../../../../../services/productPortfolio'
 import { exportProductsToCsv, exportProductsToPdf } from './priceComparisonExport'
 import { formatOneUsdEquals, formatPriceLine } from './priceFormat'
 import { colombiaRowSignature } from './unitConversion'
@@ -138,13 +138,14 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
   const [editingRowSignature, setEditingRowSignature] = useState(null)
   const [editDraft, setEditDraft] = useState({ price: '', weight: '' })
   const [savingOverride, setSavingOverride] = useState(false)
-  const [laMayoristaProducts, setLaMayoristaProducts] = useState([])
-  const [corabastosProducts, setCorabastosProducts] = useState([])
+  // The merged table with its English names comes from the server (backend/portfolio, normalization module); `reloadKey` asks for it again after an update or a translation edit
+  const [products, setProducts] = useState([])
+  const [reloadKey, setReloadKey] = useState(0)
+  const reloadProducts = () => setReloadKey((key) => key + 1)
   const [laMayoristaSync, setLaMayoristaSync] = useState(INITIAL_SYNC_STATE)
   const [corabastosSync, setCorabastosSync] = useState(INITIAL_SYNC_STATE)
   const [updating, setUpdating] = useState(false)
   const [rateSync, setRateSync] = useState({ status: 'never', rate: null, error: null })
-  const [translationOverrides, setTranslationOverrides] = useState({})
   const [openTranslationKeys, setOpenTranslationKeys] = useState(() => new Set())
   const [pendingTranslations, setPendingTranslations] = useState({})
   const [savingTranslations, setSavingTranslations] = useState(false)
@@ -160,10 +161,8 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
         snapshots.forEach((snapshot) => {
           const lastSyncedAt = new Date(snapshot.fetched_at)
           if (snapshot.source === 'la_mayorista') {
-            setLaMayoristaProducts(snapshot.products)
             setLaMayoristaSync({ status: 'fresh', lastSyncedAt, error: null })
           } else if (snapshot.source === 'corabastos') {
-            setCorabastosProducts(snapshot.products)
             setCorabastosSync({ status: 'fresh', lastSyncedAt, error: null })
           }
         })
@@ -175,6 +174,18 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
       cancelled = true
     }
   }, [snapshotVersion])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchColombiaProducts()
+      .then((rows) => !cancelled && setProducts(rows))
+      .catch(() => {
+        // Non-fatal: falls back to the empty "click Update" state.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [snapshotVersion, reloadKey])
 
   useEffect(() => {
     let cancelled = false
@@ -215,25 +226,6 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
 
   useEffect(() => {
     let cancelled = false
-    fetchTranslationOverrides()
-      .then((rows) => {
-        if (cancelled) return
-        const map = {}
-        rows.forEach((row) => {
-          map[row.product_key] = row.translation_en
-        })
-        setTranslationOverrides(map)
-      })
-      .catch(() => {
-        // Non-fatal: the static dictionary still works without overrides loaded.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
     fetchTranslationSuggestions()
       .then((data) => {
         if (cancelled) return
@@ -247,8 +239,6 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
     }
   }, [])
 
-  const products = useMemo(() => mergeSources(laMayoristaProducts, corabastosProducts), [laMayoristaProducts, corabastosProducts])
-
   // A row merges the product of both sources: deleting it removes it from each snapshot that has it (same id).
   const describeSelected = () =>
     products
@@ -258,7 +248,7 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
           product.laMayorista != null ? { source: 'la_mayorista', id: product.id } : null,
           product.corabastos != null ? { source: 'corabastos', id: product.id } : null,
         ].filter(Boolean),
-        label: `${translateProductName(product.nameEs, translationOverrides).text} (${product.nameEs}) — ${product.laMayorista != null && product.corabastos != null ? 'La Mayorista + Corabastos' : product.laMayorista != null ? 'La Mayorista' : 'Corabastos'}`,
+        label: `${product.name_en} (${product.nameEs}) — ${product.laMayorista != null && product.corabastos != null ? 'La Mayorista + Corabastos' : product.laMayorista != null ? 'La Mayorista' : 'Corabastos'}`,
       }))
 
   const categoryCounts = useMemo(() => {
@@ -272,7 +262,7 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
     // Sorted by the same (translated, English) name the portfolio codes are
     // alphabetized by, so codes read in ascending order down the table.
     const sorted = [...scoped].sort((a, b) =>
-      translateProductName(a.nameEs, translationOverrides).text.localeCompare(translateProductName(b.nameEs, translationOverrides).text),
+      a.name_en.localeCompare(b.name_en),
     )
     if (!highlightActive) return sorted
     // A code is "CO" + the real HS code (see productPortfolio.js) — strip
@@ -283,7 +273,7 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
       const code = product.hs?.code
       return code && code.slice(2).startsWith(highlightHsCode)
     })
-  }, [products, activeCategory, translationOverrides, highlightActive, highlightHsCode])
+  }, [products, activeCategory, highlightActive, highlightHsCode])
 
   const stats = useMemo(
     () => ({
@@ -310,14 +300,12 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
     ])
 
     if (laResult.status === 'fulfilled') {
-      setLaMayoristaProducts(laResult.value)
       setLaMayoristaSync({ status: 'fresh', lastSyncedAt: new Date(), error: null })
     } else {
       setLaMayoristaSync((prev) => ({ status: 'stale', lastSyncedAt: prev.lastSyncedAt, error: laResult.reason.message }))
     }
 
     if (coraResult.status === 'fulfilled') {
-      setCorabastosProducts(coraResult.value)
       setCorabastosSync({ status: 'fresh', lastSyncedAt: new Date(), error: null })
     } else {
       setCorabastosSync((prev) => ({ status: 'stale', lastSyncedAt: prev.lastSyncedAt, error: coraResult.reason.message }))
@@ -331,6 +319,7 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
       setRateSync((prev) => ({ status: 'stale', rate: prev.rate, error: rateResult.reason.message }))
     }
 
+    reloadProducts()
     setUpdating(false)
   }
 
@@ -410,13 +399,12 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
     products.forEach((product) => {
       const key = normalizeProductName(product.nameEs)
       if (translationSuggestions.has(key)) return
-      const translation = translateProductName(product.nameEs, translationOverrides)
-      if (!translation.isTranslated && !itemsByKey.has(key)) {
+      if (!product.translated && !itemsByKey.has(key)) {
         itemsByKey.set(key, { product_key: key, name_es: product.nameEs })
       }
     })
     return Array.from(itemsByKey.values())
-  }, [products, translationOverrides, translationSuggestions])
+  }, [products, translationSuggestions])
 
   const handleRequestTranslationSuggestions = async () => {
     if (suggestingTranslations || !missingTranslationItems.length) return
@@ -435,9 +423,8 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
     if (resolvingSuggestionKey) return
     setResolvingSuggestionKey(key)
     try {
-      const suggestion = translationSuggestions.get(key)
       await confirmTranslationSuggestion(key)
-      setTranslationOverrides((prev) => ({ ...prev, [key]: suggestion.suggestion_en }))
+      reloadProducts()
       setTranslationSuggestions((prev) => {
         const next = new Map(prev)
         next.delete(key)
@@ -508,7 +495,7 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
       }
     })
 
-    setTranslationOverrides((prev) => ({ ...prev, ...saved }))
+    if (Object.keys(saved).length) reloadProducts()
     setPendingTranslations((prev) => {
       const next = { ...prev }
       Object.keys(saved).forEach((key) => delete next[key])
@@ -531,13 +518,12 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
   const buildExportRows = () =>
     filtered.map((product) => {
       const categoryMeta = CANONICAL_CATEGORIES.find((item) => item.key === product.category)
-      const translation = translateProductName(product.nameEs, translationOverrides)
       const rate = rateSync.rate
       const [laEntry, coEntry] = ['La Mayorista', 'Corabastos'].map(
         (label) => resolveEntries(product, buildSourceEntries(product)).find((e) => e.label === label) || null,
       )
       return {
-        productEn: translation.text,
+        productEn: product.name_en,
         productEs: product.nameEs,
         category: categoryMeta ? `${categoryMeta.es} / ${categoryMeta.en}` : product.category,
         unit: product.unitDisplay,
@@ -754,7 +740,7 @@ function ColombiaProductAnalysisView({ highlightHsCode = null }) {
               <tbody>
                 {filtered.map((product) => {
                   const categoryMeta = CANONICAL_CATEGORIES.find((item) => item.key === product.category)
-                  const translation = translateProductName(product.nameEs, translationOverrides)
+                  const translation = { text: product.name_en, isTranslated: product.translated }
                   const translationKey = normalizeProductName(product.nameEs)
                   const isEditingTranslation = openTranslationKeys.has(translationKey)
                   const suggestion = translationSuggestions.get(translationKey)
