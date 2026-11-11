@@ -101,6 +101,7 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 | Commit | Date | Holds | Notes for reversing |
 | --- | --- | --- | --- |
+| `9be5696` | 2026-11-10 | Portfolio tables sized to the screen (CSS only) | `git revert 9be5696` |
 | `5b4c5a6` | 2026-11-10 | Fix: product portfolio table layout (CSS only) | `git revert 5b4c5a6` |
 | `c551666` | 2026-11-10 | Phase 5 finished: route metrics, Colombia table, Market Analysis status from the server | `git revert c551666` |
 | `00ad49c` | 2026-11-10 | Phase 5 part 1: Market Opportunities DDP / level / sell price from the server | `git revert 00ad49c` |
