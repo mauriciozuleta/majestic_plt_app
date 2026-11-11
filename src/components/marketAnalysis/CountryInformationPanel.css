@@ -56,6 +56,13 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* the product portfolio is already a card of its own (MarketAnalysisPanel): no second box around it, so the table gets the full width */
+.country-info__document--bare {
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
 .country-info__hint {
   margin: 0 0 0.8rem;
   font-size: 0.84rem;

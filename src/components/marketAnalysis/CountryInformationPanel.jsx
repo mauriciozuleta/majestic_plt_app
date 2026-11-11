@@ -151,7 +151,7 @@ function CountryInformationPanel({ countries, selection, onSelect, tradeCountryC
         )}
       </div>
 
-      <div className="country-info__document">{renderDocument()}</div>
+      <div className={`country-info__document ${documentKey === 'products' ? 'country-info__document--bare' : ''}`}>{renderDocument()}</div>
     </div>
   )
 }

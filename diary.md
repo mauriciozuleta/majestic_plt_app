@@ -122,6 +122,10 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 ## Entries
 
+### 2026-11-10 — Fix: the extra gray box around the product portfolio card
+**Prompt:** "maybe we cn remove the extra box that rediuces the table card size, check the image the blue table is inside a gray card that is not neccesary"
+
+`CountryInformationPanel.jsx` wrapped every document in `.country-info__document` (border, 1rem padding, faint background); the product portfolio is already a card of its own (the inline-styled box of `MarketAnalysisPanel`), so it sat in a box inside a box. New modifier `country-info__document--bare` (no border / padding / background) applied only when the document is the product portfolio; the other documents keep their card. Measured in the browser (2000px wide): the table grew from 1,532 to 1,566px and starts 17px further left; screenshot checked. The outer Market Analysis tab panel is shared by all tabs and was left alone.
 ### 2026-11-10 — Fix: portfolio tables made shorter so the horizontal scrollbar is reachable
 **Prompt:** "the problem with the scroll bar is that i have to navigate to then end of the table for it to be visibl, so the vertical lenght of the table needs to be shorter"
 
