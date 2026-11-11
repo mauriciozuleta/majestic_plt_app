@@ -101,6 +101,7 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 | Commit | Date | Holds | Notes for reversing |
 | --- | --- | --- | --- |
+| `86886fc` | 2026-11-10 | Product portfolio: extra box removed (CSS only) | `git revert 86886fc` |
 | `15266e0` | 2026-11-10 | Portfolio tables: shorter scrolling window (CSS only) | `git revert 15266e0` |
 | `9be5696` | 2026-11-10 | Portfolio tables sized to the screen (CSS only) | `git revert 9be5696` |
 | `5b4c5a6` | 2026-11-10 | Fix: product portfolio table layout (CSS only) | `git revert 5b4c5a6` |
