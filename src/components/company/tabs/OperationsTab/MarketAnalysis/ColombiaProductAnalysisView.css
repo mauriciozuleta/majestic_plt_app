@@ -380,12 +380,11 @@
 }
 
 .price-comparison__table-wrap {
-  position: sticky;
-  top: 0;
-  /* the table scrolls inside its own window, sized to the screen and kept at the top of the page while it scrolls, so its horizontal scrollbar is always on screen */
+  position: relative;
   overflow-x: auto;
   overflow-y: auto;
-  max-height: calc(100vh - 12rem);
+  /* a short window that scrolls inside, so its horizontal scrollbar is near the top of the table and on screen, not at the end of a very long table */
+  max-height: min(30rem, calc(100vh - 16rem));
   border: 1px solid var(--border);
   border-radius: 10px;
 }

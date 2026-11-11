@@ -121,6 +121,10 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 ## Entries
 
+### 2026-11-10 — Fix: portfolio tables made shorter so the horizontal scrollbar is reachable
+**Prompt:** "the problem with the scroll bar is that i have to navigate to then end of the table for it to be visibl, so the vertical lenght of the table needs to be shorter"
+
+The previous fix (sticky, `100vh - 12rem`) still gave a table as tall as the screen, so on a tall monitor its bottom, and its scrollbar, was a full screen away. Now `max-height: min(30rem, calc(100vh - 16rem))` and no sticky, for `.price-comparison__table-wrap` and `.usa-sourcing__table-wrap`: a short window that scrolls inside, header row fixed. Measured with Playwright, not scrolled: at a 1860px-high window (the user's) the whole table incl. its bottom edge is on screen (643-1123 of 1756); at 1000px it needs ~230px of page scroll. Headless Chromium draws no scrollbar: please confirm on screen.
 ### 2026-11-10 — Fix: the portfolio table's horizontal scrollbar was off screen
 **Prompt:** "the lateral scroll bar is for the main window, not for the table so the columns to the right remain hidden"
 
