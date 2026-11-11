@@ -120,6 +120,10 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 ## Entries
 
+### 2026-11-10 — Fix: the portfolio table's horizontal scrollbar was off screen
+**Prompt:** "the lateral scroll bar is for the main window, not for the table so the columns to the right remain hidden"
+
+After the width fix the table scrolled sideways inside its card, but its own scrollbar sat at the bottom of a 48rem-tall table that starts ~640px down the page, so only the window's bar was visible. `.price-comparison__table-wrap` and `.usa-sourcing__table-wrap` now have `max-height: calc(100vh - 12rem)` and `position: sticky; top: 0`: the table is a window sized to the screen that stays at the top while the page scrolls, so its bottom edge, and the scrollbar, is on screen. Checked with Playwright (2000x1000): the main window has no horizontal overflow (1704 = 1704), the table wrap scrolls inside (1910 > 1531) and, scrolled into view, spans 55-863px of the 896px main area. Headless Chromium draws no scrollbar, so the bar itself was not seen in a screenshot — please confirm on your screen.
 ### 2026-11-10 — Fix: product portfolio tables overflowing their card, narrow columns
 **Prompt:** "checking the product portfolio format it is wrong, see images, table is ouside the card, and some columns are extremelly narrow so the rows are also wat too large"
 
