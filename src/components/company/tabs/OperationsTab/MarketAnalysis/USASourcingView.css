@@ -1,4 +1,5 @@
 .usa-sourcing {
+  min-width: 0; /* a grid item: without this it grows to the width of the table instead of letting the table scroll inside its card */
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -225,7 +226,7 @@
 
 .usa-sourcing__table {
   width: 100%;
-  min-width: 1760px;
+  min-width: 1800px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.8rem;
@@ -237,23 +238,23 @@
    compressing text. */
 .usa-sourcing__table th:nth-child(1),
 .usa-sourcing__table td:nth-child(1) {
-  width: 90px;
+  width: 40px;
 }
 .usa-sourcing__table th:nth-child(2),
 .usa-sourcing__table td:nth-child(2) {
-  width: 170px;
+  width: 90px;
 }
 .usa-sourcing__table th:nth-child(3),
 .usa-sourcing__table td:nth-child(3) {
-  width: 230px;
+  width: 170px;
 }
 .usa-sourcing__table th:nth-child(4),
 .usa-sourcing__table td:nth-child(4) {
-  width: 170px;
+  width: 230px;
 }
 .usa-sourcing__table th:nth-child(5),
 .usa-sourcing__table td:nth-child(5) {
-  width: 130px;
+  width: 170px;
 }
 .usa-sourcing__table th:nth-child(6),
 .usa-sourcing__table td:nth-child(6) {
@@ -261,26 +262,30 @@
 }
 .usa-sourcing__table th:nth-child(7),
 .usa-sourcing__table td:nth-child(7) {
-  width: 140px;
+  width: 130px;
 }
 .usa-sourcing__table th:nth-child(8),
 .usa-sourcing__table td:nth-child(8) {
-  width: 170px;
+  width: 140px;
 }
 .usa-sourcing__table th:nth-child(9),
 .usa-sourcing__table td:nth-child(9) {
-  width: 340px;
+  width: 170px;
 }
 .usa-sourcing__table th:nth-child(10),
 .usa-sourcing__table td:nth-child(10) {
-  width: 90px;
+  width: 340px;
 }
 .usa-sourcing__table th:nth-child(11),
 .usa-sourcing__table td:nth-child(11) {
-  width: 110px;
+  width: 90px;
 }
 .usa-sourcing__table th:nth-child(12),
 .usa-sourcing__table td:nth-child(12) {
+  width: 110px;
+}
+.usa-sourcing__table th:nth-child(13),
+.usa-sourcing__table td:nth-child(13) {
   width: 110px;
 }
 

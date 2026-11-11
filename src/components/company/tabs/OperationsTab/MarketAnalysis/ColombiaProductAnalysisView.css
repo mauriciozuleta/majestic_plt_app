@@ -1,4 +1,5 @@
 .price-comparison {
+  min-width: 0; /* a grid item: without this it grows to the width of the table instead of letting the table scroll inside its card */
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -407,7 +408,7 @@
 
 .price-comparison__table {
   width: 100%;
-  min-width: 1760px;
+  min-width: 1800px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.8rem;
@@ -446,27 +447,27 @@
    compressing text. */
 .price-comparison__table th:nth-child(1),
 .price-comparison__table td:nth-child(1) {
-  width: 90px;
+  width: 40px;
 }
 .price-comparison__table th:nth-child(2),
 .price-comparison__table td:nth-child(2) {
-  width: 150px;
+  width: 90px;
 }
 .price-comparison__table th:nth-child(3),
 .price-comparison__table td:nth-child(3) {
-  width: 230px;
+  width: 150px;
 }
 .price-comparison__table th:nth-child(4),
 .price-comparison__table td:nth-child(4) {
-  width: 160px;
+  width: 230px;
 }
 .price-comparison__table th:nth-child(5),
 .price-comparison__table td:nth-child(5) {
-  width: 120px;
+  width: 160px;
 }
 .price-comparison__table th:nth-child(6),
 .price-comparison__table td:nth-child(6) {
-  width: 150px;
+  width: 120px;
 }
 .price-comparison__table th:nth-child(7),
 .price-comparison__table td:nth-child(7) {
@@ -474,22 +475,26 @@
 }
 .price-comparison__table th:nth-child(8),
 .price-comparison__table td:nth-child(8) {
-  width: 170px;
+  width: 150px;
 }
 .price-comparison__table th:nth-child(9),
 .price-comparison__table td:nth-child(9) {
-  width: 340px;
+  width: 170px;
 }
 .price-comparison__table th:nth-child(10),
 .price-comparison__table td:nth-child(10) {
-  width: 90px;
+  width: 340px;
 }
 .price-comparison__table th:nth-child(11),
 .price-comparison__table td:nth-child(11) {
-  width: 110px;
+  width: 90px;
 }
 .price-comparison__table th:nth-child(12),
 .price-comparison__table td:nth-child(12) {
+  width: 110px;
+}
+.price-comparison__table th:nth-child(13),
+.price-comparison__table td:nth-child(13) {
   width: 110px;
 }
 

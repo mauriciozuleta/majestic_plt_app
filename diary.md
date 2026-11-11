@@ -119,6 +119,10 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 ## Entries
 
+### 2026-11-10 — Fix: product portfolio tables overflowing their card, narrow columns
+**Prompt:** "checking the product portfolio format it is wrong, see images, table is ouside the card, and some columns are extremelly narrow so the rows are also wat too large"
+
+Two CSS causes, both older than the backend moves (commit 6e161e5 added a select-checkbox column in front of the 12 fixed-width columns): (1) the `nth-child` width rules of `ColombiaProductAnalysisView.css` and `USASourcingView.css` were still numbered for 12 columns, so every column took its left neighbour's width (Comments got 90px, the checkbox 90px): renumbered, checkbox column 40px, table min-width 1800px; (2) `.price-comparison` / `.usa-sourcing` are grid items with `min-width: auto`, so they grew to the width of the table (1,912px in a 1,232px card): added `min-width: 0`. Verified in a real browser (Playwright, copy of the real DB, 1700px viewport): the table wrap now equals its card (382-1614) for Colombia and United States, column widths as designed, no page errors. The same run showed the Market Analysis status columns ("99 need data", "2 need HS") and the Colombia table (250 products, English names, 5 flagged) rendering from the new server endpoints.
 ### 2026-11-10 — Phase 5 finished: route metrics, Colombia table and Market Analysis status from the server
 **Prompt:** "finish phase 5 now that we know it is safe, then we will focus on the other stuff"
 
