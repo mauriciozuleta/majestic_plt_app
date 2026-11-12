@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchHsQueue, saveHsCodes, suggestHsCodes, validateHsCodes } from '../../services/hsCodes'
-import { fetchLocalModels } from '../../services/localModels'
 import HsCodeCell from '../hsCodes/HsCodeCell'
 import './MissingDataModal.css'
 
 const MODEL_BATCH = 12 // the backend asks a model for at most this many products per call
-const REASON = { no_code: 'No HS code', heading_only: 'Heading only', warning: 'Check', unreviewed: 'AI-suggested' }
+const REASON = { no_code: 'No HS code', obsolete: 'Old code (not in HS 2022)', heading_only: 'Heading only', warning: 'Check', unreviewed: 'AI-suggested' }
 const money = (value) => (value == null ? '' : Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 }))
 
 function StatusPill({ validation, checking }) {
@@ -20,8 +19,8 @@ function StatusPill({ validation, checking }) {
 }
 
 // The form behind the red "need HS" pill of Market Analysis ▸ Country Product Portfolio: the products of the country that have no HS code yet, only a 4-digit heading,
-// a warning, or a code nobody has looked at. Type the code (a 4-digit heading is padded with zeros), or press a Suggest button: the free one uses curated rules and the same
-// product in other countries; a local model and Claude (credits) run only when pressed. Every code is checked against Comtrade's HS reference before it can be saved.
+// a warning, or a code nobody has looked at. Type the code (a 4-digit heading is padded with zeros), or press a Suggest button: the free one uses curated rules, keyword rules, the same
+// product in other countries and the US Schedule B text; Claude (credits) runs only when pressed. Every code is checked against Comtrade's HS reference before it can be saved.
 function HsCodesModal({ country, onClose, onSaved }) {
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
@@ -31,8 +30,6 @@ function HsCodesModal({ country, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [suggesting, setSuggesting] = useState('')
-  const [localModels, setLocalModels] = useState([])
-  const [localModel, setLocalModel] = useState('')
   const timers = useRef({})
 
   useEffect(() => {
@@ -45,9 +42,6 @@ function HsCodesModal({ country, onClose, onSaved }) {
         setLoadState('ready')
       })
       .catch((error) => !cancelled && setLoadState(error.message || 'error'))
-    fetchLocalModels()
-      .then((data) => !cancelled && setLocalModels((data.models || []).map((model) => model.name)))
-      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -92,7 +86,7 @@ function HsCodesModal({ country, onClose, onSaved }) {
     if (!targets.length || suggesting) return
     setMessage('')
     setSuggesting(kind)
-    const options = kind === 'free' ? {} : kind === 'local' ? { allowLocal: true, localModel } : { allowAi: true }
+    const options = kind === 'free' ? {} : { allowAi: true }
     const batchSize = kind === 'free' ? targets.length : MODEL_BATCH
     const problems = []
     let found = 0
@@ -164,24 +158,9 @@ function HsCodesModal({ country, onClose, onSaved }) {
           <span className="missing-data__count">
             {filled.length} of {rows.length} filled
           </span>
-          <button type="button" className="missing-data__ai" onClick={() => suggest('free')} disabled={!!suggesting || !blanks.length} title="Free: curated rules and the same product coded in another country. Nothing is saved until you press Save to DB.">
+          <button type="button" className="missing-data__ai" onClick={() => suggest('free')} disabled={!!suggesting || !blanks.length} title="Free, no AI: curated and keyword rules (tomato, yam, chicken wings ...), the same product coded in another country, and the US Schedule B text (Salt, Lentils ...). Nothing is saved until you press Save to DB.">
             {suggesting === 'free' ? 'Suggesting…' : `Suggest (free) (${blanks.length})`}
           </button>
-          {localModels.length > 0 && (
-            <>
-              <select value={localModel} onChange={(event) => setLocalModel(event.target.value)} aria-label="Local model">
-                <option value="">Local model…</option>
-                {localModels.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="missing-data__ai" onClick={() => suggest('local')} disabled={!!suggesting || !blanks.length || !localModel} title="Free but slow and less accurate: a model on this computer chooses from the HS list. Check what it suggests.">
-                {suggesting === 'local' ? 'Local model working…' : 'Suggest (local)'}
-              </button>
-            </>
-          )}
           <button type="button" className="missing-data__ai" onClick={() => suggest('ai')} disabled={!!suggesting || !blanks.length} title="Uses Claude and spends credits. Nothing is saved until you press Save to DB.">
             {suggesting === 'ai' ? 'AI searching…' : 'AI Search (credits)'}
           </button>

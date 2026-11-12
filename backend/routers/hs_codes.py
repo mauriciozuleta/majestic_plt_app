@@ -10,7 +10,7 @@ from ..database import get_db
 
 router = APIRouter(prefix='/api/hs-codes', tags=['hs-codes'])
 
-MAX_MODEL_ITEMS = 12  # per call to the local model or Claude
+MAX_MODEL_ITEMS = 12  # per call to Claude
 
 
 class ItemIn(BaseModel):
@@ -26,8 +26,6 @@ class CheckIn(ItemIn):
 class SuggestIn(BaseModel):
     items: list[ItemIn]
     allow_peer: bool = True
-    allow_local: bool = False
-    local_model: str | None = None
     allow_ai: bool = False
 
 
@@ -68,9 +66,9 @@ def validate(items: list[CheckIn], db: Session = Depends(get_db)):
 def suggest(payload: SuggestIn, db: Session = Depends(get_db)):
     if not payload.items:
         raise HTTPException(status_code=400, detail='Give at least one product.')
-    if (payload.allow_local or payload.allow_ai) and len(payload.items) > MAX_MODEL_ITEMS:
+    if payload.allow_ai and len(payload.items) > MAX_MODEL_ITEMS:
         raise HTTPException(status_code=400, detail=f'At most {MAX_MODEL_ITEMS} products per call when a model is used.')
-    return hs.suggest(db, [item.model_dump() for item in payload.items], allow_peer=payload.allow_peer, allow_local=payload.allow_local, local_model=payload.local_model, allow_ai=payload.allow_ai)
+    return hs.suggest(db, [item.model_dump() for item in payload.items], allow_peer=payload.allow_peer, allow_ai=payload.allow_ai)
 
 
 @router.post('/save')

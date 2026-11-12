@@ -8,6 +8,7 @@ import json
 
 from .. import models
 from ..catalog_normalization.translate import overrides_from_db, translate_name
+from ..catalog_normalization.scope import is_main
 from ..snapshot_store import list_snapshots
 from .merge import merge_sources
 
@@ -61,7 +62,7 @@ def country_products(db) -> list[dict]:
         snapshots = list_snapshots(db, [f'custom_{source.id}'])
         if snapshots:
             groups.append({'country': source.country_name, 'products': [{'name': product.get('name'), 'category': product.get('category'), 'source_ids': [source.id], 'hs': product.get('hs')}
-                                                                         for product in snapshots[0]['products']]})
+                                                                         for product in snapshots[0]['products'] if is_main(product)]})
     return groups
 
 

@@ -19,6 +19,7 @@ product's category, and the same product coded differently in another country is
 import json
 import re
 from collections import Counter
+from functools import lru_cache
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from ..comtrade import classification
 
 RULES_FILE = Path(__file__).resolve().parent / 'data' / 'hs_item_rules.json'
 FOOD_LAST_CHAPTER = 23
+EDIBLE_OUTSIDE = ('2501',)  # salt
 
 # Chapters a product category normally falls in. A category not listed is not checked. Only a WARNING when it disagrees: a person may know better.
 CATEGORY_CHAPTERS: dict[str, set[str]] = {
@@ -61,25 +63,45 @@ def parse_code(raw) -> Code:
     digits = re.sub(r'\D', '', str(raw or ''))
     reference = classification.reference_codes()
     if not reference:
-        raise HsError('The HS reference (Comtrade) could not be loaded, so a code cannot be checked right now.')
+        raise HsError('The HS reference could not be loaded, so a code cannot be checked right now.')
+    current = classification.current_codes()  # HS 2022, the nomenclature in force: a code of an older revision is not a code any more
+    old = ' was a code of an older HS revision and no longer exists in HS 2022 (the current nomenclature): choose its current code.'
     if len(digits) == 6:
         if digits in reference:
+            if current and digits not in current:
+                if digits.endswith('00') and digits[:4] in current:  # 100300 (barley): the heading still exists, it only gained subheadings (100310, 100390)
+                    return Code(digits, 4, reference[digits[:4]] if digits[:4] in reference else current[digits[:4]])
+                raise HsError(f'{digits}{old}')
             return Code(digits, 6, reference[digits])
         if digits.endswith('00') and digits[:4] in reference:  # the padded form of a heading without subheadings, e.g. 020100
+            if current and digits[:4] not in current:
+                raise HsError(f'Heading {digits[:4]}{old}')
             return Code(digits, 4, reference[digits[:4]])
-        raise HsError(f'{digits} is not an HS subheading in the Comtrade reference.')
+        raise HsError(f'{digits} is not an HS subheading in the HS reference.')
     if len(digits) == 4:
         if digits not in reference:
-            raise HsError(f'{digits} is not an HS heading in the Comtrade reference.')
+            raise HsError(f'{digits} is not an HS heading in the HS reference.')
+        if current and digits not in current:
+            raise HsError(f'Heading {digits}{old}')
         padded = digits + '00'
         return Code(padded, 6, reference[padded]) if padded in reference else Code(padded, 4, reference[digits])
     raise HsError('Give a 4-digit heading or a 6-digit subheading (a 2-digit chapter is too coarse to trade).')
 
 
-def label_for(code: str | None, level: int | None) -> str:
+def label_for(code: str | None, level: int | None, obsolete: bool = False) -> str:
     if not code:
         return 'no_code'
+    if obsolete:
+        return 'obsolete'  # a code of an older HS revision: it no longer exists in HS 2022 and must be replaced
     return 'heading_only' if level == 4 else 'ok'
+
+
+def is_obsolete(hs6: str | None, level: int | None) -> bool:
+    """True when the code is not in HS 2022 (a padded heading is judged by its heading)."""
+    current = classification.current_codes()
+    if not hs6 or not current:
+        return False
+    return (hs6[:4] not in current) if level == 4 else (hs6 not in current)
 
 
 # ---------------------------------------------------------------- lookup
@@ -113,9 +135,10 @@ class HsIndex:
                 digits = re.sub(r'\D', '', self.legacy[key])
                 hs6, level, description = (digits + '00')[:6], 4 if len(digits) == 4 else 6, ''
         else:
-            return {'code': None, 'hs6': None, 'level': None, 'label': 'no_code', 'status': None, 'method': None, 'description': '', 'iso2': iso, 'source': None, 'ai_suggested': False}
-        return {'code': f'{iso}{hs6}' if iso else None, 'hs6': hs6, 'level': level, 'label': label_for(hs6, level), 'status': status, 'method': method,
-                'description': description, 'iso2': iso, 'source': source, 'ai_suggested': status == 'suggested'}
+            return {'code': None, 'hs6': None, 'level': None, 'label': 'no_code', 'status': None, 'method': None, 'description': '', 'iso2': iso, 'source': None, 'ai_suggested': False, 'obsolete': False}
+        obsolete = is_obsolete(hs6, level)
+        return {'code': f'{iso}{hs6}' if iso else None, 'hs6': hs6, 'level': level, 'label': label_for(hs6, level, obsolete), 'status': status, 'method': method,
+                'description': description, 'iso2': iso, 'source': source, 'ai_suggested': status == 'suggested', 'obsolete': obsolete}
 
 
 def build_index(db) -> HsIndex:
@@ -147,7 +170,7 @@ def check(country: str, name: str, category: str | None, raw_code, index: HsInde
         status = 'warning'
 
     chapter = code.hs6[:2]
-    if int(chapter) > FOOD_LAST_CHAPTER:
+    if int(chapter) > FOOD_LAST_CHAPTER and code.hs6[:4] not in EDIBLE_OUTSIDE:
         warn(f'Chapter {chapter} is outside food and agriculture (01-23); check this is what is sold.')
     if code.level == 4:
         warn(f'Heading {code.hs6[:4]} has no subheading chosen, so the code is stored padded as {code.hs6} and labelled "heading only".')
@@ -177,6 +200,80 @@ def suggest_from_rule(name: str) -> dict | None:
     return {'code': code, 'method': 'rule', 'confidence': 'high', 'note': 'A curated rule (data/hs_item_rules.json).'} if code else None
 
 
+KEYWORD_RULES_FILE = RULES_FILE.parent / 'hs_keyword_rules.json'
+
+
+@lru_cache(maxsize=1)
+def _keyword_rules() -> dict:
+    """data/hs_keyword_rules.json with every word list compiled once: a whole word, its plural optional (tomato -> tomatoes)."""
+    def compile_words(words: list[str]):
+        if not words:
+            return None
+        return re.compile(r'\b(?:' + '|'.join(re.escape(word) for word in sorted(words, key=len, reverse=True)) + r')(?:s|es)?\b', re.IGNORECASE)
+
+    try:
+        data = json.loads(KEYWORD_RULES_FILE.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {'global_not': None, 'rules': []}
+    return {'global_not': compile_words(data.get('global_not', [])),
+            'rules': [{**rule, 'match': compile_words(rule['words']), 'exclude': compile_words(rule.get('not', []))} for rule in data.get('rules', [])]}
+
+
+def match_keyword_rule(name: str, category: str | None = None) -> tuple[dict, bool] | None:
+    """(rule, frozen) of the first keyword rule that names this product, or None: not a commodity the rules know, or a processed-food name. Shared by the HS suggestion and by the
+    retail-unit table (which only answers for products the rules call PRODUCE: "Cream Cheese Strawberry" is a cheese)."""
+    rules = _keyword_rules()
+    # a bracketed label is a variety or a brand note ("Sweet Potato (Local Chicken foot)", "Arracacha (Peruvian Carrot)"): it must not decide the commodity
+    text = re.sub(r'[^a-z0-9 ]+', ' ', re.sub(r'\([^)]*\)|\[[^]]*\]', ' ', (name or '').lower()))
+    if not text.strip() or (rules['global_not'] and rules['global_not'].search(text)):
+        return None
+    frozen = bool(re.search(r'\bfrozen\b', text) or re.search(r'\bfrozen\b', (category or '').lower()))
+    for rule in rules['rules']:
+        found = rule['match'].search(text)
+        if found and not (rule['exclude'] and rule['exclude'].search(text)):
+            return {**rule, 'matched': found.group(0), 'text': text}, frozen
+    return None
+
+
+def suggest_from_keywords(name: str, category: str | None = None) -> dict | None:
+    """The backup before any AI: the first keyword rule (data/hs_keyword_rules.json) whose word is in the English name. Fresh / chilled code by default, the frozen code when the name
+    or the store category says frozen. Nothing guessed: a name no rule knows, or one with a processed-food word (sauce, juice, dried ...), gets no suggestion."""
+    matched = match_keyword_rule(name, category)
+    if matched is None:
+        return None
+    rule, frozen = matched
+    code = rule.get('frozen_code') if frozen else rule['code']
+    if 'fillet_code' in rule and re.search(r'\bfillets?\b', rule['text']):  # fish fillets are another heading (0304): only the species that have a fillet code are suggested
+        code = rule.get('fillet_frozen_code') if frozen else rule.get('fillet_code')
+    if not code:
+        return None
+    note = f"Keyword rule \u201c{rule['matched']}\u201d: {rule['note']}" + (' (frozen)' if frozen and rule.get('frozen_code') != rule['code'] else '') + '.'
+    return {'code': code, 'method': 'rule', 'confidence': rule.get('confidence', 'medium'), 'note': note}
+
+
+SPECIAL_PURPOSE = {'seed', 'seeds', 'breeding', 'sowing', 'planting', 'live', 'purebred'}  # a child of a heading made for another use than eating / trading the commodity itself
+
+
+def suggest_from_schedule_b(name: str, heading: str | None = None) -> dict | None:
+    """The last free step: the US Schedule B text (the same codes as HS 2022 with their descriptions). Answers only when every word of the name is a word the Schedule B uses and exactly one
+    six-digit code holds all of them ("Salt" -> 250100, "Lentils" -> 071340); two codes or more, or a word it does not know (a brand, a regional name), and it says nothing.
+    `heading` is the 4-digit heading the product already has (an old or heading-only code): the search then stays inside it, and of the codes left the special-purpose ones (seed, breeding
+    stock ...) are dropped unless the name asks for them, so "Barley" under 1003 is 100390 (other than seed), not 100310 (seed)."""
+    from . import schedule_b
+
+    words = set(schedule_b.tokens(re.sub(r'\([^)]*\)|\[[^]]*\]', ' ', name or '')))
+    if not words or not words <= set(schedule_b._index()['idf']):
+        return None
+    heading = heading if heading and len(heading) == 4 and heading in classification.current_codes() else ''
+    found = [row for row in schedule_b.search(name, 40, within=heading) if row['score'] >= 0.999]
+    if heading and len(found) > 1:
+        found = [row for row in found if not (SPECIAL_PURPOSE & set(schedule_b.tokens(row['text'])) - words)]  # the Schedule B path ("Barley > Seed"; "Barley > Other"), not the HS wording ("other than seed")
+    if len(found) != 1:
+        return None
+    where = f' inside heading {heading}' if heading else ''
+    return {'code': found[0]['code'], 'method': 'schedule_b', 'confidence': 'low', 'note': f"The only code{where} whose US Schedule B text has every word of the name: {found[0]['text'][:120]}."}
+
+
 def suggest_from_peers(index: HsIndex, country: str, name: str) -> dict | None:
     """The code another country already uses for the same name. A code a person confirmed outweighs an AI one; when they disagree the commonest wins and the
     note says so, so the person decides."""
@@ -191,51 +288,11 @@ def suggest_from_peers(index: HsIndex, country: str, name: str) -> dict | None:
     note = f'The same product is coded {best} in {where}.'
     if len(counts) > 1:
         note += ' Other countries use ' + ', '.join(sorted(code for code in counts if code != best)) + ' — check which is right.'
-    return {'code': best, 'method': 'peer', 'confidence': 'medium', 'note': note}
+    return {'code': best, 'method': 'peer', 'confidence': 'medium', 'note': note, 'by_person': any(row['status'] in ('confirmed', 'corrected') and row['hs_code'] == best for _other, row in found)}
 
 
 def _clean_description(text: str) -> str:
     return re.sub(r'\s+', ' ', re.sub(r'^[-\s:]+', '', text or '')).strip()[:90]
-
-
-def suggest_with_local_model(items: list[dict], model: str, cancel=None) -> list[dict | None]:
-    """A local Ollama model picks the 4-digit heading from the food headings of the reference, then the 6-digit subheading from that heading's own lines (or keeps the
-    heading). It can only answer with a code it was shown. One product per call; slow on a CPU and less accurate than Claude, but free."""
-    import threading
-
-    from ..comtrade import product_classification as claude_classifier
-    from ..local_models import ollama_client
-
-    cancel = cancel or threading.Event()
-    headings = claude_classifier._headings()
-    heading_codes = {entry['hs_code'] for entry in headings}
-    heading_list = '\n'.join(f"{entry['hs_code']} {_clean_description(entry['description'])}" for entry in headings)
-    system = ('You classify food and agricultural products into official HS codes. Classify what the product actually is (the commodity), fresh or chilled unless the name '
-              'says otherwise. Answer with ONE code from the list and nothing else.')
-
-    def ask(prompt: str) -> str:
-        return ''.join(ollama_client.stream_chat(model, [{'role': 'system', 'content': system}, {'role': 'user', 'content': prompt}], cancel,
-                                                 {'temperature': 0, 'num_ctx': 8192, 'num_predict': 16})).strip()
-
-    results: list[dict | None] = []
-    for item in items:
-        context = f"category: {item.get('category') or 'unknown'}; sold in {item.get('country') or 'unknown'}"
-        reply = ask(f"HS headings:\n{heading_list}\n\nProduct: {item['name']} ({context})\nAnswer with the 4-digit heading code.")
-        match = re.search(r'\b(\d{4})\b', reply)
-        heading = match.group(1) if match and match.group(1) in heading_codes else None
-        if not heading:
-            results.append(None)
-            continue
-        options = claude_classifier._subheadings(heading)
-        code = heading
-        if options:
-            lines = '\n'.join(f"{entry['hs_code']} {_clean_description(entry['description'])}" for entry in options)
-            reply = ask(f"Subheadings of {heading}:\n{lines}\n\nProduct: {item['name']} ({context})\nAnswer with the 6-digit code, or {heading} if none fits.")
-            match = re.search(r'\b(\d{6})\b', reply)
-            if match and match.group(1) in {entry['hs_code'] for entry in options}:
-                code = match.group(1)
-        results.append({'code': code, 'method': 'local_model', 'confidence': 'low', 'note': f'Suggested by the local model {model}; check it.'})
-    return results
 
 
 def suggest_with_claude(items: list[dict]) -> list[dict | None]:
@@ -246,7 +303,7 @@ def suggest_with_claude(items: list[dict]) -> list[dict | None]:
     return [{'code': code, 'method': 'ai', 'confidence': 'medium', 'note': 'Suggested by Claude from the HS reference; check it.'} if code else None for code in codes]
 
 
-def suggest(db, items: list[dict], *, allow_peer: bool = True, allow_local: bool = False, local_model: str | None = None, allow_ai: bool = False) -> dict:
+def suggest(db, items: list[dict], *, allow_peer: bool = True, allow_ai: bool = False) -> dict:
     """items: [{country, name, category?}] -> {results: [{country, name, category, suggestion, validation, tried}], errors: [..]}. Nothing is saved."""
     index = build_index(db)
     results = [{'country': item['country'], 'name': item['name'], 'category': item.get('category'), 'suggestion': None, 'tried': []} for item in items]
@@ -258,26 +315,28 @@ def suggest(db, items: list[dict], *, allow_peer: bool = True, allow_local: bool
             results[position]['suggestion'] = found
 
     for position, item in enumerate(items):
+        # order of trust: an exact curated rule, a code a PERSON confirmed for the same product in another country, the keyword rules, then a code another country only had suggested
         take(position, suggest_from_rule(item['name']), 'rule')
-        if allow_peer:
-            take(position, suggest_from_peers(index, item['country'], item['name']), 'peer')
+        peer = suggest_from_peers(index, item['country'], item['name']) if allow_peer else None
+        if peer and peer.get('by_person'):
+            take(position, peer, 'peer')
+        take(position, suggest_from_keywords(item['name'], item.get('category')), 'keyword')
+        if peer and not peer.get('by_person'):
+            take(position, peer, 'peer')
+        if not results[position]['suggestion']:
+            stored = index.assignments.get(((item['country'] or '').strip().lower(), hs_key(item['name'])), {}).get('hs_code') or index.legacy.get(hs_key(item['name'])) or ''
+            take(position, suggest_from_schedule_b(item['name'], re.sub(r'\D', '', stored)[:4]), 'schedule_b')
 
-    for flag, runner, label in ((allow_local, lambda batch: suggest_with_local_model(batch, local_model or ''), 'local_model'), (allow_ai, suggest_with_claude, 'ai')):
-        if not flag:
-            continue
+    if allow_ai:
         pending = [i for i, row in enumerate(results) if not row['suggestion']]
-        if not pending:
-            continue
-        if label == 'local_model' and not local_model:
-            errors.append('Choose a local model to use the local suggestion.')
-            continue
-        try:
-            answers = runner([{**items[i]} for i in pending])
-        except Exception as error:  # noqa: BLE001 — shown to the person: credits, Ollama not running ...
-            errors.append(f'{label}: {error}')
-            continue
-        for i, answer in zip(pending, answers):
-            take(i, answer, label)
+        if pending:
+            try:
+                answers = suggest_with_claude([{**items[i]} for i in pending])
+            except Exception as error:  # noqa: BLE001 — shown to the person: credits, no key ...
+                errors.append(f'ai: {error}')
+            else:
+                for i, answer in zip(pending, answers):
+                    take(i, answer, 'ai')
 
     for row in results:
         if row['suggestion']:

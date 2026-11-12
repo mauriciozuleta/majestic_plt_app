@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fetchMarketAnalysisRegions } from '../../services/commercialStructure'
-import { fetchPairPricing } from '../../services/shipmentPricing'
+import { fetchPairPricing } from '../../services/shipments'
 import { fetchProductSources } from '../../services/productSources'
 import {
   addToMarketOpportunityPriority,
@@ -143,7 +143,7 @@ function reviewBadges(row) {
 // unmatched list, and renders a sortable/filterable table plus the separate
 // "no match found in target market" list. A run is a full recompute of its
 // scope, same convention the backend's own overwrite-on-save already uses.
-function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, region, onSaved, focusProduct }) {
+function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, region, onSaved, focusProduct, externalRecompute = null, onRecomputeDone }) {
   const [runStatus, setRunStatus] = useState('idle')
   const [runError, setRunError] = useState(null)
   const [aiMatchErrors, setAiMatchErrors] = useState({})
@@ -156,8 +156,12 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
   // true when a saved run predates saving the unmatched list
   const [unmatchedUnknown, setUnmatchedUnknown] = useState(false)
   // { key, at } — set by the Recompute button; `at` tells a new click apart
-  const [recomputeRequest, setRecomputeRequest] = useState(null)
+  // (a saved pair's "out of date" pill asks for the same through `externalRecompute`)
+  const [recomputeRequest, setRecomputeRequest] = useState(externalRecompute)
   const handledRecomputeRef = useRef(null)
+  useEffect(() => {
+    if (externalRecompute && externalRecompute.at !== recomputeRequest?.at) setRecomputeRequest(externalRecompute)
+  }, [externalRecompute, recomputeRequest])
   const [sortKey, setSortKey] = useState('rating')
   const [search, setSearch] = useState('')
   const [targetFilter, setTargetFilter] = useState('')
@@ -228,8 +232,12 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
 
     setRunStatus('running')
     setRunError(null)
+    const reportDone = (error) => {
+      if (forceRecompute) onRecomputeDone?.(runKey, error)
+    }
     getOrComputeComparison(sourceCountry, targetCountries, { force: forceRecompute })
       .then((result) => {
+        reportDone(null)
         // A fresh run is saved even if the selection changed meanwhile, so the
         // saved list still needs refreshing.
         if (result.origin === 'computed' && result.rows.length > 0) onSaved?.()
@@ -244,6 +252,7 @@ function MarketOpportunityResults({ sourceCountry, targetCountries, isRegion, re
         setRunStatus('ready')
       })
       .catch((err) => {
+        reportDone(err?.message || 'Could not compute this comparison.')
         if (cancelled) return
         setRunError(err?.message || 'Could not compute this comparison.')
         setRunStatus('error')
@@ -972,6 +981,27 @@ function MarketOpportunitiesPanel() {
     return null
   }
 
+  // The "out of date" pill of a saved pair: after a confirmation, opens that pair and recomputes it (the same full recompute as the Recompute button).
+  const [recomputeTrigger, setRecomputeTrigger] = useState(null)
+  const [updatingPairs, setUpdatingPairs] = useState({}) // pair key -> true while its recompute runs, or the error text when it failed
+  const pairKey = (pair) => `${pair.source_country}>${pair.target_country}`
+  const handleRecomputeDone = useCallback((key, error) => setUpdatingPairs((current) => ({ ...current, [key]: error ? `Update failed: ${error}` : false })), [])
+  const updateOutdatedPair = (pair) => {
+    const reasons = (pair.stale_reasons || []).join(' ')
+    const confirmed = window.confirm(
+      `Update the ${pair.source_country} › ${pair.target_country} comparison?
+
+${reasons ? `Why it is out of date: ${reasons}
+
+` : ''}All ${pair.row_count} products are compared again with the current catalogs, ` +
+        'which can take a few minutes (and uses the AI match and weight research when available). The saved comparison is replaced.',
+    )
+    if (!confirmed) return
+    openSavedPair(pair)
+    setUpdatingPairs((current) => ({ ...current, [pairKey(pair)]: true }))
+    setRecomputeTrigger({ key: pairKey(pair), at: Date.now() })
+  }
+
   const openSavedPair = (pair) => {
     const selection = savedPairSelection(pair)
     if (!selection) return
@@ -1018,27 +1048,38 @@ function MarketOpportunitiesPanel() {
               const selectable = Boolean(savedPairSelection(pair))
               const active = selectable && source === pair.source_country && target === 'country' && savedPairSelection(pair)?.countryId === country
               return (
+                <span key={`${pair.source_country}>${pair.target_country}`} className="market-opportunities__saved-item">
                 <button
-                  key={`${pair.source_country}>${pair.target_country}`}
                   type="button"
                   className={`market-opportunities__saved-pair ${active ? 'is-active' : ''}`}
                   onClick={() => openSavedPair(pair)}
                   disabled={!selectable}
                   title={
                     selectable
-                      ? `${pair.row_count} products compared — computed ${formatDateTime(pair.calculated_at)}${pair.stale ? `. OUT OF DATE: ${pair.stale_reasons.join(' ')} Use Recompute.` : ''}`
+                      ? `${pair.row_count} products compared — computed ${formatDateTime(pair.calculated_at)}${pair.stale ? `. OUT OF DATE: ${pair.stale_reasons.join(' ')} Click the pill to update it.` : ''}`
                       : 'No longer selectable: the country is no longer an active source or target'
                   }
                 >
                   {pair.source_country} › {pair.target_country}
                   <span className="market-opportunities__saved-date">{new Date(pair.calculated_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
-                  {pair.stale && (
-                    <span className="market-opportunities__saved-date" style={{ color: '#b45309', fontWeight: 600 }}>
-                      {' '}
-                      · out of date
-                    </span>
-                  )}
                 </button>
+                {(pair.stale || updatingPairs[pairKey(pair)] === true) &&
+                  (updatingPairs[pairKey(pair)] === true ? (
+                    <span className="market-opportunities__stale-pill is-updating" role="status" title="Comparing every product again — this can take a few minutes.">
+                      Updating…
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="market-opportunities__stale-pill"
+                      onClick={() => updateOutdatedPair(pair)}
+                      disabled={!selectable}
+                      title={`${typeof updatingPairs[pairKey(pair)] === 'string' ? `${updatingPairs[pairKey(pair)]}. ` : ''}${(pair.stale_reasons || []).join(' ')} Click to update this comparison.`}
+                    >
+                      {typeof updatingPairs[pairKey(pair)] === 'string' ? 'Update failed — retry' : 'Out of date'}
+                    </button>
+                  ))}
+                </span>
               )
             })}
           </div>
@@ -1117,6 +1158,8 @@ function MarketOpportunitiesPanel() {
           region={region}
           onSaved={loadSavedPairs}
           focusProduct={searchParams.get('product')}
+          externalRecompute={recomputeTrigger}
+          onRecomputeDone={handleRecomputeDone}
         />
       )}
     </div>

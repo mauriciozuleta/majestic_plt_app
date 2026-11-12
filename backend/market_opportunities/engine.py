@@ -99,7 +99,7 @@ def resolve_count_weight_conversions(db, pairs: list[dict], allow_research: bool
         product['norm'] = {**product['norm'], **converted}
         product['perKgLocal'] = converted['price_per_kg']
         product['unitComment'] = converted.get('note')
-        if converted.get('method') in ('researched_item_weight', 'reference_item_weight'):
+        if converted.get('method') in ('researched_item_weight', 'reference_item_weight', 'retail_unit_weight'):
             product['conversionMethod'], product['conversionNote'], product['conversionConfidence'] = converted['method'], converted.get('note'), converted.get('confidence')
     return error
 

@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import MissingDataModal from './MissingDataModal'
 import HsCodesModal from './HsCodesModal'
+import DiscardedItemsModal from './DiscardedItemsModal'
 import { IconCheck } from '@tabler/icons-react'
 import { fetchCountryProfile, fetchMarketAnalysisRegions, fetchReferenceCountries, fetchRegionAssignments } from '../../services/commercialStructure'
 import { fetchTradeCountries } from '../../services/globalTradeData'
@@ -327,6 +328,7 @@ function MarketAnalysisView() {
 
   const [hsFor, setHsFor] = useState(null) // the country whose HS codes form is open
   const [missingFor, setMissingFor] = useState(null) // the country whose missing product data the form is open for
+  const [discardedFor, setDiscardedFor] = useState(null) // the country whose discarded-products list is open
 
   const refreshStatus = useCallback((countryList) => {
     if (!countryList.length) {
@@ -651,6 +653,16 @@ function MarketAnalysisView() {
                                           {rowStatus.hsMissingCount} need HS
                                         </button>
                                       )}
+                                      {rowStatus.discardedCount > 0 && (
+                                        <button
+                                          type="button"
+                                          className="market-analysis__pill"
+                                          onClick={() => setDiscardedFor(country.name)}
+                                          title={`${rowStatus.discardedCount} downloaded product${rowStatus.discardedCount === 1 ? '' : 's'} of ${country.name} ${rowStatus.discardedCount === 1 ? 'was' : 'were'} kept out of the main catalog (cookies, drinks, sauces, other dairy, canned meat ...). Click to consult the list or return any to the catalog.`}
+                                        >
+                                          {rowStatus.discardedCount} discarded
+                                        </button>
+                                      )}
                                     </div>
                                   </td>
                                 )
@@ -674,6 +686,7 @@ function MarketAnalysisView() {
         )}
 
         {hsFor && <HsCodesModal country={hsFor} onClose={() => setHsFor(null)} onSaved={() => refreshStatus(countries)} />}
+        {discardedFor && <DiscardedItemsModal country={discardedFor} onClose={() => setDiscardedFor(null)} onChanged={() => refreshStatus(countries)} />}
         {missingFor && <MissingDataModal country={missingFor} onClose={() => setMissingFor(null)} onSaved={() => refreshStatus(countries)} />}
 
         {viewingDoc && (

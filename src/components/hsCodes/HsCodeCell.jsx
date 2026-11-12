@@ -16,6 +16,11 @@ function HsCodeCell({ hs }) {
   return (
     <span className="hs-cell" title={hs.description || undefined}>
       <span>{hs.code || hs.hs6}</span>
+      {hs.label === 'obsolete' && (
+        <span className="hs-cell__badge hs-cell__badge--none" title="This code is from an older HS revision and no longer exists in HS 2022 (the current nomenclature). Replace it from the red 'need HS' pill.">
+          Old code
+        </span>
+      )}
       {hs.label === 'heading_only' && (
         <span className="hs-cell__badge hs-cell__badge--heading" title="Only the 4-digit heading is known; the code is padded with zeros.">
           Heading only

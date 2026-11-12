@@ -94,3 +94,66 @@ catalog again, updates the pills). A value typed by a person (confidence `user`)
   were only exercised up to the API's refusal (the error reaches the user readably). 884 products wait for it.
 * Volumes (milk, oil, drinks) are not converted: a density per product would have to be researched.
 * Price levels: the retail source is flagged retail, but no retail-to-wholesale adjustment is applied.
+
+## Catalog scope: main catalog and secondary (discarded) list (2026-11-11)
+
+The supermarket scrapes download by category, so a lot of products nobody here will trade come with them (cookies, dough, drinks, sauces ...), some filed under a produce category.
+`scope.py` gives every product of a supermarket-style catalog (`custom_*`; the wholesale sources are always main) a `scope` block: `{status: 'main' | 'secondary', reason, rule, confidence}`.
+
+* **In:** fresh produce (vegetables, fruit, roots, fresh herbs), fresh / frozen meat, poultry and fish, **processed meat that needs refrigeration or the cold chain** (ham, bacon, sausage, nuggets ...),
+  cheese, eggs. **Out:** every other dairy, canned or shelf-stable meat and fish (they travel by sea), frozen / canned / dried produce, nuts, rice and grains, flour, bakery, dough, sweets, drinks,
+  sauces, spices, non-food. A product with no HS code and no clear category is **kept** (flagged "check"): lacking a code never drops a product.
+* **How it decides** (`data/scope_rules.json`, editable): the HS code is trusted before the name (a fresh-produce code is not overruled by "honey" in "Honey Gold Potatoes"; "Four Cheese mashed
+  potatoes" is chapter 11, not cheese), then name rules, then the store's category. Dried legumes, dried grapes, frozen fruit and nuts sit inside the fresh HS chapters and are listed as out headings.
+* **Nothing is deleted.** Discarded products stay in the stored catalog; they get no weight lookup (USDA table, research) and no HS suggestion, and the consumers (portfolio, Market Opportunities,
+  HS queue, "need data" counts) see only the main catalog. `scope_store.py` + `routers/catalog_scope.py`: `GET /api/catalog-scope/summary`, `GET /items` (the discarded list, with reasons; unsure ones first),
+  `POST /move` (a person's choice, saved per catalog + product name so it survives a new download, written to the data history), `POST /reclassify` (after editing the rules).
+* **Front end:** the country's product table hides the discarded rows and has a "Discarded (N)" button; the Market Analysis table has an "N discarded" pill; both open `DiscardedItemsModal`
+  (consult, filter by reason, return to the catalog, or set a catalog product aside).
+* Tests: `test_catalog_scope.py` (47 real names, the whole flow on an in-memory database, the move surviving a new download, the history record, a guard against control characters in the rule
+  patterns).
+
+## HS codes: the backup before any AI (2026-11-11)
+
+`hs.suggest` tries, in this order of trust: (1) an exact curated rule (`data/hs_item_rules.json`, a product name -> code, empty today); (2) a code a **person confirmed** for the same product in another
+country; (3) the **keyword rules** (`data/hs_keyword_rules.json`, 107 rules, built from the editable table `data/build_hs_keyword_rules.py`): a whole word of the English name (plural optional) -> a 6-digit
+code, fresh / chilled by default and the frozen code when the name or the store category says frozen; cheese and eggs are tried first, then cured / prepared meat, then fish, then raw meat, then fruit and
+vegetables, so a flavour or a variety label never decides the commodity ("Cream Cheese Strawberry", "Salami with green pepper", "Sweet Potato (Local Chicken foot)"); fish fillets are another heading and
+only the species with a fillet code are suggested; names with a processed-food word (sauce, juice, dried ...) get nothing; (4) a code another country only had suggested; then the local model and Claude,
+only when pressed. Every suggestion is checked against Comtrade's reference and the product's category, and nothing is saved by itself.
+
+Measured on the 2,992 distinct products of the main catalogs: the rules suggest a code for 86% (2,582), fill 55 of the 79 products that had no code or only a heading, and agree with the old Claude codes
+in 94% of the cases at the 4-digit heading and 82% at 6 digits. The disagreements checked by hand were mostly the OLD codes being wrong (papaya filed under 0804 dates / figs / pineapples instead of 0807.20;
+oxtail as offal) or ambiguous (fresh vs frozen fish). Tests: `test_hs_keyword_rules.py` (about 100 real names, every code in Comtrade's reference, the tier order, 8 mutations of the matcher caught).
+
+## Weight of a "unit" without AI, and the cost guard (2026-11-11)
+
+**What happened:** one click of "Research item weights" over 98 products cost about 8 USD of Anthropic credits (nine web-research calls of up to 12 products, Sonnet, up to 24 searches each:
+about 0.09 USD per product). The button sent every waiting product at once, with no estimate and no question.
+
+**The guard** (server side, so a scheduler or an agent obeys it too): a paid weight search never starts without `confirm_usd` (the amount the caller accepts, at least the estimate of
+`researcher.ESTIMATED_USD_PER_PRODUCT` = 0.09 per product); `POST /research` returns the estimate on a dry run and `needs_confirmation` without the amount; one run is capped at
+`MAX_PRODUCTS_PER_RUN` = 36 products; `POST /suggest` (the form's "AI Search") answers 409 `needs_confirmation` without the amount. The front end asks the server for the estimate, shows it
+("about $1.08 for 12 products") and runs only what the person accepts; one click researches at most one batch of 12.
+
+**The free step** (`retail_unit.py`, `data/retail_unit_weights.json`, 25 entries): a product priced per generic "unit" that is really a pack or a bunch (a 6 oz clamshell of raspberries, a bunch of
+cilantro, a 12 oz bag of green beans) gets the usual retail unit weight from a table of standard sizes. Order of trust for a count unit: a weight a person typed; a weight researched for the
+BUNCH / HEAD / SLEEVE itself; **the retail table** (method `retail_unit_weight`, low confidence, the note says "check the label"); USDA's weight of one piece; a weight researched for one single
+item. It only answers for produce (the HS keyword rules must call the product produce: "Cream Cheese Strawberry" is a cheese), for a single generic unit (never "4 count"), and never for produce
+sold by the piece (USDA covers it). Raspberries at 11.95 per unit now give 70 per kg (0.17 kg) instead of 2,987 per kg (one berry, 4 g). On the real catalogs the rows waiting for a weight went from
+305 to 235; 87 rows use the table and 75% of those with same-store weight-priced peers land within 0.4x-2.5x of the peers' price per kg. Tests: `test_retail_unit_weights.py` (8; 6 mutations caught),
+`test_missing_data_form.py` (the guard).
+
+Known limits: the table is typical sizes, not measurements (hence low confidence and the flag in Market Opportunities); some catalogs label per-pound prices as "unit" (whole chicken, some
+roots), which no table can fix; a price-implied weight (price of the unit / price per kg of the same commodity in the same store) is NOT used as a source, because it would make the price per kg
+equal to the peers' median by construction; it could serve as a cross-check later.
+
+## HS 2022 is the nomenclature in force; the reference is bundled (2026-11-12)
+
+The HS reference is no longer fetched: `backend/comtrade/data/hs_2022.json` (HS 2022, Comtrade's `H6` file, 6,939 codes) and `hs_combined.json` (every revision, 8,261 codes, only to NAME the codes of
+historical trade data) are committed; `data/build_hs_reference.py` rebuilds them by hand (next revision: HS 2027, in force 1 January 2027). A code must exist in HS 2022: the old combined reference
+also held 1,284 of 6,897 subheadings that older revisions had and HS 2022 no longer has (whole chicken 020710, other fish fillets 030419, thyme 091040 ...), so the old AI classifier's codes were
+accepted as valid although they were not. Now `hs.parse_code` refuses them with the reason, a stored one is flagged `obsolete` in the product's `hs` block (label "Old code"), counted as a product that
+still needs an HS code and listed first in the review queue, and the AI lists (Claude, local model) only offer current codes. On the real catalogs 57 of 2,913 coded products carry an old code.
+The US Census Schedule B chapters 1-3 (downloaded files) have exactly the same 6-digit codes as HS 2022 (325 of 325, fixture `backend/tests/fixtures/schedule_b_chapters_01_03.json`) plus US-only
+10-digit suffixes and units: it adds nothing at 6 digits, so it is not used. Tests: `test_hs_2022.py` (9).

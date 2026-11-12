@@ -461,3 +461,16 @@ Same columns as above in short form (all backend functions; none needs the brows
 | SH-02 | Shipment candidates | `GET /api/shipments/candidates?source_country&target_country&airfare_per_kg` | R | instant (Country SAM may call Comtrade) | the priority list in the saved comparison, with rating, SAM, market level, cap |
 | SH-03 | Share the aircraft capacity | `POST /api/shipments/allocate` | S · saves nothing | instant | wholesalers, premium, niche; manual weights kept |
 | SH-04 | Built-shipment air fares | `GET /api/shipments/airfares?source_country&target_countries` | R | instant | what Market Opportunities shows beside a pair |
+| AR-01 | Trial balance of a company | `GET /companies/{id}/gl/reports/trial-balance` | R | instant | rows, totals, balanced flag |
+| AR-02 | Income statement (whole ledger or a period) | `GET /companies/{id}/gl/reports/income-statement?start_date&end_date` | R | instant | revenue, COGS, opex, gross profit, net income |
+| AR-03 | Balance sheet (as of a date) | `GET /companies/{id}/gl/reports/balance-sheet?as_of_date` | R | instant | assets, liabilities, equity incl. derived retained earnings |
+| AR-04 | Cash flow statement (period) | `GET /companies/{id}/gl/reports/cash-flow?start_date&end_date` | R | instant | operating / investing, net change in cash |
+| AR-05 | General-ledger summary (ending balance per account) | `GET /companies/{id}/gl/reports/general-ledger-summary` | R | instant | grouped by account type |
+| CS-01 | Catalog scope summary (main vs discarded, per source, reasons) | `GET /api/catalog-scope/summary` | R | instant | counts, reasons, how many to check |
+| CS-02 | The discarded list of a country / source (or the main catalog) | `GET /api/catalog-scope/items?status&country&source&q&reason` | R | instant | name, category, price, unit, HS, reason, confidence |
+| CS-03 | Move products between the main catalog and the discarded list | `POST /api/catalog-scope/move` | W | instant | saved per catalog + name, kept on re-download, data-history record |
+| CS-04 | Re-apply the scope rules to every stored supermarket catalog | `POST /api/catalog-scope/reclassify` | W | seconds | after editing `data/scope_rules.json` |
+| HS-KW | HS code suggestion by keyword rules (no AI) | `POST /api/hs-codes/suggest` (tier shown as `rule` / `keyword`) | R | instant | free; nothing saved until `POST /api/hs-codes/save` |
+| HS-SB | US Census Schedule B reference (10-digit lines + unit of quantity) | python only: `catalog_normalization/schedule_b.py` (`lines_for`, `unit_for`); data `comtrade/data/schedule_b.json` | R | instant | bundled file, no network. Text-matching names against it was measured and NOT wired in as a suggestion tier (about half right) |
+| RW-01 | Research item weights on the web (PAID) | `POST /api/catalog-normalization/research` (`dry_run` gives the estimate) and `POST /suggest` | X | minutes | needs `confirm_usd` >= the estimate (0.09 USD per product); one run capped at 36 products |
+| RW-02 | Free weight of a pack / bunch of produce | automatic in the catalog conversion (`retail_unit_weight`) | R | instant | free table of retail sizes, low confidence |

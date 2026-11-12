@@ -25,6 +25,7 @@ REFERENCE = {
     '02': 'Meat', '0201': 'Meat of bovine animals, fresh or chilled', '020110': 'Carcasses and half-carcasses', '020120': 'Other cuts with bone in', '020130': 'Boneless',
     '08': 'Fruit', '0804': 'Dates, figs, pineapples, avocados, guavas, mangoes', '080430': 'Pineapples', '080440': 'Avocados',
     '03': 'Fish', '0302': 'Fish, fresh or chilled', '030211': 'Trout',
+    '25': 'Salt; sulfur; earths and stone', '2501': 'Salt', '250100': 'Salt',
     '24': 'Tobacco', '2401': 'Unmanufactured tobacco', '240110': 'Tobacco, not stemmed',
 }
 
@@ -176,16 +177,19 @@ class SuggestTests(HsTestCase):
             out = hs.suggest(self.db, [{'country': 'Jamaica', 'name': 'A'}, {'country': 'Jamaica', 'name': 'B'}], allow_ai=True)
         self.assertEqual([row['suggestion'] and row['suggestion']['code'] for row in out['results']], [None, '080440'])
 
-    def test_the_local_model_can_only_answer_with_a_code_it_was_shown(self):
-        replies = iter(['0804', '080440', '0804', 'I think 111111'])
+    def test_the_schedule_b_text_answers_only_when_one_code_holds_every_word(self):
+        self.assertEqual(hs.suggest_from_schedule_b('Salt')['code'], '250100')  # chapter 25, outside the food chapters, but the one edible heading there
+        self.assertEqual(hs.suggest_from_schedule_b('Lentils')['code'], '071340')
+        self.assertEqual(hs.suggest_from_schedule_b('Chickpeas')['code'], '071320')
+        self.assertIsNone(hs.suggest_from_schedule_b('Pasta'))  # several codes hold the word
+        self.assertIsNone(hs.suggest_from_schedule_b('Bocachico'))  # a word the Schedule B does not use
+        self.assertIsNone(hs.suggest_from_schedule_b('Zorro Lentils'))  # brand word unknown: not guessed
+        self.assertIsNone(hs.suggest_from_schedule_b(''))
 
-        def fake_chat(model, messages, cancel, options=None, think=False):
-            yield next(replies)
-
-        with mock.patch('backend.local_models.ollama_client.stream_chat', fake_chat):
-            found = hs.suggest_with_local_model([{'name': 'Avocado', 'country': 'Jamaica', 'category': 'Fruit'}, {'name': 'Pineapple', 'country': 'Jamaica'}], 'qwen')
-        self.assertEqual(found[0]['code'], '080440')
-        self.assertEqual(found[1]['code'], '0804')  # an answer outside the shown subheadings falls back to the heading
+    def test_free_suggest_reaches_the_schedule_b_text_and_salt_is_valid(self):
+        result = hs.suggest(self.db, [{'country': 'Colombia', 'name': 'Salt', 'category': 'granos_procesados'}])['results'][0]
+        self.assertEqual((result['suggestion']['code'], result['suggestion']['method'], result['validation']['status']), ('250100', 'schedule_b', 'ok'))
+        self.assertEqual(result['tried'], ['rule', 'keyword', 'schedule_b'])
 
 
 class SaveTests(HsTestCase):

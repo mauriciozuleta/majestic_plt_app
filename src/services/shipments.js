@@ -43,12 +43,6 @@ export const fetchShipmentCandidates = (sourceCountry, targetCountry, airfarePer
 export const allocateShipment = (products, capacityKg, fixedKg = {}) =>
   fetchJson('/api/shipments/allocate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products, capacity_kg: capacityKg, fixed_kg: fixedKg }) })
 
-// Has a shipment been built for source -> targets, and what is that route's air fare per kg? -> Map(target -> { airfarePerKg, note, routeName }), only for targets with a built shipment
-export async function fetchBuiltShipmentAirfares(sourceCountry, targetCountries) {
-  const { airfares } = await fetchJson(`/api/shipments/airfares?${new URLSearchParams({ source_country: sourceCountry, target_countries: targetCountries.join(',') })}`)
-  return new Map(Object.entries(airfares))
-}
-
 /** For Market Opportunities, the targets of a pair that have a built shipment and, per product (`target|product name lowercased`), its DDP price, Market Level and suggested sell
  * price, worked out on the server: { airfares: Map(target -> { airfarePerKg, note, routeName }), rows, unmatched } — `rows` for the products of the comparison, `unmatched` for the
  * portfolio products with no match in the target market. Each entry: { ddp, fcaPerKg, multiplier, level, levelNote, sell, sellNote }. */

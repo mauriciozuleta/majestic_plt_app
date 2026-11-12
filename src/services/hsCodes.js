@@ -24,9 +24,9 @@ export const fetchHsQueue = (country, { limit = 300, includeConfirmed = false } 
 // items: [{ country, name, category, code }] -> { results: [{ status, messages, hs6, level, description }] }
 export const validateHsCodes = (items) => request('/api/hs-codes/validate', post(items)).then((data) => data.results)
 
-// free sources (a curated rule, the same product in another country) always; a local model or Claude (credits) only when asked
-export const suggestHsCodes = (items, { allowLocal = false, localModel = null, allowAi = false } = {}) =>
-  request('/api/hs-codes/suggest', post({ items, allow_peer: true, allow_local: allowLocal, local_model: localModel, allow_ai: allowAi }))
+// free sources (a curated rule, the same product in another country, keyword rules, the Schedule B text) always; Claude (credits) only when asked
+export const suggestHsCodes = (items, { allowAi = false } = {}) =>
+  request('/api/hs-codes/suggest', post({ items, allow_peer: true, allow_ai: allowAi }))
 
 // items: [{ country, name, category, code, method, confidence, note }] -> { saved, refused: [{ name, messages }] }
 export const saveHsCodes = (items, savedBy = 'user') => request('/api/hs-codes/save', post({ items, saved_by: savedBy }))

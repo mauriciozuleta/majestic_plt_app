@@ -14,6 +14,7 @@ import re
 from dataclasses import asdict, dataclass, field
 
 from .reference import lookup as reference_lookup
+from .retail_unit import lookup as retail_unit_lookup
 from .researcher import MAX_ITEMS_PER_BATCH, research_item_weights
 from .store import PRICED_UNIT, ItemWeight, product_key
 from .units import OZ_TO_KG, LB_TO_KG, ParsedUnit, parse_unit
@@ -34,7 +35,7 @@ class NormalizedPrice:
     items_per_pack: float | None  # items in one priced unit (when known)
     item_kg: float | None  # weight of one item (when known)
     price_per_item: float | None
-    method: str  # 'stated_weight' | 'official_factor' | 'reference_item_weight' (USDA table) | 'researched_item_weight' | 'needs_research' | 'unconvertible'
+    method: str  # 'stated_weight' | 'official_factor' | 'retail_unit_weight' (free table of retail pack sizes) | 'reference_item_weight' (USDA table) | 'researched_item_weight' | 'needs_research' | 'unconvertible'
     confidence: str  # 'stated' | 'official' | 'high' | 'medium' | 'low' | 'none'
     note: str
     sources: list[str] = field(default_factory=list)
@@ -66,8 +67,9 @@ def research_target(name: str, parsed: ParsedUnit) -> tuple[str, str] | None:
     return name, unit
 
 
-def normalize_price(name: str, unit_text: str | None, price: float | None, store, *, parsed: ParsedUnit | None = None, researchable: bool = True) -> NormalizedPrice:
-    """Uses only what is already known (the text and the store) — it never calls the web; see normalize_catalog for that."""
+def normalize_price(name: str, unit_text: str | None, price: float | None, store, *, parsed: ParsedUnit | None = None, researchable: bool = True, item_weights: bool = True) -> NormalizedPrice:
+    """Uses only what is already known (the text and the store) — it never calls the web; see normalize_catalog for that. `item_weights=False` (a product outside the catalog
+    scope, see scope.py) skips every lookup of the weight of one item (USDA table, researched store): only what the row states is converted."""
     parsed = parsed or parse_unit(unit_text, name)
     if price is None:
         return NormalizedPrice(None, None, None, None, None, 'unconvertible', 'none', 'No price.')
@@ -91,6 +93,8 @@ def normalize_price(name: str, unit_text: str | None, price: float | None, store
             pack_kg = dozen_kg / 12 * count
             note = f'USDA minimum net weight for {size} eggs: {dozen_kg / OZ_TO_KG:.0f} oz/dozen = {dozen_kg:.3f} kg.' + (' Size not stated: "large" assumed.' if assumed else '')
             return NormalizedPrice(price / pack_kg, pack_kg, count, dozen_kg / 12, price / count, 'official_factor', 'official' if not assumed else 'medium', note)
+        if not item_weights:
+            return NormalizedPrice(None, None, parsed.item_count, None, None, 'unconvertible', 'none', f'{parsed.basis} Not in the catalog scope: no weight is looked up for it.')
         whole = store.get(name, PRICED_UNIT)
         if whole is not None and whole.item_kg:
             return NormalizedPrice(price / whole.item_kg, whole.item_kg, parsed.item_count, None, None, 'researched_item_weight', whole.confidence or 'low',
@@ -101,6 +105,13 @@ def normalize_price(name: str, unit_text: str | None, price: float | None, store
             count = parsed.item_count or 1
             pack_kg = entered.item_kg * count
             return NormalizedPrice(price / pack_kg, pack_kg, count, entered.item_kg, price / count, 'researched_item_weight', 'user', f'{parsed.basis} {entered.note}', entered.sources)
+        # a pack or a bunch of fresh produce (a clamshell of raspberries, a bunch of cilantro): the usual RETAIL unit from a free table, before USDA's weight of one single piece
+        # a weight researched for the BUNCH / HEAD / SLEEVE itself (paid, with sources, specific to that unit) outranks a generic table
+        researched_unit = store.get(*target) if target and target[1] in COUNT_UNITS_WITH_OWN_WEIGHT else None
+        retail = retail_unit_lookup(name, parsed.count_unit, parsed.item_count) if target and not (researched_unit and researched_unit.item_kg) else None
+        if retail is not None:
+            note = f"{parsed.basis} Priced per unit: the usual retail unit of {name} is {retail['note']}, about {retail['kg'] * 1000:.0f} g (free table of standard retail sizes, low confidence: check the label)."
+            return NormalizedPrice(price / retail['kg'], retail['kg'], 1.0, None, price, 'retail_unit_weight', 'low', note, ['data/retail_unit_weights.json'])
         reference = reference_lookup(*target) if target else None  # published data (USDA) before anything researched
         if reference is not None:
             count = parsed.item_count or 1

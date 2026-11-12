@@ -7,6 +7,7 @@ Settings). A port of the collectors and `consolidateListings` of src/services/ma
 import re
 
 from .. import models
+from ..catalog_normalization.scope import is_main
 from ..catalog_normalization.translate import normalize_name, overrides_from_db, translate_name
 from ..portfolio.merge import merge_sources, per_kg
 from ..portfolio.service import USA_SOURCES, _analysis_types, _products_of
@@ -26,7 +27,7 @@ def comment_with_fallback(norm, fallback: str) -> str:
 
 def researched_fields(norm) -> dict:
     """A conversion resting on a researched or USDA item weight is flagged so the comparison row says so and asks for a check."""
-    if isinstance(norm, dict) and norm.get('method') in ('researched_item_weight', 'reference_item_weight'):
+    if isinstance(norm, dict) and norm.get('method') in ('researched_item_weight', 'reference_item_weight', 'retail_unit_weight'):
         return {'conversionMethod': norm['method'], 'conversionNote': norm.get('note'), 'conversionConfidence': norm.get('confidence')}
     return {}
 
@@ -86,6 +87,8 @@ def custom_products(db, country: str) -> list[dict]:
         if not snapshots:
             continue
         for p in snapshots[0]['products']:
+            if not is_main(p):  # discarded by the catalog scope (catalog_normalization/scope.py): not compared, not researched
+                continue
             raw = (p.get('currency') or source.currency or '').strip().upper()
             products.append({
                 'matchName': normalize_name(p.get('name') or ''), 'displayName': p.get('name'), 'category': p.get('category'), 'sourceLabel': source.name, 'sourceId': source.id,

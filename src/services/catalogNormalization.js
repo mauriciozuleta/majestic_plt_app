@@ -15,14 +15,17 @@ async function request(path, options) {
 
 export const fetchNormalizationStatus = () => request('/status')
 
-// Researches the weight of one item for these products (the names the module reads: the English name for Colombia) and waits for the job to finish.
+// PAID (Anthropic credits, about 0.09 USD per product, measured). Researches the weight of one item for these products (the names the module reads: the English name for Colombia) and waits
+// for the job to finish. A real run needs `confirmUsd` (the amount the person accepted); one run is capped on the server. Use dryRun to get the estimate first.
 // -> { started, pending, error } — `error` is the reason the job failed (an Anthropic API problem, for instance), null when it worked.
-export async function researchProductWeights(names, { limit = 48 } = {}) {
+export async function researchProductWeights(names, { limit = 12, dryRun = false, confirmUsd = null } = {}) {
   const started = await request('/research', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ names, limit }),
+    body: JSON.stringify({ names, limit, dry_run: dryRun, confirm_usd: confirmUsd }),
   })
+  // a dry run (or a refusal for lack of a confirmed amount) answers with the estimate and starts nothing: { status, pending, would_research, estimated_usd, ... }
+  if (dryRun || started.status === 'needs_confirmation') return { started: false, estimate: started, pending: started.pending, error: null }
   if (started.status === 'nothing_to_do') return { started: false, pending: 0, error: null }
   const begun = Date.now()
   // eslint-disable-next-line no-constant-condition -- polls until the job is done or the wait runs out
@@ -57,7 +60,9 @@ export const validateWeights = (items) => post('/validate', { items }).then((dat
 
 // The AI search: researches the weight of one item on the web for these products (at most 12) and returns it, validated, WITHOUT saving.
 // -> [{ name, count_unit, weight_g, min_g, max_g, confidence, note, sources, validation }]
-export const suggestWeights = (items) => post('/suggest', { items: items.map(({ name, count_unit }) => ({ name, count_unit })) }).then((data) => data.results)
+// PAID (about 0.09 USD per product): `confirmUsd` is the amount the person accepted; the server refuses without it.
+export const ESTIMATED_USD_PER_PRODUCT = 0.09
+export const suggestWeights = (items, confirmUsd) => post('/suggest', { items: items.map(({ name, count_unit }) => ({ name, count_unit })), confirm_usd: confirmUsd }).then((data) => data.results)
 
 // items: [{ name, count_unit, weight_g, min_g?, max_g?, origin: 'manual' | 'ai', confidence?, note?, sources? }] -> { saved, refused, still_missing }
 export const saveWeights = (items) => post('/weights', { items })

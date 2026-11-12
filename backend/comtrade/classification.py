@@ -13,7 +13,9 @@ built from). This covers all HS codes at all levels (2-digit chapter,
 4-digit heading, 6-digit subheading) for every traded good, not just food —
 there is no chapter allow-list here.
 
-Fetched once and cached to disk (~2MB); refreshed automatically once the
+NOW BUNDLED (2026-11-12): data/hs_combined.json (every revision, only to NAME historical trade data) and data/hs_2022.json (HS 2022, the CURRENT nomenclature a product's code
+must belong to) are committed (built by data/build_hs_reference.py from Comtrade's public static files); the app never fetches them. The text below describes the older
+behaviour, kept as the fallback when a bundled file is missing: fetched once and cached to disk (~2MB); refreshed automatically once the
 cache is more than a week old (HS nomenclature revisions happen roughly
 every 5 years, so this is generous, not aggressive) — a failed refresh
 falls back to the existing cache rather than leaving the app without names,
@@ -33,8 +35,13 @@ REFERENCE_URL = 'https://comtradeapi.un.org/files/v1/app/reference/HS.json'
 _CACHE_FILE = Path(__file__).resolve().parent / 'hs_reference_cache.json'
 _REFRESH_INTERVAL_SECONDS = 7 * 24 * 60 * 60
 
+DATA_DIR = Path(__file__).resolve().parent / 'data'
+_BUNDLED_COMBINED = DATA_DIR / 'hs_combined.json'
+_BUNDLED_CURRENT = DATA_DIR / 'hs_2022.json'
+
 _reference: dict[str, str] | None = None
 _loaded_at: float = 0.0
+_current: dict[str, str] | None = None
 
 
 def _clean(text: str, code: str) -> str:
@@ -60,6 +67,12 @@ def _load_reference() -> dict[str, str]:
     a failed fetch never raises — callers fall back to a plain "HS <code>"
     label instead of a real name."""
     global _reference, _loaded_at
+    if _reference is None and _BUNDLED_COMBINED.exists():  # the committed file: no network, no refresh
+        try:
+            _reference = json.loads(_BUNDLED_COMBINED.read_text(encoding='utf-8'))
+            _loaded_at = float('inf')
+        except (json.JSONDecodeError, OSError):
+            _reference = None
     if _reference is not None and time.time() - _loaded_at < _REFRESH_INTERVAL_SECONDS:
         return _reference
 
@@ -112,12 +125,24 @@ def subheading_description(hs6: str) -> str:
     return hs_name(hs6)
 
 
+def current_codes() -> dict[str, str]:
+    """{code -> name} of HS 2022, the CURRENT nomenclature (every chapter, heading and subheading), from the committed file; empty if the file is missing. A product's code must be in
+    here: the combined reference also holds codes of older revisions that no longer exist (1,284 of its 6,897 subheadings)."""
+    global _current
+    if _current is None:
+        try:
+            _current = json.loads(_BUNDLED_CURRENT.read_text(encoding='utf-8'))
+        except (json.JSONDecodeError, OSError):
+            _current = {}
+    return _current
+
+
 def reference_codes() -> dict[str, str]:
     """{code -> official name} for every HS code of the reference (2/4/6 digits); empty if it could never be loaded."""
     return _load_reference()
 
 
-def list_searchable_hs_codes() -> list[dict]:
+def list_searchable_hs_codes(current_only: bool = False) -> list[dict]:
     """Every 4-digit (heading) and 6-digit (subheading) HS code, as
     [{hs_code, level, chapter, heading, description}] — the catalog the
     frontend's product search matches against. `level` (4 or 6) tells the
@@ -127,8 +152,9 @@ def list_searchable_hs_codes() -> list[dict]:
     Comtrade's authenticated, quota-limited data API — only the free
     reference file already cached on disk."""
     entries = []
+    current = current_codes() if current_only else None
     for code, description in _load_reference().items():
-        if not code.isdigit():
+        if not code.isdigit() or (current and code not in current):  # current_only: what the AI may choose from (never a code HS 2022 no longer has)
             continue
         if len(code) == 4:
             entries.append({'hs_code': code, 'level': 4, 'chapter': code[:2], 'heading': None, 'description': description})

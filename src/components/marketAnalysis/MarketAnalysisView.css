@@ -649,6 +649,44 @@
   cursor: not-allowed;
 }
 
+.market-opportunities__saved-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.market-opportunities__stale-pill {
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+}
+
+.market-opportunities__stale-pill:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 0.3);
+}
+
+.market-opportunities__stale-pill.is-updating {
+  cursor: progress;
+  animation: market-opportunities-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes market-opportunities-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.market-opportunities__stale-pill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .market-opportunities__saved-date {
   color: var(--text-dim);
   font-size: 0.68rem;

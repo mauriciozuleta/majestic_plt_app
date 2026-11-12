@@ -4,6 +4,7 @@ data. Read-only; it reuses the handlers of the endpoints the browser used to cal
 
 from .. import models
 from ..catalog_normalization import hs_store
+from ..catalog_normalization import scope_store
 from ..snapshot_store import list_snapshots
 from .service import USA_SOURCES
 
@@ -24,7 +25,7 @@ def _custom_source_countries(db) -> set[str]:
 
 
 def market_analysis_status(db) -> dict:
-    """{country_id: {profile: {country_id, country_name, generated_at} | None, analyses: [...], missingCount, hsMissingCount, hasProductData}} for every commercial country."""
+    """{country_id: {profile: {country_id, country_name, generated_at} | None, analyses: [...], missingCount, hsMissingCount, discardedCount, hasProductData}} for every commercial country."""
     from ..routers.catalog_normalization import missing_summary
     from ..routers.competitiveness import list_competitiveness_analyses
     from ..routers.country_profile import list_country_profiles
@@ -36,6 +37,9 @@ def market_analysis_status(db) -> dict:
     analyses = [row for company_id in company_ids for row in list_competitiveness_analyses(company_id, db)]
     missing = missing_summary(db)['countries']
     hs = hs_store.status(db).get('countries', {})
+    discarded: dict[str, int] = {}
+    for source in scope_store.summary(db)['sources']:
+        discarded[source['country']] = discarded.get(source['country'], 0) + source['secondary']
     has_colombia, has_usa, custom = _has_products(db, COLOMBIA_SOURCES), _has_products(db, USA_SOURCES), _custom_source_countries(db)
     status = {}
     for country in countries:
@@ -45,7 +49,8 @@ def market_analysis_status(db) -> dict:
             'profile': profiles.get(country.id),
             'analyses': [row for row in analyses if (row.get('source_country_name') or '').strip().lower() == name or row['target_country_id'] == country.id],
             'missingCount': missing.get(country.name, 0),
-            'hsMissingCount': (counts.get('no_code') or 0) + (counts.get('heading_only') or 0),
+            'hsMissingCount': (counts.get('no_code') or 0) + (counts.get('heading_only') or 0) + (counts.get('obsolete') or 0),
+            'discardedCount': discarded.get(country.name, 0),  # downloaded products kept out of the main catalog (catalog_normalization/scope.py)
             'hasProductData': (name == 'colombia' and has_colombia) or (name == 'united states' and has_usa) or name in custom,
         }
     return status

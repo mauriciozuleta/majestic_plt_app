@@ -25,7 +25,7 @@ from .. import models
 from ..background_jobs import clear_building, get_error, is_building, mark_building, mark_error
 from ..catalog_normalization.catalog import (annotate_with_db, fields_for, hs_chapters_from_db, import_legacy_estimates, is_catalog_source, migrate_weights_to_english,
                                              researchable)
-from ..catalog_normalization.researcher import MAX_ITEMS_PER_BATCH, research_item_weights
+from ..catalog_normalization.researcher import ESTIMATED_USD_PER_PRODUCT, MAX_ITEMS_PER_BATCH, MAX_PRODUCTS_PER_RUN, estimated_usd, research_item_weights
 from ..catalog_normalization.service import items_in_weight, normalize_price, research_target, weight_of_items
 from ..catalog_normalization.store import DbStore, ItemWeight, product_key
 from ..catalog_normalization.translate import overrides_from_db
@@ -128,6 +128,7 @@ class ResearchIn(BaseModel):
     limit: int = DEFAULT_RESEARCH_LIMIT
     dry_run: bool = False
     names: list[str] | None = None  # only these products (as the module reads them: the English name); default: the whole queue
+    confirm_usd: float | None = None  # the amount the caller accepts to spend (Anthropic credits); without it a real run is refused and the estimate is returned
 
 
 def _run_research(pairs: list[tuple[str, str]]):
@@ -159,10 +160,13 @@ def research(payload: ResearchIn, background_tasks: BackgroundTasks, db: Session
     if payload.names is not None:
         wanted = {product_key(name) for name in payload.names}
         needs = [entry for entry in needs if product_key(entry['product']) in wanted]
-    chosen = needs[: max(0, payload.limit)]
-    summary = {'pending': len(needs), 'would_research': len(chosen), 'batches': -(-len(chosen) // MAX_ITEMS_PER_BATCH), 'sample': [f"{e['product']} ({e['count_unit']})" for e in chosen[:8]]}
+    chosen = needs[: max(0, min(payload.limit, MAX_PRODUCTS_PER_RUN))]  # one run is capped: the rest stays waiting
+    summary = {'pending': len(needs), 'would_research': len(chosen), 'batches': -(-len(chosen) // MAX_ITEMS_PER_BATCH), 'sample': [f"{e['product']} ({e['count_unit']})" for e in chosen[:8]],
+               'estimated_usd': estimated_usd(len(chosen)), 'usd_per_product': ESTIMATED_USD_PER_PRODUCT, 'max_per_run': MAX_PRODUCTS_PER_RUN}
     if payload.dry_run or not chosen:
         return {'status': 'dry_run' if payload.dry_run else 'nothing_to_do', **summary}
+    if payload.confirm_usd is None or payload.confirm_usd + 0.005 < summary['estimated_usd']:
+        return {'status': 'needs_confirmation', **summary}  # a paid run never starts by itself
     mark_building(JOB_MARKER)
     background_tasks.add_task(_run_research, [(e['product'], e['count_unit']) for e in chosen])
     return {'status': 'started', **summary}
@@ -209,6 +213,7 @@ class ValidateIn(BaseModel):
 
 class SuggestIn(BaseModel):
     items: list[ItemIn]  # at most MAX_ITEMS_PER_BATCH per call
+    confirm_usd: float | None = None  # the amount the caller accepts to spend; the estimate is ESTIMATED_USD_PER_PRODUCT per product
 
 
 class SaveItem(ItemIn):
@@ -274,6 +279,8 @@ def suggest(payload: SuggestIn, db: Session = Depends(get_db)):
         return {'results': []}
     if len(payload.items) > MAX_ITEMS_PER_BATCH:
         raise HTTPException(status_code=400, detail=f'At most {MAX_ITEMS_PER_BATCH} products per search.')
+    if payload.confirm_usd is None or payload.confirm_usd + 0.005 < estimated_usd(len(payload.items)):
+        raise HTTPException(status_code=409, detail=f'needs_confirmation: this web search costs about ${estimated_usd(len(payload.items)):.2f} of Anthropic credits ({len(payload.items)} products); confirm that amount to run it.')
     try:
         found = research_item_weights([(item.name, item.count_unit, '') for item in payload.items])
     except Exception as error:  # noqa: BLE001 — the reason (an API problem, for instance) is shown to the person

@@ -29,6 +29,7 @@ from .routers import (
     currency,
     expense_categories,
     expense_providers,
+    accounting_reports,
     general_ledger,
     assistant,
     knowledge_base,
@@ -61,6 +62,7 @@ from .routers import (
     catalog_products,
     data_history,
     fuel_prices,
+    catalog_scope,
     hs_codes,
     portfolio,
     shipments,
@@ -601,6 +603,7 @@ app.include_router(startup_investment.router)
 app.include_router(sim_parameters.router)
 app.include_router(revenue_streams.router)
 app.include_router(general_ledger.router)
+app.include_router(accounting_reports.router)
 app.include_router(price_comparison.router)
 app.include_router(currency.router)
 app.include_router(usa_sourcing.router)
@@ -623,6 +626,7 @@ app.include_router(catalog_products.router)
 app.include_router(fuel_prices.router)
 app.include_router(data_history.router)
 app.include_router(hs_codes.router)
+app.include_router(catalog_scope.router)
 app.include_router(portfolio.router)
 app.include_router(shipments.router)
 
@@ -644,9 +648,10 @@ def _record_data_history_baseline():
 
     db = SessionLocal()
     try:
-        from .catalog_normalization import hs_store
+        from .catalog_normalization import hs_store, scope_store
 
         hs_store.ensure_annotated(db)  # catalogs stored before the HS block existed get it once, before the baseline records them
+        scope_store.ensure_scoped(db)  # likewise for the catalog scope block (main catalog / secondary list)
         result = history_service.baseline(db)
         logging.getLogger('data_history').info('data history: %d new versions, %d unchanged', len(result['added']), result['unchanged'])
     except Exception:  # noqa: BLE001

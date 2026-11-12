@@ -2,11 +2,13 @@
 Nothing here calls the web or a model; the suggestions live in hs.py."""
 
 import json
+import re
 from collections import Counter
 from datetime import datetime, timezone
 
 from . import hs
 from .catalog import annotate_with_db, country_of_source, is_catalog_source
+from .scope import is_main
 
 HISTORY_SCOPE = 'hs:assignments'
 
@@ -41,10 +43,11 @@ def reannotate_catalogs(db, reason: str) -> int:
 
 
 def ensure_annotated(db) -> int:
-    """Start-up: catalogs stored before the `hs` block existed get it once. Cheap check first (does any stored product lack the block?). Returns the products rewritten."""
+    """Start-up: catalogs stored before the `hs` block (or its `obsolete` flag) existed get it once. Cheap check first (does any stored product lack the block?). Returns the products rewritten."""
     lacking = False
     for row, products in _catalog_rows(db):
-        if products and any(isinstance(product, dict) and 'hs' not in product for product in products[:50]):
+        # a catalog stored before the `hs` block existed, or before it carried the `obsolete` flag (HS 2022), is rewritten once
+        if products and any(isinstance(product, dict) and ('hs' not in product or 'obsolete' not in (product.get('hs') or {'obsolete': 1})) for product in products[:50]):
             lacking = True
             break
     return reannotate_catalogs(db, 'HS block added to the stored catalogs') if lacking else 0
@@ -100,7 +103,10 @@ def save_assignments(db, items: list[dict], saved_by: str = 'user') -> dict:
         row = db.get(models.ProductHsAssignment, (country, key))
         previous = row.hs_code if row else (index.legacy.get(key) if (country.lower(), key) not in index.assignments else None)
         wanted = item.get('status') or 'confirmed'
-        if wanted == 'confirmed' and previous and hs.parse_code(previous).hs6 != verdict['hs6']:
+        # compare digits only: the stored code may be one of an older HS revision, which parse_code refuses (that is exactly the code being replaced)
+        before = re.sub(r'\D', '', str(previous or ''))
+        before = before + '00' if len(before) == 4 else before
+        if wanted == 'confirmed' and before and before != verdict['hs6']:
             wanted = 'corrected'
         if row is None:
             row = models.ProductHsAssignment(country=country, product_key=key)
@@ -131,6 +137,8 @@ def catalog_products(db):
     for row, products in _catalog_rows(db):
         country = country_of_source(db, row.source)
         for product in products:
+            if not is_main(product):  # outside the catalog scope: no HS code to look at
+                continue
             norm = product.get('norm') or {}
             name = norm.get('read_name') or product.get('name') or product.get('product_en') or ''
             key = hs.hs_key(name)
@@ -142,11 +150,12 @@ def catalog_products(db):
 
 
 def status(db) -> dict:
-    """Per country and overall: products by state (no code / heading only / suggested / confirmed)."""
+    """Per country and overall: products by state (no code / old code / heading only / suggested / confirmed)."""
     per_country: dict[str, Counter] = {}
     for item in catalog_products(db).values():
         block = item['hs'] or {}
-        state = 'no_code' if not block.get('hs6') else 'heading_only' if block.get('label') == 'heading_only' else 'confirmed' if block.get('status') in ('confirmed', 'corrected') else 'suggested'
+        state = ('no_code' if not block.get('hs6') else 'obsolete' if block.get('obsolete') else 'heading_only' if block.get('label') == 'heading_only'
+                 else 'confirmed' if block.get('status') in ('confirmed', 'corrected') else 'suggested')
         per_country.setdefault(item['country'] or '—', Counter())[state] += 1
     total = Counter()
     for counts in per_country.values():
@@ -168,15 +177,18 @@ def queue(db, country: str | None = None, limit: int = 100, include_confirmed: b
         warnings: list[str] = []
         if not block.get('hs6'):
             group = 0
-        elif block.get('label') == 'heading_only':
+        elif block.get('obsolete'):  # a code HS 2022 no longer has: it must be replaced before the product can be traded
             group = 1
+            warnings = ['This code is from an older HS revision and no longer exists in HS 2022: choose the current code.']
+        elif block.get('label') == 'heading_only':
+            group = 2
         else:
             verdict = hs.check(item['country'] or '', item['name'], item['category'], block['hs6'], index)
             warnings = verdict['messages']
-            group = 4 if confirmed else (2 if warnings else 3)
-        if group == 4 and not include_confirmed:
+            group = 5 if confirmed else (3 if warnings else 4)
+        if group == 5 and not include_confirmed:
             continue
         rows.append({**item, 'group': group, 'warnings': warnings, 'in_comparison': ((item['country'] or '').lower(), item['name'].lower()) in compared})
     rows.sort(key=lambda r: (r['group'], not r['in_comparison'], r['name'].lower()))
-    names = {0: 'no_code', 1: 'heading_only', 2: 'warning', 3: 'unreviewed', 4: 'confirmed'}
+    names = {0: 'no_code', 1: 'obsolete', 2: 'heading_only', 3: 'warning', 4: 'unreviewed', 5: 'confirmed'}
     return {'total': len(rows), 'items': [{**r, 'reason': names[r['group']]} for r in rows[:max(1, limit)]]}

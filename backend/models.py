@@ -613,6 +613,18 @@ class ProductHsAssignment(Base):
     assigned_at = Column(String, nullable=True)
 
 
+class ProductScopeOverride(Base):
+    """A person's choice to keep a product in the main catalog or to send it to the secondary (discarded) list, whatever the rules of
+    catalog_normalization/scope.py say. Keyed by the catalog (snapshot key) and the lowercased product name, so it survives a new download of that catalog."""
+    __tablename__ = 'product_scope_overrides'
+
+    source_key = Column(String, primary_key=True)
+    product_key = Column(String, primary_key=True)
+    status = Column(String, nullable=False)  # 'main' | 'secondary'
+    set_by = Column(String, nullable=True)
+    set_at = Column(String, nullable=True)
+
+
 class CatalogItemWeight(Base):
     """Web-researched weight of ONE item of a product ("pineapple", each = about 1.5 kg; "cilantro", bunch = about 70 g), the one fact the catalog
     normalization module (backend/catalog_normalization/) needs to convert BOTH ways between a count and a weight: a price per each -> $/kg, and a

@@ -1,0 +1,153 @@
+{
+ "_about": "What belongs in the main product catalog and what goes to the secondary (discarded) list. Applies to the supermarket-style catalogs only (`applies_to`: snapshot keys starting with these prefixes); the wholesale sources (La Mayorista, Corabastos, USDA reports) are curated and always main. IN: fresh produce (vegetables, fruit, roots and tubers, fresh herbs), fresh / frozen meat, poultry, fish and seafood, processed meat that needs refrigeration or the cold chain (ham, bacon, sausage, deli meats, nuggets ...), cheese, eggs. OUT: every other dairy, canned or shelf-stable meat and fish (they travel by sea), frozen / canned / dried produce, nuts, rice and grains, flour, bakery, dough, sweets, drinks, sauces and condiments, spices, non-food. Name rules are regular expressions, case-insensitive, matched against the product name. The first matching `out` rule wins. Everything is editable here; a person's own choice (move to / from the secondary list) always wins over these rules.",
+ "applies_to": [
+  "custom_"
+ ],
+ "in_chapters": [
+  "02",
+  "03",
+  "07",
+  "08"
+ ],
+ "in_headings": [
+  "0406",
+  "0407"
+ ],
+ "keep_name": {
+  "_about": "Cheese and eggs. With an HS code the code decides (heading 04: in; any other chapter: out, so 'Four Cheese mashed potatoes' or a 'ham and cheese pocket' are not cheese); with no HS code the `not` words guard against cheese-flavoured snacks and dishes.",
+  "match": "\\b(cheese|cheddar|mozzarella|parmesan|feta|gouda|brie|camembert|edam|swiss|provolone|ricotta|halloumi|queso|fromage|eggs?|oeufs?|huevos?)\\b",
+  "not": "cheesecake|cheese ?(sauce|dip|puffs?|balls?|curls?|crackers?|sticks?|bites?|spread in|pizza|burger|snack|flavou?r(ed)?|powder)|mac(aroni)? ?(and|&|n) ?cheese|pizza|crackers?\\b|sandwich|soup|dressing|snack|egg ?(noodles?|rolls?|nog|roll)|eggplant"
+ },
+ "cold_chain_meat": {
+  "_about": "Processed meat that needs refrigeration or the cold chain stays in the main catalog (it travels by air). Canned / shelf-stable meat is caught by the `canned_shelf_stable` rule first. Applies when the HS code is meat / fish (02, 03, 16) or missing; a conflicting code (bakery, preparations) defers to the HS rules.",
+  "match": "\\b(ham|jambon|bacon|sausages?|saucisse|chorizo|salami|pepperoni|hot ?dogs?|franks?|frankfurter|bologna|mortadella|nuggets?|patty|patties|burgers?|meatballs?|kebab|gyros?|wings?|drumsticks?|chicken|turkey|pork|beef|lamb|goat|mutton|steak|ribs?|sirloin|brisket|veal|liver|oxtail|tripe|shrimp|prawns?|fish|salmon|tilapia|snapper|cod|crab|lobster|conch|squid|octopus|viande|poisson)\\b",
+  "not": "plant.?based|meatless|vegan|vegetarian burger|veggie|soup|broth|bouillon|stock\\b|flavou?r|seasoning|sauce|gravy|noodles?|ramen|pasta|pot ?pie|pie\\b|pizza|cat food|dog food|pet\\b|cocktail|vegetable|vegetables",
+  "chapters": [
+   "02",
+   "03",
+   "16",
+   ""
+  ]
+ },
+ "out_rules": [
+  {
+   "id": "non_food",
+   "reason": "Not a food product",
+   "name": "\\b(baby ?(wipes?|lotion|powder|oil|shampoo|diaper)|diapers?|infant|formula|pets?|(dog|cat) (food|treats?|chews?|litter|biscuits?)|litter|vitamins?|supplements?|capsules?|tablets?|soap|shampoo|toothpaste|detergent|cleaner|bleach|deodorant|lotion|tissue|napkins?|foil|tube\\b)"
+  },
+  {
+   "id": "canned_shelf_stable",
+   "reason": "Canned or shelf-stable: moves by sea, not in the catalog",
+   "name": "\\b(canned|tinned|tin\\b|can\\b|corned beef|spam|luncheon|vienna|jerky|biltong|pouch|retort|shelf.?stable)"
+  },
+  {
+   "id": "canned_weak",
+   "reason": "Preserved or dried: shelf-stable, moves by sea, not in the catalog",
+   "name": "\\b(in (brine|oil|water|sauce|syrup|juice|gravy)|dried|dehydrated|salted fish|salt fish|bacalao|pickled|cured|jarred)",
+   "skip_when_chapter": [
+    "02",
+    "04"
+   ]
+  },
+  {
+   "id": "beverage",
+   "reason": "Drink: not in the catalog",
+   "name": "\\b(juices?|drinks?|soda|sparkling|(coconut|spring|mineral|tonic|soda) water|beers?|wines?|rum|vodka|whisk(e)?y|liquor|liqueur|tea|coffee|smoothie|shakes?|energy|kombucha|punch|nectar|cordial|boisson|jus)\\b"
+  },
+  {
+   "id": "other_dairy",
+   "reason": "Dairy other than cheese and eggs: not in the catalog",
+   "name": "\\b(milk|buttermilk|butter|margarine|yogh?urt|creamer|whipp(ed|ing)? cream|cream|kefir|ghee|condensed|evaporated|custard|lait|beurre|yaourt|sour cream)\\b",
+   "unless_keep_name": true,
+   "skip_when_chapter": [
+    "02",
+    "03",
+    "07",
+    "08"
+   ]
+  },
+  {
+   "id": "grains_bakery",
+   "reason": "Grains, bakery or dough: not in the catalog",
+   "name": "\\b(rice|flour|pasta|noodles?|spaghetti|macaroni|cereals?|oats?|oatmeal|granola|bread|bagels?|buns?|rolls?|cakes?|cookies?|biscuits?|crackers?|pies?|dough|pizza|pastry|pastries|strudel|waffles?|pancakes?|muffins?|donuts?|doughnuts?|tortillas?|wraps?|chips|snacks?|popcorn|pretzels?|cornmeal|semolina|couscous|quinoa)\\b",
+   "skip_when_chapter": [
+    "02",
+    "03",
+    "07",
+    "08"
+   ]
+  },
+  {
+   "id": "sweets",
+   "reason": "Sweets or dessert: not in the catalog",
+   "name": "\\b(candy|candies|chocolate|cocoa|gum|lollipops?|lolly|lollies|dessert|ice ?cream|gelato|sorbet|popsicles?|jell-?o|pudding|marshmallows?|sprinkles?|sugar(?! (snap|cane|apple|beet|baby))|sweeteners?)\\b",
+   "skip_when_chapter": [
+    "02",
+    "03",
+    "07",
+    "08"
+   ]
+  },
+  {
+   "id": "sauces_condiments",
+   "reason": "Sauce, condiment or preserve: not in the catalog",
+   "name": "\\b(sauces?|ketchup|mustard(?! greens)|mayo|mayonnaise|dressing|vinegar|syrup|jam|jelly|honey|salsa|dips?|pastes?|puree|marinade|gravy|seasonings?|spices?|curry|masala|bouillon|stock cubes?|soups?|relish|oil|shortening|lard|peanut butter|spreads?)\\b",
+   "skip_when_chapter": [
+    "02",
+    "03",
+    "07",
+    "08"
+   ]
+  },
+  {
+   "id": "nuts_dried",
+   "reason": "Nuts, seeds or dried fruit: not in the catalog",
+   "name": "\\b(nuts?|almonds?|cashews?|peanuts?|walnuts?|pecans?|pistachios?|hazelnuts?|macadamia|raisins?|prunes?|trail mix|sunflower seeds?|pumpkin seeds?|chia|flax(seed)?|sesame|(coconut) (sliced|shredded|flakes)|chopped dates)\\b"
+  },
+  {
+   "id": "plant_based_meat",
+   "reason": "Plant-based or meatless: not meat",
+   "name": "\\b(plant.?based|plnt base|meatless|vegan|veggie (burgers?|patty|patties|nuggets?))\\b"
+  }
+ ],
+ "frozen_produce": {
+  "reason": "Frozen produce: not in the catalog (frozen meat and fish are)",
+  "name": "\\b(frozen|ice[- ]pack)\\b",
+  "category": "frozen (food|meals?|pastr|items?)"
+ },
+ "out_categories": "\\b(canned|pasta|cold cereal|ice ?cream|frozen (food|meals?|pastr|items?)|beverages?|bakery|snacks?|pantry|household|health|beauty|baby|pet\\b|alcohol|condiments?|gravies|sauces|seasoning|candy|confection|baking|coffee|tea\\b|grocery|groceries)",
+ "in_categories": "\\b(produce|vegetables?|fruits?|meat|seafood|fish|poultry|beef|pork|chicken|lamb|butchery|butcher|fresh|cheese|eggs?|farmgate|wholesale|leafy)\\b",
+ "fresh_herbs": "\\b(thyme|basil|cilantro|coriander|parsley|mint|rosemary|chives?|scallions?|dill|sage|oregano|tarragon|lemongrass|culantro|chadon beni|spring onions?|ginger|turmeric)\\b",
+ "out_headings": {
+  "_about": "Dried, preserved and frozen vegetables / legumes / fruit and nuts inside the fresh chapters 07 and 08 (they travel by sea): out even when the chapter is in. Entries are matched as prefixes of the 6-digit code (080620 = dried grapes; fresh grapes are 080610).",
+  "list": [
+   "0710",
+   "0711",
+   "0712",
+   "0713",
+   "080211",
+   "080212",
+   "080221",
+   "080222",
+   "080231",
+   "080232",
+   "080240",
+   "080250",
+   "080261",
+   "080262",
+   "080270",
+   "080280",
+   "080290",
+   "080620",
+   "0811",
+   "0812",
+   "0813",
+   "0814"
+  ]
+ },
+ "preserved_fish_headings": [
+  "1604",
+  "1605"
+ ],
+ "canned_categories": "\\b(canned|tinned)\\b"
+}

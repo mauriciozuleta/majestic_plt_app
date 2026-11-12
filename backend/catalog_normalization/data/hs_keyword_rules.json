@@ -1,0 +1,3011 @@
+{
+ "_about": "Keyword rules: the backup way to assign an HS code before any AI. A rule fires when ONE of its `words` appears (whole word, plural optional) in the English product name and none of its `not` words or of `global_not` does; the first matching rule wins, so specific rules come first. `code` is the 6-digit code of the fresh / chilled product, `frozen_code` the one when the name or the store category says \"frozen\" (null: not suggested when frozen). A suggestion is never saved by itself: a person confirms it. The codes are checked against Comtrade's HS reference by the tests. Edit hs keyword rules in data/build_hs_keyword_rules.py (the editable table) and rebuild, or edit this file directly.",
+ "global_not": [
+  "natural herbs",
+  "sauce",
+  "paste",
+  "ketchup",
+  "juice",
+  "soup",
+  "jam",
+  "jelly",
+  "canned",
+  "tinned",
+  "dried",
+  "powder",
+  "seasoning",
+  "flavour",
+  "flavor",
+  "flavoured",
+  "flavored",
+  "oil",
+  "pickled",
+  "chips",
+  "fries",
+  "smoothie",
+  "drink",
+  "soda",
+  "yogurt",
+  "yoghurt",
+  "ice cream",
+  "cake",
+  "cookie",
+  "cookies",
+  "biscuit",
+  "bread",
+  "pizza",
+  "cereal",
+  "candy",
+  "dressing",
+  "dip",
+  "syrup",
+  "concentrate",
+  "nectar",
+  "vinegar",
+  "extract"
+ ],
+ "rules": [
+  {
+   "id": "eggs",
+   "family": "dairy",
+   "words": [
+    "egg",
+    "eggs",
+    "white eggs",
+    "brown eggs",
+    "dozen eggs",
+    "hen eggs"
+   ],
+   "not": [
+    "plant",
+    "noodle",
+    "noodles",
+    "roll",
+    "rolls",
+    "nog",
+    "salad",
+    "mayo",
+    "liquid",
+    "whites",
+    "powder",
+    "substitute",
+    "beater",
+    "beaters",
+    "sandwich",
+    "sausage"
+   ],
+   "code": "040721",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Hen eggs in shell, fresh"
+  },
+  {
+   "id": "cheese_grated",
+   "family": "dairy",
+   "words": [
+    "grated cheese",
+    "shredded cheese",
+    "parmesan",
+    "grated parmesan",
+    "powdered cheese"
+   ],
+   "not": [
+    "pizza",
+    "snack",
+    "puffs",
+    "sausage",
+    "franks",
+    "frank",
+    "hot dog",
+    "salami",
+    "pepperoni",
+    "burger",
+    "meatball"
+   ],
+   "code": "040620",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Cheese, grated or powdered"
+  },
+  {
+   "id": "cheese_fresh",
+   "family": "dairy",
+   "words": [
+    "cream cheese",
+    "cottage cheese",
+    "mozzarella",
+    "ricotta",
+    "feta",
+    "halloumi",
+    "paneer",
+    "queso fresco",
+    "philadelphia",
+    "cream cheeses",
+    "mascarpone",
+    "cheese curd",
+    "cheese curds",
+    "burrata",
+    "fromage frais"
+   ],
+   "not": [
+    "pizza",
+    "snack",
+    "bagel",
+    "dip",
+    "cake",
+    "cracker",
+    "puff",
+    "sausage",
+    "franks",
+    "frank",
+    "hot dog",
+    "salami",
+    "pepperoni",
+    "burger",
+    "meatball"
+   ],
+   "code": "040610",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Fresh cheese (cream cheese, cottage cheese, mozzarella, feta ...), unripened"
+  },
+  {
+   "id": "cheese_processed",
+   "family": "dairy",
+   "words": [
+    "processed cheese",
+    "cheese slice",
+    "cheese slices",
+    "singles",
+    "cheese spread",
+    "cheese wiz",
+    "velveeta",
+    "american cheese",
+    "cheese food"
+   ],
+   "not": [
+    "pizza",
+    "snack",
+    "sausage",
+    "franks",
+    "frank",
+    "hot dog",
+    "salami",
+    "pepperoni",
+    "burger",
+    "meatball"
+   ],
+   "code": "040630",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Processed cheese"
+  },
+  {
+   "id": "cheese_blue",
+   "family": "dairy",
+   "words": [
+    "blue cheese",
+    "roquefort",
+    "gorgonzola",
+    "stilton",
+    "danish blue"
+   ],
+   "not": [
+    "dressing",
+    "dip",
+    "sausage",
+    "franks",
+    "frank",
+    "hot dog",
+    "salami",
+    "pepperoni",
+    "burger",
+    "meatball"
+   ],
+   "code": "040640",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Blue-veined cheese"
+  },
+  {
+   "id": "cheese_other",
+   "family": "dairy",
+   "words": [
+    "cheese",
+    "cheddar",
+    "gouda",
+    "edam",
+    "swiss",
+    "brie",
+    "camembert",
+    "provolone",
+    "colby",
+    "monterey",
+    "pepper jack",
+    "havarti",
+    "gruyere",
+    "emmental",
+    "jarlsberg",
+    "manchego",
+    "queso",
+    "fromage",
+    "romano",
+    "asiago",
+    "muenster",
+    "edam"
+   ],
+   "not": [
+    "pizza",
+    "snack",
+    "puffs",
+    "sauce",
+    "dip",
+    "cake",
+    "macaroni",
+    "mac",
+    "sandwich",
+    "noodles",
+    "bagel",
+    "popcorn",
+    "curls",
+    "balls",
+    "sticks",
+    "flavour",
+    "flavor",
+    "chips",
+    "chard",
+    "cheese crackers",
+    "cheese cracker",
+    "sausage",
+    "franks",
+    "frank",
+    "hot dog",
+    "salami",
+    "pepperoni",
+    "burger",
+    "meatball"
+   ],
+   "code": "040690",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Other cheese"
+  },
+  {
+   "id": "beef_salted",
+   "family": "prepared_meat",
+   "words": [
+    "salted beef",
+    "salt beef",
+    "pickled beef",
+    "boneless salt beef",
+    "brisket salted",
+    "salted brisket"
+   ],
+   "not": [
+    "canned",
+    "corned beef canned",
+    "sauce"
+   ],
+   "code": "021020",
+   "frozen_code": "021020",
+   "confidence": "medium",
+   "note": "Beef, salted, in brine, dried or smoked"
+  },
+  {
+   "id": "pork_salted",
+   "family": "prepared_meat",
+   "words": [
+    "salted pig tail",
+    "salted pig tails",
+    "pickled pig tail",
+    "cured pig tail",
+    "salted pork",
+    "salt pork",
+    "pickled pork",
+    "corned pork",
+    "salted pork tail",
+    "salted pork tails",
+    "salted pigtail",
+    "smoked pork",
+    "smoked pig tail",
+    "smoked pork bones",
+    "smoked pork neck",
+    "salted pig feet",
+    "pickled pig feet",
+    "pickled pigtail",
+    "pickled pigtails",
+    "salted pigtails"
+   ],
+   "not": [
+    "sausage",
+    "ham",
+    "bacon",
+    "canned"
+   ],
+   "code": "021019",
+   "frozen_code": "021019",
+   "confidence": "medium",
+   "note": "Pork, salted, in brine, dried or smoked (other than hams and bellies)"
+  },
+  {
+   "id": "bacon",
+   "family": "prepared_meat",
+   "words": [
+    "bacon",
+    "pancetta",
+    "streaky",
+    "side bacon",
+    "back bacon",
+    "pork belly bacon"
+   ],
+   "not": [
+    "bits",
+    "bit",
+    "bacon bits",
+    "flavour",
+    "flavor",
+    "dressing",
+    "cheese",
+    "jam",
+    "seasoning",
+    "burger sauce",
+    "turkey",
+    "chicken",
+    "beef"
+   ],
+   "code": "021012",
+   "frozen_code": "021012",
+   "confidence": "medium",
+   "note": "Bacon (bellies, smoked or salted)"
+  },
+  {
+   "id": "ham_cured",
+   "family": "prepared_meat",
+   "words": [
+    "ham",
+    "smoked ham",
+    "leg ham",
+    "black forest ham",
+    "gammon",
+    "prosciutto",
+    "serrano ham",
+    "jambon",
+    "picnic ham",
+    "cured ham",
+    "honey ham",
+    "virginia ham",
+    "country ham"
+   ],
+   "not": [
+    "bits",
+    "bit",
+    "primal",
+    "fresh ham",
+    "cooked",
+    "sliced",
+    "slices",
+    "shaved",
+    "deli",
+    "chopped",
+    "luncheon",
+    "turkey",
+    "chicken",
+    "canned",
+    "spread",
+    "sandwich",
+    "pocket",
+    "hawaiian",
+    "bone",
+    "hock",
+    "hocks",
+    "flavour",
+    "flavor",
+    "bouillon",
+    "omelette",
+    "steak"
+   ],
+   "code": "021011",
+   "frozen_code": "021011",
+   "confidence": "medium",
+   "note": "Hams, shoulders and cuts, salted, in brine, dried or smoked"
+  },
+  {
+   "id": "sausage_franks",
+   "family": "prepared_meat",
+   "words": [
+    "sausage",
+    "sausages",
+    "saucisse",
+    "franks",
+    "frank",
+    "frankfurter",
+    "hot dog",
+    "hot dogs",
+    "wiener",
+    "wieners",
+    "bratwurst",
+    "kielbasa",
+    "chorizo",
+    "salami",
+    "pepperoni",
+    "bologna",
+    "mortadella",
+    "saucisson",
+    "summer sausage",
+    "smoked sausage",
+    "breakfast sausage",
+    "andouille",
+    "blood sausage"
+   ],
+   "not": [
+    "canned",
+    "vienna",
+    "plant",
+    "vegan",
+    "vegetarian",
+    "meatless",
+    "bun",
+    "buns",
+    "bread",
+    "pizza",
+    "sandwich",
+    "roll",
+    "rolls",
+    "pocket",
+    "pie",
+    "seasoning",
+    "flavour",
+    "flavor",
+    "chips",
+    "dog food",
+    "cat food"
+   ],
+   "code": "160100",
+   "frozen_code": "160100",
+   "confidence": "medium",
+   "note": "Sausages and similar products of meat"
+  },
+  {
+   "id": "chicken_prepared",
+   "family": "prepared_meat",
+   "words": [
+    "chicken nuggets",
+    "nuggets",
+    "chicken patties",
+    "chicken strips",
+    "chicken tenders breaded",
+    "breaded chicken",
+    "chicken burger",
+    "chicken franks",
+    "cooked chicken",
+    "rotisserie",
+    "chicken breast sliced",
+    "deli chicken",
+    "chicken ham",
+    "chicken loaf",
+    "smoked chicken",
+    "chicken roll"
+   ],
+   "not": [
+    "canned",
+    "soup",
+    "flavour",
+    "flavor",
+    "noodle",
+    "noodles",
+    "pot pie"
+   ],
+   "code": "160232",
+   "frozen_code": "160232",
+   "confidence": "medium",
+   "note": "Prepared or preserved chicken (breaded, cooked, smoked)"
+  },
+  {
+   "id": "turkey_prepared",
+   "family": "prepared_meat",
+   "words": [
+    "turkey ham",
+    "turkey bacon",
+    "oven roasted turkey",
+    "roasted turkey",
+    "baked turkey",
+    "golden brown turkey",
+    "turkey breast sliced",
+    "deli turkey",
+    "smoked turkey",
+    "turkey loaf",
+    "turkey slices",
+    "turkey franks",
+    "turkey sausage",
+    "turkey breakfast strips",
+    "turkey roll",
+    "turkey pastrami"
+   ],
+   "not": [
+    "canned"
+   ],
+   "code": "160231",
+   "frozen_code": "160231",
+   "confidence": "medium",
+   "note": "Prepared or preserved turkey (cooked, smoked, sliced)"
+  },
+  {
+   "id": "beef_prepared",
+   "family": "prepared_meat",
+   "words": [
+    "roast beef sliced",
+    "deli roast beef",
+    "roast beef",
+    "pastrami",
+    "beef patties",
+    "beef burgers",
+    "beef burger",
+    "beef patty",
+    "hamburger",
+    "hamburgers",
+    "meatballs",
+    "beef meatballs",
+    "cooked beef",
+    "smoked beef",
+    "beef jerky bites",
+    "quarter pound beef",
+    "beef slices",
+    "beef franks"
+   ],
+   "not": [
+    "canned",
+    "corned",
+    "soup",
+    "plant",
+    "vegan",
+    "vegetarian",
+    "meatless",
+    "veggie"
+   ],
+   "code": "160250",
+   "frozen_code": "160250",
+   "confidence": "medium",
+   "note": "Prepared or preserved beef (patties, cooked, sliced)"
+  },
+  {
+   "id": "pork_prepared",
+   "family": "prepared_meat",
+   "words": [
+    "cooked pork",
+    "pork roast chinese",
+    "chinese style pork",
+    "char siu",
+    "luncheon pork",
+    "cooked ham",
+    "chopped ham",
+    "sliced ham",
+    "ham slices",
+    "ham deli",
+    "deli ham",
+    "shaved ham",
+    "ham steak"
+   ],
+   "not": [
+    "canned",
+    "tin",
+    "luncheon meat",
+    "spam"
+   ],
+   "code": "160241",
+   "frozen_code": "160241",
+   "confidence": "medium",
+   "note": "Prepared or preserved pork hams and cuts (cooked, sliced)"
+  },
+  {
+   "id": "fish_salted",
+   "family": "fish",
+   "words": [
+    "salted fish",
+    "salt fish",
+    "saltfish",
+    "salted cod",
+    "salted pollock",
+    "pollock salted",
+    "salted mackerel",
+    "mackerel salted",
+    "salted salmon",
+    "salmon salted",
+    "salted herring",
+    "herring salted",
+    "salted snapper",
+    "bacalao",
+    "bluefish salted",
+    "salted bluefish",
+    "cured fish",
+    "pickled fish"
+   ],
+   "not": [
+    "canned",
+    "sauce",
+    "dried"
+   ],
+   "code": "030569",
+   "frozen_code": "030569",
+   "confidence": "medium",
+   "note": "Fish, salted or in brine (not dried or smoked)"
+  },
+  {
+   "id": "shrimp",
+   "family": "fish",
+   "words": [
+    "shrimp",
+    "shrimps",
+    "prawn",
+    "prawns",
+    "langoustine"
+   ],
+   "not": [
+    "cocktail",
+    "sauce",
+    "chips",
+    "crackers",
+    "flavour",
+    "flavor",
+    "paste",
+    "noodle",
+    "noodles",
+    "breaded",
+    "burger",
+    "burgers",
+    "dumpling",
+    "dumplings",
+    "canned",
+    "hargow",
+    "seasoning",
+    "ramen"
+   ],
+   "code": "030636",
+   "frozen_code": "030617",
+   "confidence": "medium",
+   "note": "Shrimps and prawns",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "lobster_spiny",
+   "family": "fish",
+   "words": [
+    "spiny lobster",
+    "rock lobster",
+    "lobster tail",
+    "lobster tails",
+    "langosta"
+   ],
+   "not": [
+    "bisque",
+    "sauce",
+    "ravioli",
+    "roll",
+    "mac"
+   ],
+   "code": "030631",
+   "frozen_code": "030611",
+   "confidence": "medium",
+   "note": "Rock lobster and other sea crawfish",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "lobster",
+   "family": "fish",
+   "words": [
+    "lobster",
+    "lobsters"
+   ],
+   "not": [
+    "bisque",
+    "sauce",
+    "ravioli",
+    "roll",
+    "mac",
+    "flavour",
+    "flavor"
+   ],
+   "code": "030632",
+   "frozen_code": "030612",
+   "confidence": "medium",
+   "note": "Lobsters",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "crab",
+   "family": "fish",
+   "words": [
+    "crab",
+    "crabs",
+    "crab meat",
+    "crabmeat",
+    "snow crab",
+    "king crab",
+    "blue crab",
+    "land crab",
+    "crab legs"
+   ],
+   "not": [
+    "cake",
+    "cakes",
+    "sauce",
+    "stick",
+    "sticks",
+    "imitation",
+    "immitation",
+    "surimi",
+    "flavour",
+    "flavor",
+    "dip",
+    "rangoon",
+    "apple",
+    "canned"
+   ],
+   "code": "030633",
+   "frozen_code": "030614",
+   "confidence": "medium",
+   "note": "Crabs",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "conch",
+   "family": "fish",
+   "words": [
+    "conch",
+    "conchs",
+    "lambi",
+    "whelk"
+   ],
+   "not": [
+    "fritter",
+    "fritters",
+    "chowder",
+    "salad"
+   ],
+   "code": "030788",
+   "frozen_code": "030784",
+   "confidence": "medium",
+   "note": "Stromboid conchs",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "squid_octopus",
+   "family": "fish",
+   "words": [
+    "squid",
+    "calamari",
+    "octopus",
+    "cuttlefish"
+   ],
+   "not": [
+    "ink",
+    "fried",
+    "breaded",
+    "rings breaded"
+   ],
+   "code": "030749",
+   "frozen_code": "030743",
+   "confidence": "medium",
+   "note": "Cuttlefish and squid (check octopus: 0307.5x)",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "mussels_oysters",
+   "family": "fish",
+   "words": [
+    "mussel",
+    "mussels",
+    "oyster",
+    "oysters",
+    "clam",
+    "clams",
+    "scallop",
+    "scallops"
+   ],
+   "not": [
+    "sauce",
+    "chowder",
+    "smoked",
+    "canned",
+    "mushroom",
+    "clam shell",
+    "clamshell",
+    "shell"
+   ],
+   "code": "030719",
+   "frozen_code": "030719",
+   "confidence": "medium",
+   "note": "Molluscs (mussels, oysters, clams, scallops: the subheading depends on the species)",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "salmon",
+   "family": "fish",
+   "words": [
+    "salmon"
+   ],
+   "not": [
+    "smoked",
+    "canned",
+    "lox",
+    "spread",
+    "burger",
+    "patty",
+    "cake",
+    "dip",
+    "sushi",
+    "jerky",
+    "pate",
+    "pink salmon",
+    "sockeye canned",
+    "cream cheese"
+   ],
+   "code": "030214",
+   "frozen_code": "030313",
+   "confidence": "medium",
+   "note": "Atlantic and Danube salmon",
+   "fillet_code": "030441",
+   "fillet_frozen_code": "030481"
+  },
+  {
+   "id": "tilapia",
+   "family": "fish",
+   "words": [
+    "tilapia",
+    "talipia",
+    "telapia"
+   ],
+   "not": [
+    "seasoned",
+    "breaded",
+    "canned",
+    "cake"
+   ],
+   "code": "030271",
+   "frozen_code": "030323",
+   "confidence": "medium",
+   "note": "Tilapia",
+   "fillet_code": "030431",
+   "fillet_frozen_code": "030461"
+  },
+  {
+   "id": "catfish",
+   "family": "fish",
+   "words": [
+    "catfish",
+    "cat fish",
+    "pangasius",
+    "basa",
+    "swai"
+   ],
+   "not": [
+    "breaded",
+    "canned"
+   ],
+   "code": "030249",
+   "frozen_code": "030324",
+   "confidence": "medium",
+   "note": "Catfish (check the species)",
+   "fillet_code": "030432",
+   "fillet_frozen_code": "030462"
+  },
+  {
+   "id": "tuna",
+   "family": "fish",
+   "words": [
+    "tuna",
+    "yellowfin",
+    "tuna steak",
+    "bigeye",
+    "albacore"
+   ],
+   "not": [
+    "canned",
+    "can",
+    "pouch",
+    "salad",
+    "sandwich",
+    "jerky",
+    "melt",
+    "sushi",
+    "in oil",
+    "in water",
+    "flavour",
+    "flavor"
+   ],
+   "code": "030234",
+   "frozen_code": "030342",
+   "confidence": "medium",
+   "note": "Tuna (yellowfin by default)",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "cod_whitefish",
+   "family": "fish",
+   "words": [
+    "cod",
+    "haddock",
+    "pollock",
+    "hake",
+    "whiting",
+    "saltfish",
+    "salt fish",
+    "bacalao"
+   ],
+   "not": [
+    "canned",
+    "liver oil",
+    "breaded",
+    "fish sticks",
+    "fish fingers",
+    "cake",
+    "cakes",
+    "chowder"
+   ],
+   "code": "030259",
+   "frozen_code": "030369",
+   "confidence": "medium",
+   "note": "Cod, haddock, pollock and similar white fish (check the species)",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "fish_generic_marine",
+   "family": "fish",
+   "words": [
+    "snapper",
+    "red snapper",
+    "kingfish",
+    "king fish",
+    "mahi",
+    "mahi mahi",
+    "dorado",
+    "dolphin fish",
+    "grouper",
+    "carite",
+    "wahoo",
+    "barracuda",
+    "swordfish",
+    "sea bass",
+    "seabass",
+    "bream",
+    "jack fish",
+    "parrot fish",
+    "bluefish",
+    "blue fish",
+    "mackerel",
+    "sardine fresh",
+    "herring",
+    "shark",
+    "flying fish",
+    "bonito",
+    "marlin",
+    "sailfish",
+    "trout",
+    "cavalli",
+    "cavali",
+    "bill fish",
+    "billfish",
+    "red fish",
+    "brochet",
+    "lionfish",
+    "rockfish",
+    "redfish"
+   ],
+   "not": [
+    "canned",
+    "smoked",
+    "breaded",
+    "sauce",
+    "tin",
+    "sardines canned",
+    "cat food",
+    "dog food",
+    "jerky",
+    "oil",
+    "flakes"
+   ],
+   "code": "030289",
+   "frozen_code": "030389",
+   "confidence": "medium",
+   "note": "Other marine fish (the subheading depends on the species)",
+   "fillet_code": null,
+   "fillet_frozen_code": null
+  },
+  {
+   "id": "chicken_whole",
+   "family": "meat",
+   "words": [
+    "whole chicken",
+    "chicken whole",
+    "whole fryer",
+    "whole broiler",
+    "whole bird",
+    "best dressed",
+    "roasting chicken"
+   ],
+   "not": [
+    "nugget",
+    "nuggets",
+    "soup",
+    "flavour",
+    "flavor",
+    "seasoned",
+    "curry",
+    "jerk",
+    "sausage"
+   ],
+   "code": "020711",
+   "frozen_code": "020712",
+   "confidence": "medium",
+   "note": "Whole chickens, not cut in pieces"
+  },
+  {
+   "id": "chicken_cuts",
+   "family": "meat",
+   "words": [
+    "chicken",
+    "chickens",
+    "wings",
+    "drumstick",
+    "drumsticks",
+    "thigh",
+    "thighs",
+    "leg quarter",
+    "leg quarters",
+    "gizzard",
+    "gizzards",
+    "chicken fryer",
+    "broiler",
+    "broilers"
+   ],
+   "not": [
+    "nugget",
+    "nuggets",
+    "patty",
+    "patties",
+    "soup",
+    "flavour",
+    "flavor",
+    "seasoning",
+    "bouillon",
+    "curry",
+    "jerk",
+    "sausage",
+    "franks",
+    "frank",
+    "salami",
+    "ham",
+    "bacon",
+    "deli",
+    "roll",
+    "slices",
+    "stew",
+    "meal",
+    "tikka",
+    "masala",
+    "strips",
+    "breaded",
+    "cooked",
+    "smoked",
+    "cat food",
+    "dog food",
+    "fried",
+    "popcorn",
+    "back bacon",
+    "broth",
+    "stock",
+    "noodle",
+    "noodles",
+    "pie",
+    "pot pie",
+    "sandwich",
+    "burger",
+    "beef",
+    "pork",
+    "turkey",
+    "hot dogs",
+    "hot dog",
+    "tenders",
+    "tender",
+    "chubb"
+   ],
+   "code": "020713",
+   "frozen_code": "020714",
+   "confidence": "medium",
+   "note": "Chicken cuts and offal"
+  },
+  {
+   "id": "turkey_cuts",
+   "family": "meat",
+   "words": [
+    "turkey",
+    "turkey wings",
+    "turkey neck",
+    "turkey legs",
+    "turkey breast",
+    "turkey drumstick"
+   ],
+   "not": [
+    "ham",
+    "bacon",
+    "sausage",
+    "franks",
+    "frank",
+    "deli",
+    "loaf",
+    "slices",
+    "salami",
+    "breakfast",
+    "burger",
+    "patty",
+    "strips",
+    "smoked",
+    "cooked",
+    "pepperoni",
+    "bologna",
+    "roast beef",
+    "jerky",
+    "nuggets",
+    "soup",
+    "stock",
+    "roasted",
+    "baked",
+    "oven",
+    "golden brown"
+   ],
+   "code": "020726",
+   "frozen_code": "020727",
+   "confidence": "medium",
+   "note": "Turkey cuts and offal"
+  },
+  {
+   "id": "beef_offal",
+   "family": "meat",
+   "words": [
+    "beef offal",
+    "offal general",
+    "beef liver",
+    "beef tongue",
+    "beef heart",
+    "beef kidney",
+    "tripe",
+    "cow heel",
+    "beef tripe",
+    "ox tail meat",
+    "cow foot"
+   ],
+   "not": [],
+   "code": "020610",
+   "frozen_code": "020621",
+   "confidence": "medium",
+   "note": "Edible offal of bovine animals"
+  },
+  {
+   "id": "beef_bone_in",
+   "family": "meat",
+   "words": [
+    "short rib",
+    "short ribs",
+    "beef ribs",
+    "oxtail",
+    "shank",
+    "beef shank",
+    "bone in beef",
+    "bone-in beef",
+    "soup bone",
+    "soup bones",
+    "beef bones"
+   ],
+   "not": [
+    "broth",
+    "stock",
+    "bouillon",
+    "dog",
+    "lamb",
+    "pork",
+    "chicken",
+    "turkey",
+    "goat",
+    "veal"
+   ],
+   "code": "020120",
+   "frozen_code": "020220",
+   "confidence": "medium",
+   "note": "Beef cuts with bone in"
+  },
+  {
+   "id": "beef_boneless",
+   "family": "meat",
+   "words": [
+    "beef",
+    "steak",
+    "ribeye",
+    "rib eye",
+    "sirloin",
+    "tenderloin",
+    "strip loin",
+    "flank",
+    "brisket",
+    "chuck",
+    "round roast",
+    "eye round",
+    "ground beef",
+    "minced beef",
+    "mince beef",
+    "stew beef",
+    "beef cubes",
+    "rump",
+    "beef stew",
+    "skirt",
+    "tri tip",
+    "tri-tip",
+    "angus",
+    "filet mignon",
+    "london broil",
+    "new york strip",
+    "t-bone",
+    "porterhouse"
+   ],
+   "not": [
+    "soup",
+    "broth",
+    "stock",
+    "bouillon",
+    "flavour",
+    "flavor",
+    "noodle",
+    "noodles",
+    "seasoning",
+    "jerky",
+    "franks",
+    "frank",
+    "sausage",
+    "burger",
+    "burgers",
+    "patty",
+    "patties",
+    "meatball",
+    "meatballs",
+    "canned",
+    "corned",
+    "deli",
+    "sliced",
+    "slices",
+    "bacon",
+    "ham",
+    "salami",
+    "pepperoni",
+    "dog food",
+    "cat food",
+    "pot pie",
+    "pie",
+    "stew meal",
+    "dinner",
+    "bites",
+    "cooked",
+    "smoked",
+    "tikka",
+    "curry",
+    "pork",
+    "chicken",
+    "turkey",
+    "lamb",
+    "tuna",
+    "salmon",
+    "fish",
+    "swordfish",
+    "shark",
+    "halibut",
+    "mahi",
+    "tilapia",
+    "goat",
+    "veal"
+   ],
+   "code": "020130",
+   "frozen_code": "020230",
+   "confidence": "medium",
+   "note": "Boneless beef cuts and minced beef"
+  },
+  {
+   "id": "pork_hams_fresh",
+   "family": "meat",
+   "words": [
+    "pork leg",
+    "fresh ham",
+    "pork shoulder",
+    "pork shoulders",
+    "pork butt",
+    "picnic shoulder"
+   ],
+   "not": [
+    "smoked",
+    "cooked",
+    "cured"
+   ],
+   "code": "020312",
+   "frozen_code": "020322",
+   "confidence": "medium",
+   "note": "Pork hams and shoulders, fresh"
+  },
+  {
+   "id": "pork_offal",
+   "family": "meat",
+   "words": [
+    "pig tail",
+    "pigtail",
+    "pig tails",
+    "pigtails",
+    "pig feet",
+    "pig foot",
+    "pigs feet",
+    "trotters",
+    "pig snout",
+    "pig ear",
+    "pig ears",
+    "pork liver",
+    "pork kidney",
+    "pork tail",
+    "pork tails",
+    "pork neck bones",
+    "pork bones",
+    "pork skin",
+    "pork rind",
+    "pork belly offal"
+   ],
+   "not": [
+    "rinds",
+    "chicharron",
+    "snack",
+    "canned"
+   ],
+   "code": "020630",
+   "frozen_code": "020649",
+   "confidence": "medium",
+   "note": "Edible offal of swine (tails, feet, ears), fresh or chilled"
+  },
+  {
+   "id": "pork_cuts",
+   "family": "meat",
+   "words": [
+    "pork",
+    "pork chop",
+    "pork chops",
+    "pork loin",
+    "pork ribs",
+    "spare ribs",
+    "spareribs",
+    "baby back ribs",
+    "pork belly",
+    "pork tenderloin",
+    "ground pork",
+    "minced pork",
+    "pork cubes",
+    "pork steak",
+    "pork sirloin",
+    "pork flap",
+    "pork strips",
+    "pork roast"
+   ],
+   "not": [
+    "sausage",
+    "franks",
+    "frank",
+    "ham",
+    "bacon",
+    "deli",
+    "salami",
+    "pepperoni",
+    "canned",
+    "beans",
+    "soup",
+    "broth",
+    "stock",
+    "bouillon",
+    "flavour",
+    "flavor",
+    "seasoning",
+    "rinds",
+    "dumpling",
+    "dumplings",
+    "bun",
+    "buns",
+    "sauce",
+    "noodle",
+    "noodles",
+    "pie",
+    "cooked",
+    "smoked",
+    "meatball",
+    "meatballs",
+    "patty",
+    "patties",
+    "luncheon",
+    "jerky",
+    "dog food",
+    "cat food"
+   ],
+   "code": "020319",
+   "frozen_code": "020329",
+   "confidence": "medium",
+   "note": "Other cuts of pork, fresh or chilled"
+  },
+  {
+   "id": "lamb_cuts",
+   "family": "meat",
+   "words": [
+    "lamb",
+    "lamb chop",
+    "lamb chops",
+    "lamb leg",
+    "lamb shoulder",
+    "lamb ribs",
+    "lamb stew",
+    "lamb loin",
+    "rack of lamb",
+    "minced lamb",
+    "ground lamb",
+    "mutton",
+    "lamb shank"
+   ],
+   "not": [
+    "soup",
+    "broth",
+    "stock",
+    "flavour",
+    "flavor",
+    "seasoning",
+    "curry",
+    "sausage",
+    "canned",
+    "dog food",
+    "cat food",
+    "gyro"
+   ],
+   "code": "020422",
+   "frozen_code": "020442",
+   "confidence": "medium",
+   "note": "Lamb and mutton cuts"
+  },
+  {
+   "id": "goat",
+   "family": "meat",
+   "words": [
+    "goat",
+    "curry goat",
+    "goat meat",
+    "chevon",
+    "cabrito"
+   ],
+   "not": [
+    "curry sauce",
+    "cheese",
+    "milk",
+    "soap"
+   ],
+   "code": "020450",
+   "frozen_code": "020450",
+   "confidence": "medium",
+   "note": "Goat meat"
+  },
+  {
+   "id": "rabbit_other_meat",
+   "family": "meat",
+   "words": [
+    "rabbit",
+    "duck",
+    "duckling",
+    "goose",
+    "quail",
+    "guinea fowl",
+    "pigeon meat"
+   ],
+   "not": [
+    "sauce",
+    "soup",
+    "pate"
+   ],
+   "code": "020745",
+   "frozen_code": "020745",
+   "confidence": "medium",
+   "note": "Other poultry meat (duck, goose, guinea fowl) or rabbit meat (check the exact heading)"
+  },
+  {
+   "id": "sweet_potato",
+   "family": "produce",
+   "words": [
+    "sweet potato",
+    "sweet potatoes"
+   ],
+   "not": [],
+   "code": "071420",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Sweet potatoes, fresh"
+  },
+  {
+   "id": "yam",
+   "family": "produce",
+   "words": [
+    "yam",
+    "yams",
+    "yampi",
+    "yampee",
+    "negro yam",
+    "lucea yam"
+   ],
+   "not": [],
+   "code": "071430",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Yams, fresh"
+  },
+  {
+   "id": "cassava",
+   "family": "produce",
+   "words": [
+    "cassava",
+    "yuca",
+    "manioc",
+    "tapioca root",
+    "bitter cassava",
+    "sweet cassava"
+   ],
+   "not": [
+    "flour",
+    "starch",
+    "bread",
+    "chips"
+   ],
+   "code": "071410",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Cassava, fresh"
+  },
+  {
+   "id": "taro",
+   "family": "produce",
+   "words": [
+    "dasheen",
+    "eddo",
+    "eddoes",
+    "eddoe",
+    "taro",
+    "malanga"
+   ],
+   "not": [],
+   "code": "071440",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Taro (dasheen, eddo), fresh"
+  },
+  {
+   "id": "yautia",
+   "family": "produce",
+   "words": [
+    "coco",
+    "cocoyam",
+    "yautia",
+    "tannia",
+    "tania"
+   ],
+   "not": [
+    "coconut",
+    "cocoa",
+    "cocoa powder"
+   ],
+   "code": "071450",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Yautia (cocoyam), fresh"
+  },
+  {
+   "id": "potato",
+   "family": "produce",
+   "words": [
+    "irish potato",
+    "potato",
+    "russet",
+    "idaho",
+    "white potato"
+   ],
+   "not": [
+    "sweet",
+    "chips",
+    "fries",
+    "mashed",
+    "instant",
+    "flakes",
+    "salad"
+   ],
+   "code": "070190",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Potatoes, fresh"
+  },
+  {
+   "id": "garlic",
+   "family": "produce",
+   "words": [
+    "garlic"
+   ],
+   "not": [
+    "powder",
+    "salt",
+    "bread",
+    "sauce",
+    "minced",
+    "paste",
+    "granules"
+   ],
+   "code": "070320",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Garlic, fresh"
+  },
+  {
+   "id": "onion",
+   "family": "produce",
+   "words": [
+    "onion",
+    "shallot"
+   ],
+   "not": [
+    "green",
+    "spring",
+    "ring",
+    "rings",
+    "powder",
+    "soup",
+    "dip",
+    "crispy",
+    "fried"
+   ],
+   "code": "070310",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Onions and shallots, fresh"
+  },
+  {
+   "id": "scallion",
+   "family": "produce",
+   "words": [
+    "scallion",
+    "escallion",
+    "green onion",
+    "spring onion",
+    "leek",
+    "chive",
+    "chives"
+   ],
+   "not": [
+    "dip",
+    "cream cheese"
+   ],
+   "code": "070390",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Leeks and other alliaceous vegetables (scallions, chives), fresh"
+  },
+  {
+   "id": "carrot",
+   "family": "produce",
+   "words": [
+    "carrot"
+   ],
+   "not": [
+    "cake",
+    "juice",
+    "baby food"
+   ],
+   "code": "070610",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Carrots and turnips, fresh"
+  },
+  {
+   "id": "beet_radish",
+   "family": "produce",
+   "words": [
+    "beetroot",
+    "beet",
+    "radish",
+    "turnip",
+    "salsify",
+    "celeriac",
+    "celery root"
+   ],
+   "not": [
+    "pickled",
+    "sugar"
+   ],
+   "code": "070690",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Salad beetroot, radishes and similar roots, fresh"
+  },
+  {
+   "id": "tomato",
+   "family": "produce",
+   "words": [
+    "tomato",
+    "cherry tomato",
+    "plum tomato",
+    "roma"
+   ],
+   "not": [
+    "sauce",
+    "paste",
+    "ketchup",
+    "juice",
+    "soup",
+    "sun dried",
+    "tree tomato"
+   ],
+   "code": "070200",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Tomatoes, fresh"
+  },
+  {
+   "id": "cauliflower_broccoli",
+   "family": "produce",
+   "words": [
+    "cauliflower",
+    "broccoli",
+    "broccolini"
+   ],
+   "not": [
+    "soup"
+   ],
+   "code": "070410",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Cauliflowers and headed broccoli, fresh"
+  },
+  {
+   "id": "brussels",
+   "family": "produce",
+   "words": [
+    "brussels sprout",
+    "brussel sprout"
+   ],
+   "not": [],
+   "code": "070420",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Brussels sprouts, fresh"
+  },
+  {
+   "id": "cabbage_family",
+   "family": "produce",
+   "words": [
+    "cabbage",
+    "kale",
+    "pak choi",
+    "bok choy",
+    "pak choy",
+    "kohlrabi",
+    "collard",
+    "collards",
+    "chinese cabbage",
+    "savoy"
+   ],
+   "not": [
+    "slaw",
+    "sauerkraut",
+    "kimchi",
+    "roll",
+    "rolls"
+   ],
+   "code": "070490",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Cabbages, kale, pak choi and similar brassicas, fresh"
+  },
+  {
+   "id": "lettuce_head",
+   "family": "produce",
+   "words": [
+    "iceberg",
+    "head lettuce",
+    "butter lettuce",
+    "butterhead"
+   ],
+   "not": [],
+   "code": "070511",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Cabbage lettuce (head), fresh"
+  },
+  {
+   "id": "lettuce",
+   "family": "produce",
+   "words": [
+    "lettuce",
+    "romaine",
+    "caesar kit",
+    "salad mix",
+    "spring mix",
+    "mesclun"
+   ],
+   "not": [
+    "dressing",
+    "wrap",
+    "wraps"
+   ],
+   "code": "070519",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Lettuce (other), fresh"
+  },
+  {
+   "id": "chicory",
+   "family": "produce",
+   "words": [
+    "chicory",
+    "endive",
+    "radicchio",
+    "frisee"
+   ],
+   "not": [
+    "coffee"
+   ],
+   "code": "070529",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Chicory and endive, fresh"
+  },
+  {
+   "id": "cucumber",
+   "family": "produce",
+   "words": [
+    "cucumber",
+    "gherkin"
+   ],
+   "not": [
+    "pickle",
+    "pickled",
+    "sea cucumber",
+    "juice"
+   ],
+   "code": "070700",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Cucumbers and gherkins, fresh"
+  },
+  {
+   "id": "peas",
+   "family": "produce",
+   "words": [
+    "green pea",
+    "garden pea",
+    "snow pea",
+    "sugar snap",
+    "snap pea",
+    "peas in pod",
+    "fresh peas"
+   ],
+   "not": [
+    "split",
+    "dried",
+    "pigeon",
+    "black eye",
+    "blackeye",
+    "chick"
+   ],
+   "code": "070810",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Peas, fresh"
+  },
+  {
+   "id": "beans",
+   "family": "produce",
+   "words": [
+    "green bean",
+    "string bean",
+    "french bean",
+    "long bean",
+    "wax bean",
+    "snap bean",
+    "haricot vert",
+    "bodi",
+    "bora"
+   ],
+   "not": [
+    "baked",
+    "canned",
+    "dried"
+   ],
+   "code": "070820",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Green beans, fresh"
+  },
+  {
+   "id": "celery",
+   "family": "produce",
+   "words": [
+    "celery"
+   ],
+   "not": [
+    "salt",
+    "seed",
+    "celeriac",
+    "celery root"
+   ],
+   "code": "070940",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Celery, fresh"
+  },
+  {
+   "id": "mushroom_agaricus",
+   "family": "produce",
+   "words": [
+    "mushroom",
+    "button mushroom",
+    "baby bella",
+    "portobello",
+    "cremini"
+   ],
+   "not": [
+    "soup",
+    "sauce",
+    "dried",
+    "canned"
+   ],
+   "code": "070951",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Mushrooms (Agaricus), fresh"
+  },
+  {
+   "id": "asparagus",
+   "family": "produce",
+   "words": [
+    "asparagus"
+   ],
+   "not": [
+    "canned",
+    "soup"
+   ],
+   "code": "070920",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Asparagus, fresh"
+  },
+  {
+   "id": "spinach",
+   "family": "produce",
+   "words": [
+    "spinach"
+   ],
+   "not": [
+    "dip",
+    "artichoke"
+   ],
+   "code": "070970",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Spinach, fresh"
+  },
+  {
+   "id": "eggplant",
+   "family": "produce",
+   "words": [
+    "eggplant",
+    "aubergine",
+    "melongene",
+    "baigan",
+    "brinjal"
+   ],
+   "not": [],
+   "code": "070930",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Aubergines (eggplants), fresh"
+  },
+  {
+   "id": "capsicum",
+   "family": "produce",
+   "words": [
+    "pepper orange",
+    "pepper red",
+    "pepper yellow",
+    "pepper green",
+    "pepper mixed",
+    "sweet pepper",
+    "bell pepper",
+    "hot pepper",
+    "seasoning pepper",
+    "scotch bonnet",
+    "habanero",
+    "jalapeno",
+    "capsicum",
+    "pimento",
+    "pimiento",
+    "chili",
+    "chilli",
+    "chile",
+    "wiri wiri",
+    "cayenne",
+    "banana pepper",
+    "cubanelle",
+    "poblano",
+    "serrano",
+    "caribbean red",
+    "green pepper",
+    "red pepper",
+    "yellow pepper",
+    "orange pepper",
+    "peppers"
+   ],
+   "not": [
+    "black",
+    "ground",
+    "powder",
+    "sauce",
+    "flake",
+    "flakes",
+    "dried",
+    "crushed",
+    "roasted",
+    "stuffed",
+    "jar",
+    "pickled",
+    "seasoning salt",
+    "jack"
+   ],
+   "code": "070960",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Fruits of the genus Capsicum or Pimenta (peppers), fresh"
+  },
+  {
+   "id": "pumpkin_squash",
+   "family": "produce",
+   "words": [
+    "pumpkin",
+    "squash",
+    "calabaza",
+    "butternut",
+    "courgette",
+    "zucchini",
+    "marrow",
+    "chayote",
+    "christophene",
+    "cho cho",
+    "cucuzza",
+    "bottle gourd",
+    "gourd"
+   ],
+   "not": [
+    "seed",
+    "seeds",
+    "pie",
+    "puree",
+    "canned",
+    "spice"
+   ],
+   "code": "070993",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Pumpkins, squash and gourds, fresh"
+  },
+  {
+   "id": "sweet_corn",
+   "family": "produce",
+   "words": [
+    "sweet corn",
+    "corn on the cob",
+    "corn on cob"
+   ],
+   "not": [
+    "canned",
+    "cream",
+    "chips",
+    "frozen",
+    "oil",
+    "starch"
+   ],
+   "code": "070999",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Sweet corn, fresh (heading 0709, other vegetables)"
+  },
+  {
+   "id": "okra",
+   "family": "produce",
+   "words": [
+    "okra",
+    "ochro",
+    "ladies finger",
+    "ladies fingers"
+   ],
+   "not": [],
+   "code": "070999",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Okra, fresh (heading 0709, other vegetables)"
+  },
+  {
+   "id": "callaloo",
+   "family": "produce",
+   "words": [
+    "callaloo",
+    "caraillie",
+    "carailli",
+    "carailie",
+    "caraili",
+    "carailly",
+    "bhaji",
+    "amaranth",
+    "dasheen bush",
+    "taro leaves",
+    "spinach bush",
+    "pak choi bush"
+   ],
+   "not": [
+    "canned"
+   ],
+   "code": "070999",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Callaloo and other leafy vegetables, fresh (heading 0709, other vegetables)"
+  },
+  {
+   "id": "rocket_herbs_veg",
+   "family": "produce",
+   "words": [
+    "arugula",
+    "rocket",
+    "parsley",
+    "cilantro",
+    "culantro",
+    "chadon beni",
+    "coriander leaf",
+    "watercress",
+    "cress",
+    "chard",
+    "swiss chard",
+    "acelga"
+   ],
+   "not": [
+    "seed",
+    "seeds",
+    "ground",
+    "powder",
+    "dried"
+   ],
+   "code": "070999",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Parsley, cilantro, rocket and similar fresh leafy vegetables (heading 0709, other vegetables)"
+  },
+  {
+   "id": "artichoke",
+   "family": "produce",
+   "words": [
+    "artichoke"
+   ],
+   "not": [
+    "dip",
+    "canned",
+    "jar",
+    "marinated"
+   ],
+   "code": "070991",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Globe artichokes, fresh"
+  },
+  {
+   "id": "olives_fresh",
+   "family": "produce",
+   "words": [
+    "fresh olive",
+    "fresh olives"
+   ],
+   "not": [],
+   "code": "070992",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Olives, fresh"
+  },
+  {
+   "id": "breadfruit_veg",
+   "family": "produce",
+   "words": [
+    "breadfruit"
+   ],
+   "not": [],
+   "code": "081090",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Breadfruit and other edible tropical fruit, fresh"
+  },
+  {
+   "id": "plantain",
+   "family": "produce",
+   "words": [
+    "plantain",
+    "green banana",
+    "cooking banana",
+    "bluggoe"
+   ],
+   "not": [
+    "chips",
+    "flour"
+   ],
+   "code": "080310",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Plantains, fresh"
+  },
+  {
+   "id": "banana",
+   "family": "produce",
+   "words": [
+    "banana",
+    "bananas",
+    "ripe banana",
+    "fig banana",
+    "finger banana"
+   ],
+   "not": [
+    "chips",
+    "bread",
+    "pepper",
+    "passion",
+    "passionfruit",
+    "passion fruit",
+    "split",
+    "muffin",
+    "yogurt",
+    "gulupa",
+    "curuba"
+   ],
+   "code": "080390",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Bananas, fresh"
+  },
+  {
+   "id": "coconut",
+   "family": "produce",
+   "words": [
+    "coconut",
+    "dry coconut",
+    "water coconut",
+    "jelly coconut"
+   ],
+   "not": [
+    "milk",
+    "water",
+    "oil",
+    "cream",
+    "shredded",
+    "sliced",
+    "desiccated",
+    "flour",
+    "sugar",
+    "bread"
+   ],
+   "code": "080119",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Coconuts, fresh (other)"
+  },
+  {
+   "id": "pineapple",
+   "family": "produce",
+   "words": [
+    "pineapple",
+    "pineapples"
+   ],
+   "not": [
+    "juice",
+    "tidbits",
+    "chunks",
+    "rings",
+    "canned",
+    "cream cheese",
+    "crushed",
+    "upside",
+    "feijoa",
+    "guava"
+   ],
+   "code": "080430",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Pineapples, fresh"
+  },
+  {
+   "id": "avocado",
+   "family": "produce",
+   "words": [
+    "avocado",
+    "pear avocado",
+    "hass"
+   ],
+   "not": [
+    "oil",
+    "dip",
+    "guacamole",
+    "toast"
+   ],
+   "code": "080440",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Avocados, fresh"
+  },
+  {
+   "id": "guava_mango",
+   "family": "produce",
+   "words": [
+    "guava",
+    "mango",
+    "mangoes",
+    "mangosteen",
+    "julie mango",
+    "tommy atkins",
+    "kent mango",
+    "keitt"
+   ],
+   "not": [
+    "juice",
+    "pulp",
+    "jam",
+    "jelly",
+    "chutney",
+    "dried",
+    "nectar",
+    "passion"
+   ],
+   "code": "080450",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Guavas, mangoes and mangosteens, fresh"
+  },
+  {
+   "id": "dates_figs",
+   "family": "produce",
+   "words": [
+    "date",
+    "dates",
+    "fig",
+    "figs"
+   ],
+   "not": [
+    "stuffed",
+    "paste",
+    "chopped",
+    "syrup"
+   ],
+   "code": "080410",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Dates, fresh or dried"
+  },
+  {
+   "id": "orange",
+   "family": "produce",
+   "words": [
+    "orange",
+    "navel",
+    "valencia",
+    "sweet orange"
+   ],
+   "not": [
+    "juice",
+    "marmalade",
+    "bitter",
+    "peel",
+    "chicken",
+    "sauce",
+    "drink",
+    "soda",
+    "flavour",
+    "flavor"
+   ],
+   "code": "080510",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Oranges, fresh"
+  },
+  {
+   "id": "mandarin",
+   "family": "produce",
+   "words": [
+    "mandarin",
+    "tangerine",
+    "satsuma",
+    "tangelo",
+    "ortanique",
+    "ugli"
+   ],
+   "not": [
+    "juice",
+    "canned"
+   ],
+   "code": "080529",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Mandarins, tangerines and hybrids, fresh"
+  },
+  {
+   "id": "clementine",
+   "family": "produce",
+   "words": [
+    "clementine"
+   ],
+   "not": [
+    "juice"
+   ],
+   "code": "080522",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Clementines, fresh"
+  },
+  {
+   "id": "grapefruit",
+   "family": "produce",
+   "words": [
+    "grapefruit",
+    "pomelo",
+    "shaddock"
+   ],
+   "not": [
+    "juice"
+   ],
+   "code": "080540",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Grapefruit and pomelos, fresh"
+  },
+  {
+   "id": "lemon_lime",
+   "family": "produce",
+   "words": [
+    "lemon",
+    "lime",
+    "limes",
+    "key lime",
+    "persian lime"
+   ],
+   "not": [
+    "juice",
+    "cordial",
+    "pie",
+    "soda",
+    "drink",
+    "dressing",
+    "pepper",
+    "seasoning",
+    "sherbet",
+    "lemonade",
+    "grass",
+    "lemongrass"
+   ],
+   "code": "080550",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Lemons and limes, fresh"
+  },
+  {
+   "id": "melon_water",
+   "family": "produce",
+   "words": [
+    "watermelon"
+   ],
+   "not": [
+    "juice",
+    "drink",
+    "candy"
+   ],
+   "code": "080711",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Watermelons, fresh"
+  },
+  {
+   "id": "melon_other",
+   "family": "produce",
+   "words": [
+    "cantaloupe",
+    "honeydew",
+    "honey dew",
+    "melon",
+    "rock melon",
+    "galia",
+    "musk melon",
+    "muskmelon"
+   ],
+   "not": [
+    "juice",
+    "drink",
+    "bitter"
+   ],
+   "code": "080719",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Melons (other than watermelons), fresh"
+  },
+  {
+   "id": "papaya",
+   "family": "produce",
+   "words": [
+    "papaya",
+    "paw paw",
+    "pawpaw",
+    "papaw",
+    "melona"
+   ],
+   "not": [
+    "juice"
+   ],
+   "code": "080720",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Papayas (papaws), fresh"
+  },
+  {
+   "id": "grapes",
+   "family": "produce",
+   "words": [
+    "grape",
+    "grapes",
+    "red globe",
+    "thompson"
+   ],
+   "not": [
+    "juice",
+    "wine",
+    "jelly",
+    "jam",
+    "seed oil",
+    "raisin",
+    "dried",
+    "grapefruit",
+    "tomato"
+   ],
+   "code": "080610",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Grapes, fresh"
+  },
+  {
+   "id": "apple",
+   "family": "produce",
+   "words": [
+    "apple",
+    "apples",
+    "gala",
+    "granny smith",
+    "fuji",
+    "red delicious",
+    "golden delicious",
+    "honeycrisp",
+    "pink lady"
+   ],
+   "not": [
+    "juice",
+    "sauce",
+    "cider",
+    "pie",
+    "custard",
+    "sugar apple",
+    "pineapple",
+    "star apple",
+    "custard apple",
+    "rose apple",
+    "june plum",
+    "jam",
+    "vinegar",
+    "butter",
+    "chips",
+    "crisp",
+    "sparkling",
+    "candy",
+    "caramel",
+    "cinnamon"
+   ],
+   "code": "080810",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Apples, fresh"
+  },
+  {
+   "id": "pear",
+   "family": "produce",
+   "words": [
+    "pear",
+    "pears",
+    "anjou",
+    "bartlett",
+    "bosc",
+    "comice"
+   ],
+   "not": [
+    "juice",
+    "avocado",
+    "prickly",
+    "canned",
+    "cider"
+   ],
+   "code": "080830",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Pears, fresh"
+  },
+  {
+   "id": "apricot_cherry",
+   "family": "produce",
+   "words": [
+    "apricot"
+   ],
+   "not": [
+    "dried",
+    "jam",
+    "juice"
+   ],
+   "code": "080910",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Apricots, fresh"
+  },
+  {
+   "id": "cherry",
+   "family": "produce",
+   "words": [
+    "cherry",
+    "cherries"
+   ],
+   "not": [
+    "tomato",
+    "juice",
+    "cola",
+    "pie",
+    "jam",
+    "dried",
+    "vanilla",
+    "flavour",
+    "flavor",
+    "drink",
+    "soda",
+    "candy"
+   ],
+   "code": "080929",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Cherries, fresh"
+  },
+  {
+   "id": "peach",
+   "family": "produce",
+   "words": [
+    "peach",
+    "peaches",
+    "nectarine"
+   ],
+   "not": [
+    "juice",
+    "canned",
+    "jam",
+    "tea",
+    "drink"
+   ],
+   "code": "080930",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Peaches and nectarines, fresh"
+  },
+  {
+   "id": "plum",
+   "family": "produce",
+   "words": [
+    "plum",
+    "plums",
+    "prune"
+   ],
+   "not": [
+    "sauce",
+    "juice",
+    "tomato",
+    "dried",
+    "jam",
+    "june plum",
+    "jamaican plum",
+    "cake"
+   ],
+   "code": "080940",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Plums and sloes, fresh"
+  },
+  {
+   "id": "strawberry",
+   "family": "produce",
+   "words": [
+    "strawberry",
+    "strawberries"
+   ],
+   "not": [
+    "jam",
+    "yogurt",
+    "juice",
+    "drink",
+    "flavour",
+    "flavor",
+    "sauce",
+    "syrup",
+    "milk",
+    "dried",
+    "ice cream"
+   ],
+   "code": "081010",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Strawberries, fresh"
+  },
+  {
+   "id": "raspberry_blackberry",
+   "family": "produce",
+   "words": [
+    "raspberry",
+    "raspberries",
+    "blackberry",
+    "blackberries",
+    "mulberry",
+    "loganberry"
+   ],
+   "not": [
+    "jam",
+    "yogurt",
+    "juice",
+    "drink",
+    "flavour",
+    "flavor",
+    "sauce",
+    "syrup",
+    "dried",
+    "vinegar"
+   ],
+   "code": "081020",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Raspberries, blackberries and mulberries, fresh"
+  },
+  {
+   "id": "blueberry",
+   "family": "produce",
+   "words": [
+    "blueberry",
+    "blueberries",
+    "bilberry",
+    "cranberry",
+    "cranberries"
+   ],
+   "not": [
+    "juice",
+    "jam",
+    "yogurt",
+    "muffin",
+    "drink",
+    "flavour",
+    "flavor",
+    "dried",
+    "sauce",
+    "sparkling"
+   ],
+   "code": "081040",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Blueberries, cranberries and similar berries, fresh"
+  },
+  {
+   "id": "kiwi",
+   "family": "produce",
+   "words": [
+    "kiwi",
+    "kiwifruit",
+    "kiwi fruit"
+   ],
+   "not": [
+    "juice",
+    "drink"
+   ],
+   "code": "081050",
+   "frozen_code": null,
+   "confidence": "high",
+   "note": "Kiwifruit, fresh"
+  },
+  {
+   "id": "other_tropical_fruit",
+   "family": "produce",
+   "words": [
+    "passion fruit",
+    "passionfruit",
+    "granadilla",
+    "gulupa",
+    "soursop",
+    "sour sop",
+    "pomegranate",
+    "tamarind",
+    "sugar apple",
+    "sweetsop",
+    "custard apple",
+    "star apple",
+    "carambola",
+    "starfruit",
+    "star fruit",
+    "dragon fruit",
+    "pitaya",
+    "lychee",
+    "litchi",
+    "rambutan",
+    "longan",
+    "ackee",
+    "guinep",
+    "genip",
+    "june plum",
+    "pommecythere",
+    "ambarella",
+    "sapodilla",
+    "sapote",
+    "jackfruit",
+    "durian",
+    "persimmon",
+    "physalis",
+    "cape gooseberry",
+    "gooseberry",
+    "otaheite",
+    "noni",
+    "jujube",
+    "fruit mix",
+    "tree tomato",
+    "tamarillo",
+    "lulo",
+    "feijoa",
+    "cherimoya",
+    "chironja",
+    "uchuva",
+    "pitahaya",
+    "maracuya",
+    "curuba",
+    "mamoncillo",
+    "zapote",
+    "nispero",
+    "borojo",
+    "caimito",
+    "mamey",
+    "sorrel fruit"
+   ],
+   "not": [
+    "juice",
+    "pulp",
+    "jam",
+    "drink",
+    "nectar",
+    "concentrate",
+    "flavour",
+    "flavor",
+    "sparkling",
+    "syrup",
+    "candy",
+    "wine"
+   ],
+   "code": "081090",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Other fresh fruit (passion fruit, soursop, tamarind, ackee, lychee and similar), fresh"
+  },
+  {
+   "id": "ginger",
+   "family": "produce",
+   "words": [
+    "ginger"
+   ],
+   "not": [
+    "ale",
+    "beer",
+    "powder",
+    "ground",
+    "snap",
+    "bread",
+    "tea",
+    "candy",
+    "syrup",
+    "juice",
+    "chews",
+    "cookies"
+   ],
+   "code": "091011",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Ginger, neither crushed nor ground (fresh root)"
+  },
+  {
+   "id": "turmeric",
+   "family": "produce",
+   "words": [
+    "turmeric"
+   ],
+   "not": [
+    "powder",
+    "ground",
+    "capsule",
+    "tea",
+    "latte"
+   ],
+   "code": "091030",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Turmeric (curcuma)"
+  },
+  {
+   "id": "thyme_bay",
+   "family": "produce",
+   "words": [
+    "thyme",
+    "bay leaf",
+    "bay leaves",
+    "marjoram",
+    "oregano"
+   ],
+   "not": [
+    "ground",
+    "powder",
+    "seasoning",
+    "dried",
+    "rubbed"
+   ],
+   "code": "091099",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Thyme, bay leaves and similar herbs (heading 0910, other spices)"
+  },
+  {
+   "id": "basil_mint",
+   "family": "produce",
+   "words": [
+    "basil",
+    "mint",
+    "rosemary",
+    "sage",
+    "tarragon",
+    "dill",
+    "lemongrass",
+    "lemon grass",
+    "fever grass",
+    "sorrel leaves",
+    "moringa"
+   ],
+   "not": [
+    "tea",
+    "oil",
+    "pesto",
+    "sauce",
+    "dried",
+    "mojito",
+    "candy",
+    "chocolate",
+    "gum",
+    "toothpaste"
+   ],
+   "code": "121190",
+   "frozen_code": null,
+   "confidence": "medium",
+   "note": "Basil, mint, rosemary and similar plants (heading 1211, plants used in pharmacy or perfumery; some tariffs class fresh culinary herbs elsewhere)"
+  }
+ ]
+}

@@ -9,9 +9,13 @@ import { formatOneUsdEquals, formatPriceLine } from './priceFormat'
 import { missingResearchNames, resolveFromNorm } from '../../../../../services/catalogNorm'
 import { useWeightResearch } from './useWeightResearch'
 import { DeleteSelectedButton, RowCheckbox, SelectAllCheckbox, useCatalogSelection } from './CatalogDeleteControls'
+import { ScopeItemsPanel } from '../../../../marketAnalysis/DiscardedItemsModal'
 import './ColombiaProductAnalysisView.css'
 
 const ISO_CURRENCY_RE = /^[A-Z]{3}$/
+
+// what a catalog product still needs (backend/catalog_normalization/scope.py ISSUES)
+const ISSUE_LABELS = { no_hs: 'No HS code', old_hs: 'Old HS code', no_price_per_kg: 'No price per kg yet', unsure_scope: 'Not sure it belongs' }
 
 // A source named with its own web address reads as just its domain; the full
 // address stays available as a tooltip.
@@ -142,10 +146,13 @@ function CustomSourceProductsView({ countryName, showEmptyHint = true, highlight
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when the country changes
   }, [countryName])
 
-  const products = useMemo(
+  // The three portfolios of the country (decided on the server, backend/catalog_normalization/scope.py): Catalog = main products with nothing open, To check = main products with an open
+  // issue (no HS code, an old one, no price per kg yet, the rules unsure), Discarded = the products the scope set aside (listed by ScopeItemsPanel).
+  const [portfolio, setPortfolio] = useState('catalog')
+  const mainProducts = useMemo(
     () =>
       sources.flatMap((source) =>
-        source.products.map((product) => {
+        source.products.filter((product) => product.scope?.status !== 'secondary').map((product) => {
           const rawCurrency = (product.currency || source.currency || '').trim().toUpperCase()
           return {
             ...product,
@@ -159,6 +166,13 @@ function CustomSourceProductsView({ countryName, showEmptyHint = true, highlight
       ),
     [sources, countryCurrency],
   )
+  const hasIssues = (product) => (product.review?.issues?.length ?? 0) > 0
+  const products = useMemo(() => mainProducts.filter((product) => (portfolio === 'check' ? hasIssues(product) : !hasIssues(product))), [mainProducts, portfolio])
+  const portfolioCounts = useMemo(() => {
+    const check = mainProducts.filter(hasIssues).length
+    const discarded = sources.reduce((sum, source) => sum + source.products.filter((product) => product.scope?.status === 'secondary').length, 0)
+    return { catalog: mainProducts.length - check, check, discarded }
+  }, [mainProducts, sources])
 
   const currencies = useMemo(() => [...new Set(products.map((p) => p.currency).filter((c) => c && c !== 'USD'))].sort(), [products])
 
@@ -385,6 +399,22 @@ function CustomSourceProductsView({ countryName, showEmptyHint = true, highlight
         ))}
       </div>
 
+      <div className="price-comparison__chips" role="tablist" aria-label="Product portfolios">
+        {[
+          ['catalog', 'Catalog', portfolioCounts.catalog, 'Products in the main catalog with nothing open.'],
+          ['check', 'To check', portfolioCounts.check, 'Catalog products with something still open: no HS code, an old one, no price per kg yet, or the rules were not sure they belong.'],
+          ['discarded', 'Discarded', portfolioCounts.discarded, 'Downloaded products kept out of the catalog (cookies, drinks, sauces, other dairy, canned meat ...). Consult the list or return any to the catalog.'],
+        ].map(([key, label, count, title]) => (
+          <button key={key} type="button" role="tab" aria-selected={portfolio === key} title={title} className={`price-comparison__chip ${portfolio === key ? 'is-active' : ''}`} onClick={() => setPortfolio(key)}>
+            {label} <span className="price-comparison__chip-count">{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {portfolio === 'discarded' ? (
+        <ScopeItemsPanel country={countryName} view="secondary" onChanged={() => loadSources().catch(() => {})} />
+      ) : (
+        <>
       {currencies.length > 0 && (
         <div className="price-comparison__rate-label">
           {currencies.map((code, index) => (
@@ -506,6 +536,11 @@ function CustomSourceProductsView({ countryName, showEmptyHint = true, highlight
                   <td className="price-comparison__category-cell">{row.category}</td>
                   <td>
                     <div className="price-comparison__product-name">{row.name}</div>
+                    {(row.review?.issues ?? []).map((issue) => (
+                      <span key={issue} className="price-comparison__translation-needed" title="Open item: fix it, or set the product aside from the To check list.">
+                        {ISSUE_LABELS[issue] ?? issue}
+                      </span>
+                    ))}
                   </td>
                   <td className="price-comparison__unit-cell">{row.unit || '—'}</td>
                   <td className="price-comparison__source-cell" title={row.sourceName} style={{ overflowWrap: 'anywhere' }}>
@@ -619,6 +654,8 @@ function CustomSourceProductsView({ countryName, showEmptyHint = true, highlight
           </tbody>
         </table>
       </div>
+        </>
+      )}
     </div>
   )
 }

@@ -16,6 +16,15 @@ MODEL = 'claude-sonnet-5'
 MAX_TOKENS = 16000
 MAX_ITEMS_PER_BATCH = 12
 SEARCHES_PER_ITEM = 2
+# What a web research costs (Anthropic credits). Measured on 2026-11-11: ONE click of "Research item weights" over 98 products (nine calls of up to 12 products, each with up to 24 web
+# searches, Sonnet) cost about 8 USD, i.e. roughly 0.09 USD per product. A paid search is therefore never started without the caller stating the amount it accepts (`confirm_usd`), and
+# one run is capped (MAX_PRODUCTS_PER_RUN). The free ways to get a weight (stated weight, USDA table, retail unit table) come first.
+ESTIMATED_USD_PER_PRODUCT = 0.09
+MAX_PRODUCTS_PER_RUN = 36
+
+
+def estimated_usd(products: int) -> float:
+    return round(products * ESTIMATED_USD_PER_PRODUCT, 2)
 
 UNIT_WORDS = {
     'each': 'one single whole item',

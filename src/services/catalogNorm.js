@@ -20,7 +20,8 @@ export function isResearchedConversion(norm) {
 
 // A conversion that rests on USDA's published household weights (backend/catalog_normalization/reference.py): no AI, but still an average item, so it is flagged.
 export function isReferenceConversion(norm) {
-  return norm?.method === 'reference_item_weight'
+  // USDA's table or the free table of standard retail pack sizes (backend/catalog_normalization/retail_unit.py): no AI, but an average, so it is flagged
+  return norm?.method === 'reference_item_weight' || norm?.method === 'retail_unit_weight'
 }
 
 // A table row's effective price per kg and its explanation: the module's figure, with a user's custom override (a price and/or weight typed by hand) on top.

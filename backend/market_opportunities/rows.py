@@ -81,6 +81,8 @@ def build_comparison_row(source_product: dict, target_product: dict, match_tier:
         notes.append(f"{prefix} ({country}): {product['conversionNote']}")
         if product.get('conversionMethod') == 'reference_item_weight':
             reasons.append(f"{prefix} ({country}): converted from a count-based unit using USDA's published item weight ({product.get('conversionConfidence') or 'medium'} confidence) — an average item, check it before relying on this price.")
+        if product.get('conversionMethod') == 'retail_unit_weight':
+            reasons.append(f"{prefix} ({country}): converted from a count-based unit using the usual retail pack size from a free table ({product.get('conversionConfidence') or 'low'} confidence) — check the label before relying on this price.")
         if product.get('conversionMethod') == 'researched_item_weight':
             reasons.append(f"{prefix} ({country}): converted from a count-based unit using a web-researched item weight ({product.get('conversionConfidence') or 'unknown'} confidence) — check the weight before relying on this price.")
 

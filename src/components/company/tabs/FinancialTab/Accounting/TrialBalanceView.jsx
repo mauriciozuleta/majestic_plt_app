@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import ExportPdfButton from '../../../../shared/PdfExport/ExportPdfButton'
 import { downloadCsv } from '../../../../../utils/exportCsv'
-import { fetchChartOfAccounts, fetchJournalEntries } from '../../../../../services/generalLedger'
-import { buildTrialBalance, trialBalanceToCsvRows, trialBalanceToPdfSpec } from './accountingReports'
+import { useAccountingReport } from '../../../../../services/accountingReports'
+import { trialBalanceToCsvRows, trialBalanceToPdfSpec } from './accountingReports'
 import './Accounting.css'
 
 function money(value) {
@@ -12,28 +11,12 @@ function money(value) {
 
 function TrialBalanceView() {
   const { companyId } = useParams()
-  const [accounts, setAccounts] = useState([])
-  const [journalEntries, setJournalEntries] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!companyId) return
-    setLoading(true)
-    setError('')
-    Promise.all([fetchChartOfAccounts(companyId), fetchJournalEntries(companyId)])
-      .then(([nextAccounts, nextJournalEntries]) => {
-        setAccounts(nextAccounts)
-        setJournalEntries(nextJournalEntries)
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [companyId])
-
-  const trialBalance = useMemo(() => buildTrialBalance(accounts, journalEntries), [accounts, journalEntries])
+  const { report: trialBalance, loading, error } = useAccountingReport(companyId, 'trial-balance')
 
   if (loading) return <div className="accounting-view__status">Loading trial balance...</div>
   if (error) return <div className="accounting-view__status accounting-view__status--error">{error}</div>
+  if (!trialBalance) return null
 
   const handleExportCsv = () => {
     const { headers, rows } = trialBalanceToCsvRows(trialBalance)

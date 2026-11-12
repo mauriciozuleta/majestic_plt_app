@@ -62,7 +62,7 @@ class EndpointTests(unittest.TestCase):
         engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
         Base.metadata.create_all(engine)
         self.Session = sessionmaker(bind=engine)
-        products = [{'category': 'Retail Produce', 'product_en': 'Cilantro', 'commodity': 'Cilantro', 'price': 0.74, 'unit': 'USD/per bunch', 'detail': True, 'source_date': 'Nov 6'},
+        products = [{'category': 'Retail Produce', 'product_en': 'Rhubarb', 'commodity': 'Rhubarb', 'price': 0.74, 'unit': 'USD/per bunch', 'detail': True, 'source_date': 'Nov 6'},
                     {'category': 'Retail Produce', 'product_en': 'Lulo', 'commodity': 'Lulo', 'price': 0.9, 'unit': 'USD/each', 'detail': True, 'source_date': 'Nov 6'},
                     {'category': 'Retail Produce', 'product_en': 'Apples', 'commodity': 'Apples', 'price': 3.0, 'unit': 'USD/3 lb bag', 'detail': True, 'source_date': 'Nov 6'}]
         annotate('usa_retail_produce', products, MemoryStore())
@@ -82,7 +82,7 @@ class EndpointTests(unittest.TestCase):
     def test_the_summary_and_the_form_list_the_products_that_need_a_weight(self):
         self.assertEqual(self.client.get('/api/catalog-normalization/missing-summary').json()['countries'], {'United States': 2})
         items = self.client.get('/api/catalog-normalization/missing', params={'country': 'United States'}).json()['items']
-        self.assertEqual(sorted(item['name'] for item in items), ['Cilantro', 'Lulo'])
+        self.assertEqual(sorted(item['name'] for item in items), ['Lulo', 'Rhubarb'])
         self.assertEqual(self.client.get('/api/catalog-normalization/missing', params={'country': 'Colombia'}).json()['items'], [])
 
     def test_validate(self):
@@ -94,7 +94,7 @@ class EndpointTests(unittest.TestCase):
     def test_the_ai_search_returns_validated_values_and_saves_nothing(self):
         found = [ItemWeight('Lulo', 'each', 0.09, 0.07, 0.12, confidence='medium', note='a Colombian lulo', sources=['https://example.org'])]
         with mock.patch.object(router_module, 'research_item_weights', return_value=found):
-            results = self.client.post('/api/catalog-normalization/suggest', json={'items': [{'name': 'Lulo', 'count_unit': 'each'}]}).json()['results']
+            results = self.client.post('/api/catalog-normalization/suggest', json={'items': [{'name': 'Lulo', 'count_unit': 'each'}], 'confirm_usd': 0.09}).json()['results']
         self.assertAlmostEqual(results[0]['weight_g'], 90.0)
         self.assertEqual(results[0]['validation']['status'], 'ok')
         with self.Session() as db:
@@ -102,16 +102,49 @@ class EndpointTests(unittest.TestCase):
 
     def test_the_ai_search_reports_why_it_failed(self):
         with mock.patch.object(router_module, 'research_item_weights', side_effect=RuntimeError('Your credit balance is too low')):
-            response = self.client.post('/api/catalog-normalization/suggest', json={'items': [{'name': 'Lulo', 'count_unit': 'each'}]})
+            response = self.client.post('/api/catalog-normalization/suggest', json={'items': [{'name': 'Lulo', 'count_unit': 'each'}], 'confirm_usd': 0.09})
         self.assertEqual(response.status_code, 502)
         self.assertIn('credit balance', response.json()['detail'])
 
+    # ---------------------------------------------------------------- the cost guard: a paid web search never starts by itself (one click once cost about 8 USD)
+    def test_the_ai_search_is_refused_without_a_confirmed_amount_and_costs_nothing(self):
+        with mock.patch.object(router_module, 'research_item_weights') as paid:
+            for body in ({'items': [{'name': 'Lulo', 'count_unit': 'each'}]}, {'items': [{'name': 'Lulo', 'count_unit': 'each'}], 'confirm_usd': 0.01}):
+                response = self.client.post('/api/catalog-normalization/suggest', json=body)
+                self.assertEqual(response.status_code, 409)
+                self.assertIn('needs_confirmation', response.json()['detail'])
+                self.assertIn('$0.09', response.json()['detail'])
+            paid.assert_not_called()
+
+    def test_the_research_job_gives_an_estimate_and_starts_only_with_a_confirmed_amount_and_is_capped(self):
+        with mock.patch.object(router_module, '_run_research') as job:
+            dry = self.client.post('/api/catalog-normalization/research', json={'dry_run': True}).json()
+            self.assertEqual(dry['status'], 'dry_run')
+            self.assertEqual(dry['estimated_usd'], round(dry['would_research'] * dry['usd_per_product'], 2))
+            self.assertLessEqual(dry['would_research'], dry['max_per_run'])
+            refused = self.client.post('/api/catalog-normalization/research', json={}).json()
+            self.assertEqual(refused['status'], 'needs_confirmation')
+            too_little = self.client.post('/api/catalog-normalization/research', json={'confirm_usd': 0.0}).json()
+            self.assertEqual(too_little['status'], 'needs_confirmation')
+            job.assert_not_called()  # nothing was started, nothing spent
+            started = self.client.post('/api/catalog-normalization/research', json={'confirm_usd': dry['estimated_usd']}).json()
+            self.assertEqual(started['status'], 'started')
+            job.assert_called_once()
+
+    def test_one_run_never_researches_more_than_the_cap(self):
+        from backend.catalog_normalization import researcher
+
+        self.assertEqual(researcher.estimated_usd(98), 8.82)  # the run that cost about 8 USD
+        with mock.patch.object(router_module, '_needs', return_value=[{'product': f'p{i}', 'count_unit': 'each', 'sources': [], 'countries': [], 'examples': [], 'rows': 1} for i in range(200)]):
+            dry = self.client.post('/api/catalog-normalization/research', json={'dry_run': True, 'limit': 500}).json()
+        self.assertEqual((dry['pending'], dry['would_research']), (200, researcher.MAX_PRODUCTS_PER_RUN))
+
     def test_save_stores_the_weight_converts_the_catalog_and_updates_the_count(self):
         body = {'items': [{'name': 'Lulo', 'count_unit': 'each', 'weight_g': 90, 'origin': 'manual'},
-                          {'name': 'Cilantro', 'count_unit': 'bunch', 'weight_g': 90000, 'origin': 'manual'}]}
+                          {'name': 'Rhubarb', 'count_unit': 'bunch', 'weight_g': 90000, 'origin': 'manual'}]}
         result = self.client.post('/api/catalog-normalization/weights', json=body).json()
         self.assertEqual(result['saved'], 1)
-        self.assertEqual([item['name'] for item in result['refused']], ['Cilantro'])  # an implausible value is refused
+        self.assertEqual([item['name'] for item in result['refused']], ['Rhubarb'])  # an implausible value is refused
         self.assertEqual(result['still_missing'], 1)
         self.assertEqual(self.client.get('/api/catalog-normalization/missing-summary').json()['countries'], {'United States': 1})
         with self.Session() as db:

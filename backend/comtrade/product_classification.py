@@ -73,14 +73,14 @@ def _headings() -> list[dict]:
     if _headings_cache is None:
         _headings_cache = [
             entry
-            for entry in classification.list_searchable_hs_codes()
-            if entry['level'] == 4 and int(entry['chapter']) <= MAX_FOOD_CHAPTER
+            for entry in classification.list_searchable_hs_codes(current_only=True)
+            if entry['level'] == 4 and (int(entry['chapter']) <= MAX_FOOD_CHAPTER or entry['hs_code'] == '2501')
         ]
     return _headings_cache
 
 
 def _subheadings(heading: str) -> list[dict]:
-    return [entry for entry in classification.list_searchable_hs_codes() if entry['level'] == 6 and entry['hs_code'].startswith(heading)]
+    return [entry for entry in classification.list_searchable_hs_codes(current_only=True) if entry['level'] == 6 and entry['hs_code'].startswith(heading)]
 
 
 def _api_key() -> str | None:

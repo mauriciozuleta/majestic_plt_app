@@ -73,6 +73,17 @@
   font-size: 0.85rem;
 }
 
+.missing-data__toolbar select {
+  max-width: min(360px, 100%);
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #2a3f5c;
+  background: #0a1320;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
 .missing-data__count {
   margin-left: auto;
   font-size: 0.78rem;
@@ -286,4 +297,10 @@
 
 .market-analysis__pill.is-missing:hover {
   background: rgba(248, 113, 113, 0.28);
+}
+
+.scope-panel__hint {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 0.84rem;
+  color: #9fb4cc;
 }

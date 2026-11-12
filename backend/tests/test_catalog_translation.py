@@ -41,14 +41,14 @@ class TranslateTests(unittest.TestCase):
 
 class CatalogUsesEnglishNames(unittest.TestCase):
     def test_a_colombian_product_is_read_under_its_english_name(self):
-        product = {'id': 'pina gold', 'category': 'frutas', 'nameEs': 'Acelga', 'unit': 'other', 'unitLabel': 'unidad', 'price': 3000}
+        product = {'id': 'pina gold', 'category': 'frutas', 'nameEs': 'Lulo', 'unit': 'other', 'unitLabel': 'unidad', 'price': 3000}
         name, unit, _price = fields_for('corabastos', product)
-        self.assertEqual(name, 'Swiss Chard')
+        self.assertEqual(name, 'Lulo (Naranjilla)')
         store = MemoryStore()
-        store.put(ItemWeight('Swiss Chard', 'each', 0.5, confidence='medium', note='test'))
+        store.put(ItemWeight('Lulo (Naranjilla)', 'each', 0.5, confidence='medium', note='test'))
         annotate('corabastos', [product], store)
         self.assertAlmostEqual(product['norm']['price_per_kg'], 6000.0)
-        self.assertEqual((product['norm']['name_en'], product['norm']['translation']), ('Swiss Chard', 'dictionary'))
+        self.assertEqual((product['norm']['name_en'], product['norm']['translation']), ('Lulo (Naranjilla)', 'dictionary'))
 
 
 if __name__ == '__main__':
@@ -72,7 +72,7 @@ class CorabastosPackagesTests(unittest.TestCase):
         self.assertAlmostEqual(self.convert('Lulo', 'CANASTILLA (25 per package)', 4800.0)['price_per_kg'], 4800.0)
 
     def test_a_bunch_or_dozen_stays_a_count_unit(self):
-        self.assertEqual(self.convert('Cilantro', 'ATADO (10 per package)', 9000.0)['method'], 'needs_research')
+        self.assertEqual(self.convert('Rhubarb', 'ATADO (10 per package)', 9000.0)['method'], 'needs_research')  # cilantro has a free retail-bunch weight now
         self.assertEqual(self.convert('Lulo', 'DOCENA (12 per package)', 5833.0)['method'], 'needs_research')
         self.assertEqual(self.convert('Coco', 'DOCENA (12 per package)', 5833.0)['method'], 'reference_item_weight')  # a coconut has a USDA weight
 

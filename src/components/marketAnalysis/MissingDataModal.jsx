@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchMissingItems, saveWeights, suggestWeights, validateWeights } from '../../services/catalogNormalization'
+import { ESTIMATED_USD_PER_PRODUCT, fetchMissingItems, saveWeights, suggestWeights, validateWeights } from '../../services/catalogNormalization'
 import './MissingDataModal.css'
 
 const AI_BATCH = 12 // the backend researches at most this many products per call
@@ -86,13 +86,16 @@ function MissingDataModal({ country, onClose, onSaved }) {
   const aiSearch = async () => {
     const targets = rows.filter((row) => num(row.weight) == null)
     if (!targets.length || aiState.running) return
+    // this spends Anthropic credits (about 0.09 USD per product, one web research each): the person sees the amount and accepts it
+    const estimate = Math.round(targets.length * ESTIMATED_USD_PER_PRODUCT * 100) / 100
+    if (!window.confirm(`AI Search will research ${targets.length} product${targets.length === 1 ? '' : 's'} on the web with Claude.\n\nEstimated cost: about $${estimate.toFixed(2)} of Anthropic credits.\n\nTyping the weights yourself is free. Continue?`)) return
     setMessage('')
     setAiState({ running: true, done: 0, total: targets.length, error: '' })
     try {
       for (let start = 0; start < targets.length; start += AI_BATCH) {
         const batch = targets.slice(start, start + AI_BATCH)
         // eslint-disable-next-line no-await-in-loop -- one web-research call at a time
-        const results = await suggestWeights(batch)
+        const results = await suggestWeights(batch, Math.round(batch.length * ESTIMATED_USD_PER_PRODUCT * 100) / 100)
         results.forEach((result, index) => {
           const row = batch[index]
           if (result.weight_g == null) {
@@ -158,7 +161,7 @@ function MissingDataModal({ country, onClose, onSaved }) {
             {filled.length} of {rows.length} filled
           </span>
           <button type="button" className="missing-data__ai" onClick={aiSearch} disabled={aiState.running || !blanks.length} title="The AI researches on the web the weight of one item for every blank. Nothing is saved until you press Save to DB.">
-            {aiState.running ? `AI searching… ${aiState.done}/${aiState.total}` : `AI Search (${blanks.length})`}
+            {aiState.running ? `AI searching… ${aiState.done}/${aiState.total}` : `AI Search (${blanks.length}, about $${(blanks.length * ESTIMATED_USD_PER_PRODUCT).toFixed(2)})`}
           </button>
         </div>
         {aiState.error && <p className="missing-data__error">AI Search: {aiState.error}</p>}

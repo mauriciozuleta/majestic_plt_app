@@ -1,35 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { fetchChartOfAccounts, fetchJournalEntries } from '../../../../../services/generalLedger'
-import { buildBalanceSheet } from './accountingReports'
+import { useAccountingReport } from '../../../../../services/accountingReports'
 import ReportView from './ReportView'
 import './Accounting.css'
 
 function BalanceSheetView() {
   const { companyId } = useParams()
-  const [accounts, setAccounts] = useState([])
-  const [journalEntries, setJournalEntries] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [asOfDate, setAsOfDate] = useState('')
 
-  useEffect(() => {
-    if (!companyId) return
-    setLoading(true)
-    setError('')
-    Promise.all([fetchChartOfAccounts(companyId), fetchJournalEntries(companyId)])
-      .then(([nextAccounts, nextJournalEntries]) => {
-        setAccounts(nextAccounts)
-        setJournalEntries(nextJournalEntries)
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [companyId])
+  const { report, loading, error } = useAccountingReport(companyId, 'balance-sheet', { asOfDate })
 
-  const report = useMemo(() => buildBalanceSheet(accounts, journalEntries, { asOfDate }), [accounts, journalEntries, asOfDate])
-
-  if (loading) return <div className="accounting-view__status">Loading balance sheet...</div>
   if (error) return <div className="accounting-view__status accounting-view__status--error">{error}</div>
+  if (loading || !report) return <div className="accounting-view__status">Loading balance sheet...</div>
 
   return (
     <div>

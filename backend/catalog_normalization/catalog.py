@@ -10,6 +10,7 @@ Anything else (Comtrade caches, ...) is not a product catalog and is left alone.
 
 import re
 
+from . import scope
 from .service import normalize_price
 from .store import DbStore
 from .translate import overrides_from_db, translate_name
@@ -108,7 +109,8 @@ def country_of_source(db, source_key: str) -> str | None:
     return None
 
 
-def annotate(source_key: str, products: list[dict], store, hs_chapters: dict[str, str] | None = None, overrides: dict[str, str] | None = None, hs_index=None, country: str | None = None) -> list[dict]:
+def annotate(source_key: str, products: list[dict], store, hs_chapters: dict[str, str] | None = None, overrides: dict[str, str] | None = None, hs_index=None, country: str | None = None,
+             scope_overrides: dict[str, str] | None = None) -> list[dict]:
     """Adds `norm` to every product (in place) using only what is known: the text, the researched store and the HS chapter — no web call."""
     if not is_catalog_source(source_key):
         return products
@@ -117,18 +119,26 @@ def annotate(source_key: str, products: list[dict], store, hs_chapters: dict[str
         from ..usa_sources.retail_produce import consolidate
 
         details = [product for product in products if product.get('detail')]
-        annotate_rows(source_key, details, store, hs_chapters, overrides, hs_index, country)
+        annotate_rows(source_key, details, store, hs_chapters, overrides, hs_index, country, scope_overrides)
         consolidated = consolidate(details)
-        annotate_rows(source_key, consolidated, store, hs_chapters, overrides, hs_index, country)
+        annotate_rows(source_key, consolidated, store, hs_chapters, overrides, hs_index, country, scope_overrides)
         products[:] = details + consolidated
         return products
-    return annotate_rows(source_key, products, store, hs_chapters, overrides, hs_index, country)
+    return annotate_rows(source_key, products, store, hs_chapters, overrides, hs_index, country, scope_overrides)
 
 
-def annotate_rows(source_key: str, products: list[dict], store, hs_chapters: dict[str, str] | None = None, overrides: dict[str, str] | None = None, hs_index=None, country: str | None = None) -> list[dict]:
+def annotate_rows(source_key: str, products: list[dict], store, hs_chapters: dict[str, str] | None = None, overrides: dict[str, str] | None = None, hs_index=None, country: str | None = None,
+                  scope_overrides: dict[str, str] | None = None) -> list[dict]:
+    scoped = scope.applies_to(source_key)
     for product in products:
         name, unit, price = fields_for(source_key, product, overrides)
-        norm = normalize_price(name, unit, price, store, researchable=researchable(name, unit, hs_chapters, product.get('category'))).to_dict()
+        if hs_index is not None:  # the product's HS code AS SOLD IN ITS COUNTRY (catalog_normalization/hs.py): looked up, never guessed here
+            product['hs'] = hs_index.block(country, name)
+        in_catalog = True
+        if scoped:  # which products belong in the main catalog (scope.py): the rest keep only what their row states, no weight lookup, no research
+            product['scope'] = scope.with_override(scope.classify(product), (scope_overrides or {}).get(scope.product_key(product.get('name') or '')))
+            in_catalog = product['scope']['status'] == scope.MAIN
+        norm = normalize_price(name, unit, price, store, researchable=in_catalog and researchable(name, unit, hs_chapters, product.get('category')), item_weights=in_catalog).to_dict()
         norm['read_name'], norm['read_unit'] = name, unit  # exactly what the module read: the frontend asks /convert with these after a research
         if source_key in ('la_mayorista', 'corabastos'):
             translation = translate_name(product.get('nameEs') or product.get('id') or '', overrides)
@@ -136,8 +146,8 @@ def annotate_rows(source_key: str, products: list[dict], store, hs_chapters: dic
             if KG_PACKAGE_RE.match((product.get('unitLabel') or '').strip()):
                 norm['note'] = f"{KG_PACKAGE_NOTE} {norm['note']}"
         product['norm'] = norm
-        if hs_index is not None:  # the product's HS code AS SOLD IN ITS COUNTRY (catalog_normalization/hs.py): looked up, never guessed here
-            product['hs'] = hs_index.block(country, name)
+        if scoped:  # what this product still needs (scope.py ISSUES): the To check portfolio
+            product['review'] = {'issues': scope.review_issues(product)}
     return products
 
 
@@ -193,4 +203,6 @@ def import_legacy_estimates(db) -> int:
 def annotate_with_db(db, source_key: str, products: list[dict]) -> list[dict]:
     from .hs import build_index
 
-    return annotate(source_key, products, DbStore(db), hs_chapters_from_db(db), overrides_from_db(db), build_index(db), country_of_source(db, source_key))
+    from .scope_store import overrides_for
+
+    return annotate(source_key, products, DbStore(db), hs_chapters_from_db(db), overrides_from_db(db), build_index(db), country_of_source(db, source_key), overrides_for(db, source_key))

@@ -1,0 +1,391 @@
+{
+ "_about": "The usual weight of the retail unit of fresh produce that is sold as a PACK or a BUNCH, for a product priced per generic unit ('each', 'unit'): a clamshell of raspberries is 6 oz (170 g), not one berry; a bunch of cilantro is about 50 g, not one leaf. Free, no AI: standard retail package sizes (the US retail norms the Caribbean supermarkets follow: 6 oz / 12 oz / 1 lb / 2 lb packs, 2 oz herb bunches). A table of typical sizes, NOT a measurement, so every conversion that uses it carries 'low' confidence and says so; a weight a person typed, or a weight stated in the row, always wins. Produce sold by the piece (melon, pineapple, lettuce head, cabbage, avocado ...) is not here: USDA's piece weights (reference.py) cover it. A row is matched by whole words of the English name (plural optional); the first entry that matches wins, so specific entries come first. Edit freely.",
+ "entries": [
+  {
+   "id": "brussels_sprouts",
+   "words": [
+    "brussels sprout",
+    "brussel sprout"
+   ],
+   "kg": 0.45,
+   "note": "a 1 lb bag"
+  },
+  {
+   "id": "strawberry",
+   "words": [
+    "strawberry",
+    "strawberries"
+   ],
+   "kg": 0.454,
+   "note": "a 1 lb clamshell",
+   "not": [
+    "jam",
+    "yogurt",
+    "juice",
+    "drink",
+    "syrup",
+    "frozen"
+   ]
+  },
+  {
+   "id": "raspberry",
+   "words": [
+    "raspberry",
+    "raspberries",
+    "blackberry",
+    "blackberries"
+   ],
+   "kg": 0.17,
+   "note": "a 6 oz clamshell",
+   "not": [
+    "jam",
+    "yogurt",
+    "juice",
+    "drink",
+    "frozen"
+   ]
+  },
+  {
+   "id": "blueberry",
+   "words": [
+    "blueberry",
+    "blueberries"
+   ],
+   "kg": 0.17,
+   "note": "a 6 oz clamshell (a pint is 12 oz: check the label)",
+   "not": [
+    "jam",
+    "yogurt",
+    "juice",
+    "drink",
+    "frozen",
+    "muffin"
+   ]
+  },
+  {
+   "id": "cranberry",
+   "words": [
+    "cranberry",
+    "cranberries"
+   ],
+   "kg": 0.34,
+   "note": "a 12 oz bag",
+   "not": [
+    "juice",
+    "sauce",
+    "dried",
+    "frozen"
+   ]
+  },
+  {
+   "id": "grapes",
+   "words": [
+    "grape",
+    "grapes"
+   ],
+   "kg": 0.9,
+   "note": "a 2 lb bag or clamshell",
+   "not": [
+    "juice",
+    "grapefruit",
+    "jelly",
+    "tomato",
+    "frozen",
+    "raisin"
+   ]
+  },
+  {
+   "id": "green_beans",
+   "words": [
+    "green bean",
+    "string bean",
+    "french bean",
+    "haricot vert",
+    "long bean",
+    "bodi"
+   ],
+   "kg": 0.34,
+   "note": "a 12 oz bag",
+   "not": [
+    "canned",
+    "frozen"
+   ]
+  },
+  {
+   "id": "snow_peas",
+   "words": [
+    "snow pea",
+    "sugar snap",
+    "snap pea"
+   ],
+   "kg": 0.23,
+   "note": "an 8 oz bag",
+   "not": [
+    "frozen"
+   ]
+  },
+  {
+   "id": "asparagus",
+   "words": [
+    "asparagus"
+   ],
+   "kg": 0.45,
+   "note": "a 1 lb bunch",
+   "not": [
+    "canned",
+    "frozen"
+   ]
+  },
+  {
+   "id": "mushrooms",
+   "words": [
+    "mushroom",
+    "portobello",
+    "cremini",
+    "baby bella"
+   ],
+   "kg": 0.227,
+   "note": "an 8 oz pack",
+   "not": [
+    "canned",
+    "frozen",
+    "soup",
+    "sauce",
+    "dried"
+   ]
+  },
+  {
+   "id": "celery",
+   "words": [
+    "celery"
+   ],
+   "kg": 0.5,
+   "note": "a whole bunch (about 1 lb)",
+   "not": [
+    "salt",
+    "seed",
+    "root",
+    "celeriac"
+   ]
+  },
+  {
+   "id": "thyme_herbs_small",
+   "words": [
+    "thyme",
+    "rosemary",
+    "sage",
+    "oregano",
+    "tarragon",
+    "marjoram"
+   ],
+   "kg": 0.015,
+   "note": "a small clamshell or bunch of herbs (about 0.5 oz)",
+   "not": [
+    "dried",
+    "ground",
+    "seasoning"
+   ]
+  },
+  {
+   "id": "herb_bunch",
+   "words": [
+    "cilantro",
+    "parsley",
+    "culantro",
+    "chadon beni",
+    "coriander",
+    "dill",
+    "mint",
+    "basil",
+    "chive",
+    "chives",
+    "fever grass",
+    "lemongrass"
+   ],
+   "kg": 0.05,
+   "note": "a bunch of fresh herbs (about 2 oz)",
+   "not": [
+    "dried",
+    "ground",
+    "seed",
+    "seeds",
+    "tea",
+    "seasoning",
+    "powder"
+   ]
+  },
+  {
+   "id": "green_onion",
+   "words": [
+    "green onion",
+    "scallion",
+    "escallion",
+    "spring onion"
+   ],
+   "kg": 0.1,
+   "note": "a bunch (about 3.5 oz)",
+   "not": [
+    "dip",
+    "crispy",
+    "fried",
+    "dried"
+   ]
+  },
+  {
+   "id": "leafy_bunch",
+   "words": [
+    "kale",
+    "collard",
+    "collards",
+    "swiss chard",
+    "chard",
+    "callaloo",
+    "bhaji",
+    "pak choi",
+    "bok choy",
+    "mustard greens",
+    "turnip greens",
+    "dasheen bush"
+   ],
+   "kg": 0.4,
+   "note": "a bunch of leafy greens (about 14 oz)",
+   "not": [
+    "canned",
+    "frozen",
+    "seed"
+   ]
+  },
+  {
+   "id": "spinach",
+   "words": [
+    "spinach"
+   ],
+   "kg": 0.28,
+   "note": "a 10 oz bag",
+   "not": [
+    "canned",
+    "frozen",
+    "dip",
+    "artichoke"
+   ]
+  },
+  {
+   "id": "arugula",
+   "words": [
+    "arugula",
+    "rocket",
+    "watercress"
+   ],
+   "kg": 0.14,
+   "note": "a 5 oz clamshell",
+   "not": [
+    "dressing"
+   ]
+  },
+  {
+   "id": "salad_mix",
+   "words": [
+    "salad mix",
+    "spring mix",
+    "mesclun",
+    "salad kit",
+    "caesar kit",
+    "mixed greens",
+    "mixed green"
+   ],
+   "kg": 0.2,
+   "note": "a salad bag (5 to 10 oz)",
+   "not": [
+    "dressing",
+    "frozen"
+   ]
+  },
+  {
+   "id": "broccoli",
+   "words": [
+    "broccoli",
+    "broccolini"
+   ],
+   "kg": 0.35,
+   "note": "a crown or bunch (about 12 oz)",
+   "not": [
+    "soup",
+    "frozen",
+    "cheddar"
+   ]
+  },
+  {
+   "id": "baby_carrots",
+   "words": [
+    "baby carrot",
+    "baby carrots"
+   ],
+   "kg": 0.45,
+   "note": "a 1 lb bag",
+   "not": [
+    "frozen",
+    "canned"
+   ]
+  },
+  {
+   "id": "carrots_bag",
+   "words": [
+    "carrot",
+    "carrots"
+   ],
+   "kg": 0.9,
+   "note": "a 2 lb bag",
+   "not": [
+    "cake",
+    "juice",
+    "baby food",
+    "frozen",
+    "canned",
+    "baby"
+   ]
+  },
+  {
+   "id": "radish",
+   "words": [
+    "radish"
+   ],
+   "kg": 0.25,
+   "note": "a bunch (about 9 oz)",
+   "not": [
+    "pickled",
+    "horseradish"
+   ]
+  },
+  {
+   "id": "beetroot",
+   "words": [
+    "beetroot",
+    "beet",
+    "beets"
+   ],
+   "kg": 0.5,
+   "note": "a bunch (about 1 lb)",
+   "not": [
+    "pickled",
+    "canned",
+    "juice",
+    "sugar"
+   ]
+  },
+  {
+   "id": "sprouts",
+   "words": [
+    "alfalfa sprout",
+    "bean sprout",
+    "sprouts",
+    "sprout"
+   ],
+   "kg": 0.113,
+   "note": "a 4 oz pack",
+   "not": [
+    "brussels",
+    "brussel"
+   ]
+  }
+ ]
+}
