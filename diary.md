@@ -102,7 +102,7 @@ Add a line here after EVERY commit (id, date, what it holds, what reversing it u
 
 | Commit | Date | Holds | Notes for reversing |
 | --- | --- | --- | --- |
-| `PENDING` | 2026-11-12 | Accounting reports + catalog scope + HS keyword rules + cost guard/retail units + HS 2022 & Schedule B + three portfolios + HS window fixes (includes `majestic_plt.db` with the new scope/review blocks) | `git revert PENDING` (also restores the database as it was before) |
+| `2a9bfbd` | 2026-11-12 | Accounting reports + catalog scope + HS keyword rules + cost guard/retail units + HS 2022 & Schedule B + three portfolios + HS window fixes (includes `majestic_plt.db` with the new scope/review blocks) | `git revert 2a9bfbd` (also restores the database as it was before) |
 | `86886fc` | 2026-11-10 | Product portfolio: extra box removed (CSS only) | `git revert 86886fc` |
 | `15266e0` | 2026-11-10 | Portfolio tables: shorter scrolling window (CSS only) | `git revert 15266e0` |
 | `9be5696` | 2026-11-10 | Portfolio tables sized to the screen (CSS only) | `git revert 9be5696` |
